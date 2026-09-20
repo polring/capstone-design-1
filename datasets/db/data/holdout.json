@@ -1,0 +1,564 @@
+{
+  "note": "SQL 생성기는 학습 데이터 생성 시 아래 리터럴을 전부 제외한다.",
+  "customers": {
+    "heldout_rows": [
+      {
+        "customer_id": 1022,
+        "name": "harriet"
+      },
+      {
+        "customer_id": 1040,
+        "name": "patrick"
+      },
+      {
+        "customer_id": 1041,
+        "name": "emily"
+      },
+      {
+        "customer_id": 1071,
+        "name": "nicholas"
+      },
+      {
+        "customer_id": 1093,
+        "name": "naomi"
+      },
+      {
+        "customer_id": 1095,
+        "name": "autumn"
+      },
+      {
+        "customer_id": 1118,
+        "name": "thomas"
+      },
+      {
+        "customer_id": 1120,
+        "name": "keith"
+      },
+      {
+        "customer_id": 1127,
+        "name": "marilyn"
+      },
+      {
+        "customer_id": 1150,
+        "name": "beatrice"
+      },
+      {
+        "customer_id": 1173,
+        "name": "spencer"
+      },
+      {
+        "customer_id": 1179,
+        "name": "nigel"
+      },
+      {
+        "customer_id": 1191,
+        "name": "cameron"
+      },
+      {
+        "customer_id": 1193,
+        "name": "matthew"
+      },
+      {
+        "customer_id": 1195,
+        "name": "monica"
+      },
+      {
+        "customer_id": 1224,
+        "name": "sandra"
+      },
+      {
+        "customer_id": 1249,
+        "name": "stanley"
+      },
+      {
+        "customer_id": 1266,
+        "name": "seth"
+      },
+      {
+        "customer_id": 1287,
+        "name": "audrey"
+      },
+      {
+        "customer_id": 1294,
+        "name": "brittany"
+      },
+      {
+        "customer_id": 1310,
+        "name": "penelope"
+      },
+      {
+        "customer_id": 1318,
+        "name": "james"
+      },
+      {
+        "customer_id": 1332,
+        "name": "vanessa"
+      },
+      {
+        "customer_id": 1358,
+        "name": "dale"
+      },
+      {
+        "customer_id": 1400,
+        "name": "tanya"
+      },
+      {
+        "customer_id": 1435,
+        "name": "regina"
+      },
+      {
+        "customer_id": 1481,
+        "name": "craig"
+      },
+      {
+        "customer_id": 1483,
+        "name": "june"
+      },
+      {
+        "customer_id": 1487,
+        "name": "kayla"
+      },
+      {
+        "customer_id": 1520,
+        "name": "trevor"
+      },
+      {
+        "customer_id": 1533,
+        "name": "gordon"
+      },
+      {
+        "customer_id": 1560,
+        "name": "liam"
+      },
+      {
+        "customer_id": 1610,
+        "name": "gabriel"
+      },
+      {
+        "customer_id": 1620,
+        "name": "adam"
+      },
+      {
+        "customer_id": 1640,
+        "name": "christopher"
+      },
+      {
+        "customer_id": 1645,
+        "name": "kenneth"
+      },
+      {
+        "customer_id": 1672,
+        "name": "maureen"
+      },
+      {
+        "customer_id": 1676,
+        "name": "hannah"
+      },
+      {
+        "customer_id": 1689,
+        "name": "hilary"
+      },
+      {
+        "customer_id": 1727,
+        "name": "rita"
+      },
+      {
+        "customer_id": 1737,
+        "name": "cecilia"
+      },
+      {
+        "customer_id": 1749,
+        "name": "dana"
+      },
+      {
+        "customer_id": 1774,
+        "name": "gregory"
+      },
+      {
+        "customer_id": 1776,
+        "name": "joseph"
+      },
+      {
+        "customer_id": 1794,
+        "name": "timothy"
+      },
+      {
+        "customer_id": 1812,
+        "name": "hugh"
+      },
+      {
+        "customer_id": 1813,
+        "name": "patricia"
+      },
+      {
+        "customer_id": 1818,
+        "name": "hector"
+      },
+      {
+        "customer_id": 1841,
+        "name": "mason"
+      },
+      {
+        "customer_id": 1880,
+        "name": "lionel"
+      },
+      {
+        "customer_id": 1891,
+        "name": "simon"
+      },
+      {
+        "customer_id": 1893,
+        "name": "phoebe"
+      },
+      {
+        "customer_id": 1896,
+        "name": "joshua"
+      },
+      {
+        "customer_id": 1903,
+        "name": "lucy"
+      },
+      {
+        "customer_id": 1909,
+        "name": "desmond"
+      },
+      {
+        "customer_id": 1911,
+        "name": "laura"
+      },
+      {
+        "customer_id": 1970,
+        "name": "stuart"
+      },
+      {
+        "customer_id": 1971,
+        "name": "nelson"
+      },
+      {
+        "customer_id": 1984,
+        "name": "clifford"
+      },
+      {
+        "customer_id": 1998,
+        "name": "jenna"
+      }
+    ],
+    "heldout_ids_only": [
+      1001,
+      1013,
+      1039,
+      1046,
+      1119,
+      1174,
+      1189,
+      1220,
+      1226,
+      1256,
+      1317,
+      1341,
+      1343,
+      1429,
+      1444,
+      1482,
+      1498,
+      1504,
+      1515,
+      1534,
+      1582,
+      1624,
+      1633,
+      1696,
+      1747,
+      1771,
+      1773,
+      1834,
+      1844,
+      1886
+    ]
+  },
+  "items": {
+    "heldout_rows": [
+      {
+        "item_id": 3035,
+        "item_name": "bureau"
+      },
+      {
+        "item_id": 3044,
+        "item_name": "laptop"
+      },
+      {
+        "item_id": 3071,
+        "item_name": "dumbbell"
+      },
+      {
+        "item_id": 3156,
+        "item_name": "keyboard"
+      },
+      {
+        "item_id": 3212,
+        "item_name": "camisole"
+      },
+      {
+        "item_id": 3213,
+        "item_name": "headboard"
+      },
+      {
+        "item_id": 3241,
+        "item_name": "yogamat"
+      },
+      {
+        "item_id": 3281,
+        "item_name": "postit"
+      },
+      {
+        "item_id": 3287,
+        "item_name": "punchingbag"
+      },
+      {
+        "item_id": 3295,
+        "item_name": "romper"
+      },
+      {
+        "item_id": 3318,
+        "item_name": "beanie"
+      },
+      {
+        "item_id": 3361,
+        "item_name": "bicycle"
+      },
+      {
+        "item_id": 3370,
+        "item_name": "stapler"
+      },
+      {
+        "item_id": 3371,
+        "item_name": "dishwasher"
+      },
+      {
+        "item_id": 3434,
+        "item_name": "belt"
+      },
+      {
+        "item_id": 3475,
+        "item_name": "projector"
+      },
+      {
+        "item_id": 3507,
+        "item_name": "console"
+      },
+      {
+        "item_id": 3528,
+        "item_name": "couch"
+      },
+      {
+        "item_id": 3545,
+        "item_name": "whiteboard"
+      },
+      {
+        "item_id": 3563,
+        "item_name": "fork"
+      },
+      {
+        "item_id": 3578,
+        "item_name": "canoe"
+      },
+      {
+        "item_id": 3647,
+        "item_name": "wardrobe"
+      },
+      {
+        "item_id": 3654,
+        "item_name": "jacket"
+      },
+      {
+        "item_id": 3697,
+        "item_name": "radio"
+      },
+      {
+        "item_id": 3702,
+        "item_name": "tanktop"
+      },
+      {
+        "item_id": 3716,
+        "item_name": "eraser"
+      },
+      {
+        "item_id": 3718,
+        "item_name": "partition"
+      },
+      {
+        "item_id": 3719,
+        "item_name": "bunkbed"
+      },
+      {
+        "item_id": 3735,
+        "item_name": "rollingpin"
+      },
+      {
+        "item_id": 3765,
+        "item_name": "surfboard"
+      },
+      {
+        "item_id": 3800,
+        "item_name": "treadmill"
+      },
+      {
+        "item_id": 3801,
+        "item_name": "hutch"
+      },
+      {
+        "item_id": 3822,
+        "item_name": "saucepan"
+      },
+      {
+        "item_id": 3824,
+        "item_name": "chair"
+      },
+      {
+        "item_id": 3835,
+        "item_name": "divider"
+      },
+      {
+        "item_id": 3838,
+        "item_name": "kimono"
+      },
+      {
+        "item_id": 3951,
+        "item_name": "gamepad"
+      },
+      {
+        "item_id": 3967,
+        "item_name": "speaker"
+      },
+      {
+        "item_id": 3987,
+        "item_name": "bench"
+      },
+      {
+        "item_id": 3995,
+        "item_name": "nightstand"
+      }
+    ],
+    "heldout_ids_only": [
+      3039,
+      3052,
+      3174,
+      3285,
+      3330,
+      3338,
+      3349,
+      3354,
+      3395,
+      3413,
+      3466,
+      3542,
+      3543,
+      3585,
+      3600,
+      3703,
+      3772,
+      3794,
+      3913,
+      3922
+    ]
+  },
+  "orders": {
+    "heldout_ids": [
+      5002,
+      5023,
+      5040,
+      5069,
+      5078,
+      5088,
+      5102,
+      5105,
+      5118,
+      5154,
+      5204,
+      5216,
+      5242,
+      5249,
+      5308,
+      5309,
+      5321,
+      5331,
+      5335,
+      5367,
+      5376,
+      5381,
+      5401,
+      5411,
+      5412,
+      5440,
+      5477,
+      5481,
+      5496,
+      5596,
+      5608,
+      5632,
+      5633,
+      5639,
+      5650,
+      5672,
+      5674,
+      5682,
+      5693,
+      5695,
+      5711,
+      5731,
+      5772,
+      5781,
+      5803,
+      5820,
+      5828,
+      5833,
+      5876,
+      5913
+    ]
+  },
+  "seed": 0,
+  "config": {
+    "n_customers": 300,
+    "n_items": 200,
+    "n_orders": 500,
+    "customer_id_range": [
+      1000,
+      1999
+    ],
+    "item_id_range": [
+      3000,
+      3999
+    ],
+    "order_id_range": [
+      5000,
+      5999
+    ],
+    "name_style": "single",
+    "min_per_city": 38,
+    "min_per_membership": 56,
+    "min_per_category": 25,
+    "min_per_quantity": 27,
+    "min_per_status": 83,
+    "min_zero_stock": 13,
+    "price_min": 1.0,
+    "price_max": 199.99,
+    "stock_min": 0,
+    "stock_max": 100,
+    "quantity_values": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "heldout_customer_ratio": 0.2,
+    "heldout_item_ratio": 0.2,
+    "heldout_id_only_ratio": 0.1,
+    "heldout_order_id_ratio": 0.1
+  }
+}

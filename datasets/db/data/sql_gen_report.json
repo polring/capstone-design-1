@@ -1,0 +1,171 @@
+{
+  "config": {
+    "seed": 0,
+    "preset": "large",
+    "cap_nonid": 9999,
+    "cap_id": 9999,
+    "id_nonexistent_ratio": 0.2,
+    "id_ratio_max": 0.3,
+    "train_ratio": 0.8
+  },
+  "quota_table": [
+    {
+      "table": "customers",
+      "where_col": "city",
+      "is_id": false,
+      "n_exist": 6,
+      "n_nonexistent": 0,
+      "n_select_variants": 5,
+      "n_sql": 30,
+      "n_train": 24,
+      "n_eval": 6
+    },
+    {
+      "table": "customers",
+      "where_col": "customer_id",
+      "is_id": true,
+      "n_exist": 47,
+      "n_nonexistent": 12,
+      "n_select_variants": 5,
+      "n_sql": 295,
+      "n_train": 236,
+      "n_eval": 59
+    },
+    {
+      "table": "customers",
+      "where_col": "membership",
+      "is_id": false,
+      "n_exist": 4,
+      "n_nonexistent": 0,
+      "n_select_variants": 5,
+      "n_sql": 20,
+      "n_train": 16,
+      "n_eval": 4
+    },
+    {
+      "table": "customers",
+      "where_col": "name",
+      "is_id": false,
+      "n_exist": 240,
+      "n_nonexistent": 0,
+      "n_select_variants": 5,
+      "n_sql": 1200,
+      "n_train": 960,
+      "n_eval": 240
+    },
+    {
+      "table": "items",
+      "where_col": "category",
+      "is_id": false,
+      "n_exist": 6,
+      "n_nonexistent": 0,
+      "n_select_variants": 6,
+      "n_sql": 36,
+      "n_train": 29,
+      "n_eval": 7
+    },
+    {
+      "table": "items",
+      "where_col": "item_id",
+      "is_id": true,
+      "n_exist": 47,
+      "n_nonexistent": 12,
+      "n_select_variants": 6,
+      "n_sql": 354,
+      "n_train": 283,
+      "n_eval": 71
+    },
+    {
+      "table": "items",
+      "where_col": "item_name",
+      "is_id": false,
+      "n_exist": 160,
+      "n_nonexistent": 0,
+      "n_select_variants": 6,
+      "n_sql": 960,
+      "n_train": 768,
+      "n_eval": 192
+    },
+    {
+      "table": "items",
+      "where_col": "price",
+      "is_id": false,
+      "n_exist": 199,
+      "n_nonexistent": 0,
+      "n_select_variants": 6,
+      "n_sql": 1194,
+      "n_train": 955,
+      "n_eval": 239
+    },
+    {
+      "table": "items",
+      "where_col": "stock",
+      "is_id": false,
+      "n_exist": 88,
+      "n_nonexistent": 0,
+      "n_select_variants": 6,
+      "n_sql": 528,
+      "n_train": 422,
+      "n_eval": 106
+    },
+    {
+      "table": "orders",
+      "where_col": "customer_id",
+      "is_id": true,
+      "n_exist": 47,
+      "n_nonexistent": 12,
+      "n_select_variants": 6,
+      "n_sql": 354,
+      "n_train": 283,
+      "n_eval": 71
+    },
+    {
+      "table": "orders",
+      "where_col": "item_id",
+      "is_id": true,
+      "n_exist": 47,
+      "n_nonexistent": 12,
+      "n_select_variants": 6,
+      "n_sql": 354,
+      "n_train": 283,
+      "n_eval": 71
+    },
+    {
+      "table": "orders",
+      "where_col": "order_id",
+      "is_id": true,
+      "n_exist": 47,
+      "n_nonexistent": 12,
+      "n_select_variants": 6,
+      "n_sql": 354,
+      "n_train": 283,
+      "n_eval": 71
+    },
+    {
+      "table": "orders",
+      "where_col": "quantity",
+      "is_id": false,
+      "n_exist": 10,
+      "n_nonexistent": 0,
+      "n_select_variants": 6,
+      "n_sql": 60,
+      "n_train": 48,
+      "n_eval": 12
+    },
+    {
+      "table": "orders",
+      "where_col": "status",
+      "is_id": false,
+      "n_exist": 4,
+      "n_nonexistent": 0,
+      "n_select_variants": 6,
+      "n_sql": 24,
+      "n_train": 19,
+      "n_eval": 5
+    }
+  ],
+  "n_train": 4609,
+  "n_eval": 1154,
+  "n_total_sql": 5763,
+  "id_ratio": 0.2969
+}
