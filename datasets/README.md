@@ -18,10 +18,13 @@ PyTorch Dataset → (예정) `train.py`. 다른 팀원 폴더와 겹치지 않�
 ```
 datasets/
 ├─ .venv/                        가상환경 (커밋 안 함)
-├─ requirements.txt              PyTorch(cu130)/NumPy/TensorBoard 고정
+├─ requirements.txt              PyTorch(cu130)/NumPy/TensorBoard/pytest 고정
 ├─ bpe_tokenizer.py               BPE 토크나이저 (스크래치 구현)
 ├─ bpe_merges.json                학습된 병합 726개 (커밋 안 함 — 코드+시드로 재현)
 ├─ dataset.py                     PyTorch Dataset/collate_fn
+├─ tests/                         pytest 단위 테스트
+│  ├─ test_bpe_tokenizer.py       bpe_tokenizer.py 테스트
+│  └─ test_dataset.py             dataset.py 테스트
 ├─ db/
 │  ├─ db_gen.py                   DB 생성기 → shop.db, holdout.json
 │  ├─ sql_gen.py                  SQL 생성기 → sql_train.json, sql_eval_indist.json
@@ -38,3 +41,11 @@ datasets/
 ## 실행
 
 각 스크립트를 어디서 어떻게 돌리는지는 [SETUP.md](docs/SETUP.md)를 따라가면 된다.
+
+## 테스트
+
+`datasets/`에서 실행 (venv에 pytest 설치되어 있어야 함, `requirements.txt` 참고):
+
+```
+.venv\Scripts\python -m pytest tests/ -v
+```

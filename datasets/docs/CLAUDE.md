@@ -132,10 +132,16 @@ python dataset.py     # self-test only, writes no files: tokenizes all train+eva
                        # length stats, round-trips a sample, and sanity-checks collate_fn/DataLoader output
 ```
 
+```
+python -m pytest tests/ -v     # unit tests for bpe_tokenizer.py (tests/test_bpe_tokenizer.py) and
+                                # dataset.py (tests/test_dataset.py) — run from datasets/
+```
+
 The data-pipeline scripts above (`db_gen.py`, `sql_gen.py`, `question_gen.py`, `bpe_tokenizer.py`) use only
 the stdlib and need no environment setup. The Dataset/model/training-loop stage needs PyTorch/NumPy/
-TensorBoard — see [SETUP.md](SETUP.md) section 0 for the venv + `requirements.txt` setup (PyTorch installed
-as a CUDA build, matched to the local driver's max supported CUDA version, not a CPU-only build).
+TensorBoard, and `tests/` needs pytest — see [SETUP.md](SETUP.md) section 0 for the venv + `requirements.txt`
+setup (PyTorch installed as a CUDA build, matched to the local driver's max supported CUDA version, not a
+CPU-only build).
 
 ## DB generator architecture ([db/db_gen.py](../db/db_gen.py))
 
