@@ -2,11 +2,11 @@ import sys
 import os
 import json
 
-# 모듈을 가져오기 위해 상위 디렉터리(datasets/) 경로 추가
+# 프로젝트 루트 디렉터리 경로 추가
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import dataset as ds
-from dataset import BOS_ID, EOS_ID, SEP_ID, PAD_ID, TextToSQLDataset, collate_fn
+from src.data import dataset as ds
+from src.data.dataset import BOS_ID, EOS_ID, SEP_ID, PAD_ID, TextToSQLDataset, collate_fn
 
 
 # encode_pair가 [<bos> question <sep> sql <eos>] 구조를 정확히 만드는지, <sep>이 한 번만 들어가는지 검증

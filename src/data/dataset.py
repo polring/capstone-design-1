@@ -5,7 +5,7 @@ from pathlib import Path
 import torch
 from torch.utils.data import Dataset
 
-import bpe_tokenizer as bpe
+from src.tokenizer import bpe
 
 BOS_ID = bpe.SPECIAL_BASE + bpe.SPECIAL_TOKENS.index("<bos>")
 EOS_ID = bpe.SPECIAL_BASE + bpe.SPECIAL_TOKENS.index("<eos>")
@@ -22,10 +22,10 @@ def load_pairs(data_dir: str | Path, glob: str) -> list[Pair]:
             pairs.extend(json.load(f))
     return pairs
 
-def load_train_pairs(data_dir: str | Path = "db/data") -> list[Pair]:
+def load_train_pairs(data_dir: str | Path = "data") -> list[Pair]:
     return load_pairs(data_dir, "pilot*/pilot_train_pairs.json")
 
-def load_eval_indist_pairs(data_dir: str | Path = "db/data") -> list[Pair]:
+def load_eval_indist_pairs(data_dir: str | Path = "data") -> list[Pair]:
     return load_pairs(data_dir, "eval_indist*/pilot_train_pairs.json")
 
 def encode_pair(question: str, sql: str, merges: list[bpe.Merge]) -> list[int]:

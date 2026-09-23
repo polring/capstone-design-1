@@ -6,8 +6,8 @@ import os
 # 모듈을 가져오기 위해 상위 디렉터리 경로 추가
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import VOCAB_SIZE, HIDDEN_DIM, SEQ_LEN, NUM_HEADS, HEAD_DIM
-from embedding import TokenEmbedding, precompute_freqs_cis, apply_rotary_emb
+from src.config import VOCAB_SIZE, HIDDEN_DIM, SEQ_LEN, NUM_HEADS, HEAD_DIM
+from src.models.embedding import TokenEmbedding, precompute_freqs_cis, apply_rotary_emb
 
 def test_token_embedding():
     batch_size = 4

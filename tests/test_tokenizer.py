@@ -1,10 +1,10 @@
 import sys
 import os
 
-# 모듈을 가져오기 위해 상위 디렉터리(datasets/) 경로 추가
+# 프로젝트 루트 디렉터리 경로 추가
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import bpe_tokenizer as bpe
+from src.tokenizer import bpe
 
 
 # pre_tokenize가 SEED_TOKENS를 일반 알파벳 조각으로 쪼개지 않고 하나의 시드 토큰으로 인식하는지 검증

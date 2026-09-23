@@ -83,7 +83,7 @@ def show(text: str) -> None:
     print(f"Pieces: {' '.join(parts)}\\n")
     print(f"조각 {len(pieces)}개, Seed 토큰 {sum(1 for _, sid in pieces if sid is not None)}개\\n")
 
-def load_corpus(data_dir: str | Path = "db/data") -> list[str]:
+def load_corpus(data_dir: str | Path = "data") -> list[str]:
     corpus: list[str] = []
     for pf in sorted(Path(data_dir).glob("pilot*/pilot_train_pairs.json")):
         with open(pf, encoding="utf-8") as f:
@@ -212,7 +212,7 @@ if __name__ == "__main__":
                 print(f"ROUNDTRIP FAIL: {text!r} -> {restored!r}")
     print(f"round-trip 실패: {bad} / {len(corpus)}")
 
-    holdout_path = Path("db/data/holdout.json")
+    holdout_path = Path("data/holdout.json")
     if holdout_path.exists():
         with open(holdout_path, encoding="utf-8") as f:
             holdout = json.load(f)
