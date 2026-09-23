@@ -1,0 +1,6 @@
+# LLM 세션 원본 라운드(19개, prompts/responses/report 포함) — 검증 통과분만 골라
+# db/data/pilot_merged/, db/data/eval_indist_merged/에 합쳐서 커밋하므로 원본은 로컬에만 둠.
+db/data_raw/
+
+# 학습 산출물 — 코드+시드로 재현되는 대상이라 커밋 안 함
+bpe_merges.json
