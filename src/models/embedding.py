@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from config import VOCAB_SIZE, HIDDEN_DIM, SEQ_LEN, NUM_HEADS, HEAD_DIM
+from src.config import VOCAB_SIZE, HIDDEN_DIM, SEQ_LEN, NUM_HEADS, HEAD_DIM
 
 class TokenEmbedding(nn.Module):
     """
