@@ -58,33 +58,27 @@ class CausalMaskedSelfAttention(nn.Module):
 
 class FeedForward(nn.Module):
     """FFN with SwiGLU or GELU Activation"""
-    def __init__(self, dim: int, hidden_dim: int, use_swiglu: bool = True):
+    def __init__(self, dim: int, hidden_dim: int):
         super().__init__()
-        self.use_swiglu = use_swiglu
         
-        if use_swiglu:
-            self.w1 = nn.Linear(dim, hidden_dim, bias=False)  # Gate
-            self.w3 = nn.Linear(dim, hidden_dim, bias=False)  # Up
-            self.w2 = nn.Linear(hidden_dim, dim, bias=False)  # Down
-        else:
-            self.w1 = nn.Linear(dim, hidden_dim, bias=False)
-            self.w2 = nn.Linear(hidden_dim, dim, bias=False)
+        self.w1 = nn.Linear(dim, hidden_dim, bias=False)  # Gate
+        self.w3 = nn.Linear(dim, hidden_dim, bias=False)  # Up
+        self.w2 = nn.Linear(hidden_dim, dim, bias=False)  # Down
+       
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self.use_swiglu:
-            return self.w2(F.silu(self.w1(x)) * self.w3(x))
-        else:
-            return self.w2(F.gelu(self.w1(x)))
+        return self.w2(F.silu(self.w1(x)) * self.w3(x))
+    
 
 
 class TransformerDecoderBlock(nn.Module):
     """Pre-LN Transformer Decoder Block with RMSNorm and Causal Self-Attention"""
-    def __init__(self, dim: int, num_heads: int, hidden_dim: int, use_swiglu: bool = True):
+    def __init__(self, dim: int, num_heads: int, hidden_dim: int):
         super().__init__()
         self.attn_norm = RMSNorm(dim)
         self.attn = CausalMaskedSelfAttention(dim, num_heads)
         self.ffn_norm = RMSNorm(dim)
-        self.ffn = FeedForward(dim, hidden_dim, use_swiglu=use_swiglu)
+        self.ffn = FeedForward(dim, hidden_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = x + self.attn(self.attn_norm(x))

@@ -80,14 +80,13 @@ def test_causal_masked_self_attention():
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("use_swiglu", [True, False])
-def test_feed_forward(use_swiglu):
-    """FFN(SwiGLU, GELU 변종) 출력 규격 검증"""
-    ffn = FeedForward(dim=C, hidden_dim=HIDDEN_DIM, use_swiglu=use_swiglu)
+def test_feed_forward():
+    """FFN(SwiGL) 출력 규격 검증"""
+    ffn = FeedForward(dim=C, hidden_dim=HIDDEN_DIM)
     x = torch.randn(B, T, C)
     out = ffn(x)
 
-    assert out.shape == (B, T, C), f"FFN (use_swiglu={use_swiglu}) output shape mismatch"
+    assert out.shape == (B, T, C), f"FFN output shape mismatch"
 
 
 @pytest.mark.unit
@@ -110,7 +109,7 @@ def test_variable_sequence_length(seq_len):
 def test_transformer_decoder_block_forward_and_backward(use_swiglu):
     """End-to-End Forward 및 Backward (Gradient전파) decoder block 전체 검증"""
     block = TransformerDecoderBlock(
-        dim=C, num_heads=NUM_HEADS, hidden_dim=HIDDEN_DIM, use_swiglu=use_swiglu
+        dim=C, num_heads=NUM_HEADS, hidden_dim=HIDDEN_DIM
     )
     x = torch.randn(B, T, C, requires_grad=True)
 
