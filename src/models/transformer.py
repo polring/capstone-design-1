@@ -80,7 +80,7 @@ class TransformerDecoderBlock(nn.Module):
         self.ffn_norm = RMSNorm(dim)
         self.ffn = FeedForward(dim, hidden_dim)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor,freqs_cis: torch.Tensor = None) -> torch.Tensor:
         x = x + self.attn(self.attn_norm(x))
         x = x + self.ffn(self.ffn_norm(x))
         return x
