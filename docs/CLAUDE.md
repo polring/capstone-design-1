@@ -10,17 +10,22 @@ The project starts with a narrow SQL scope (single table, single WHERE equality 
 in stages. Full plan, rationale, and design decisions are in
 [text-to-sql-llm-project-plan.md](text-to-sql-llm-project-plan.md) (Korean) — read it before making
 architectural changes, since most "why" decisions live there, not in code comments. For a per-function
-input/output reference across `db/db_gen.py`, `db/sql_gen.py`, `db/question_gen.py`, `bpe_tokenizer.py`,
-and `dataset.py`, see [function-reference.md](function-reference.md) (Korean).
+input/output reference across `db_gen.py`, `sql_gen.py`, `question_gen.py`, `question_gen_auto.py`
+(all in `src/data/generator/`), `src/tokenizer/bpe.py`, and `src/data/dataset.py`, see
+[function-reference.md](function-reference.md) (Korean).
 
 ### Directory layout
 
-This repo's actual root is `capstone-design-1/` (shared with the other 3 teammates). Everything 팀원1 owns —
-code, data, and this doc set — lives under `capstone-design-1/datasets/`, isolated from teammates' folders. This
-file and its sibling docs sit one level further down, in `capstone-design-1/datasets/docs/`. So when a command
-below says "repo root," it means `datasets/`, not the actual git root — and links from this file to code
-(`db/`, `bpe_tokenizer.py`, `dataset.py`) go up one level (`../`) to reach them, while links to sibling
-docs (`SETUP.md`, `function-reference.md`, etc.) stay in the same folder.
+Standard `src/` layout (see [README.md](../README.md) for the full tree):
+
+- `src/data/generator/` — `db_gen.py`, `sql_gen.py`, `question_gen.py`, `question_gen_auto.py`
+- `src/tokenizer/bpe.py` — BPE tokenizer; `src/data/dataset.py` — PyTorch Dataset; `src/models/` — model
+  components (embedding/RoPE); `src/config.py` — hyperparameters
+- `data/` — committed data artifacts (`shop.db`, `holdout.json`, SQL lists, merged question pairs)
+- `tests/` — pytest suite; `docs/` — this file and its sibling docs
+
+Every command below runs from the repo root (scripts use cwd-relative `data/...` and `bpe_merges.json`).
+Links from this file to code go up one level (`../src/...`).
 
 ### Scratch-build constraint (critical, do not violate)
 
@@ -38,26 +43,82 @@ When adding dependencies or writing model/tokenizer/training code, respect this 
 
 ## Current state
 
-The DB generator, SQL generator, and LLM question-generation pipeline — now under [db/](../db/):
-`db/db_gen.py`, `db/sql_gen.py`, `db/question_gen.py` — are implemented and complete. The training corpus
-is complete at 23,045/23,045 validated (question, SQL) pairs (`sql_train.json`'s 4,609 SQL × 5 questions),
-100% validation pass rate in every round. The in-distribution eval split also has paired questions now:
-`sql_eval_indist.json`'s 1,154 SQL × 5 questions (5,770 pairs, 100% validation pass rate) — this closes
-the "no paired questions yet" gap noted on 2026-09-19.
+The DB generator, SQL generator, and LLM question-generation pipeline — under
+[src/data/generator/](../src/data/generator/): `db_gen.py`, `sql_gen.py`, `question_gen.py` — are implemented and complete. As of 2026-09-23,
+the training corpus is **22,862 validated (question, SQL) pairs**, split across two `pilot*` folders
+(`load_train_pairs()`/`load_corpus()` glob both in):
 
-The 19 raw LLM rounds (`pilot`..`pilot13`, `eval_indist1`..`eval_indist6`) that produced these pairs —
-prompts, responses, per-round reports — were generated under `db/data/`, then (2026-09-21) consolidated:
-the validated pairs from all 13 training rounds are merged into one file at `db/data/pilot_merged/`
-(23,045 pairs) and all 6 eval rounds into `db/data/eval_indist_merged/` (5,770 pairs); the 19 raw round
-folders themselves moved to `db/data_raw/`, kept locally but not committed (too bulky, and not needed
-downstream — see [SETUP.md](SETUP.md)). `load_corpus()`/`load_train_pairs()`/`load_eval_indist_pairs()`
-glob `pilot*/`/`eval_indist*/` under `db/data/`, so they now match only the merged folders — same total
-counts as before, just consolidated.
+- `data/pilot_merged/` — 21,095 pairs, from the original 13 strong-LLM rounds. Down from the original
+  23,045: 1,934 removed (see "data-quality passes" below) for being tautological ("what price is the item
+  priced 97.56?"-style questions where `SELECT` and `WHERE` reference the same column) or for colliding
+  with another pair on an identical question text mapped to a different SQL (a genuine label conflict).
+- `data/pilot_qwen3_merged/` — 1,767 pairs, generated locally by Qwen3-14B via
+  [question_gen_auto.py](../src/data/generator/question_gen_auto.py) (see below) and merged in after the same
+  tautological/conflict filtering. A second, independently-sourced phrasing style mixed into the same
+  SQL space — deliberately not folded into `pilot_merged`, so provenance stays traceable per file.
 
-The BPE tokenizer ([bpe_tokenizer.py](../bpe_tokenizer.py)) is implemented and verified: 726/726 merge budget
-used, exact round-trip on the full 46,090-string training corpus (0 failures), and 3.49 average subword
+The in-distribution eval split, `data/eval_indist_merged/`, is similarly down to 5,202 pairs (from
+5,770; same two filters applied). Both filtering passes and their exact rationale/counts are logged with
+dates in [text-to-sql-stage1-progress-report.md](text-to-sql-stage1-progress-report.md)'s "후속 진행"
+sections — read that before re-deriving "why was X removed" from scratch.
+
+The 19 raw LLM rounds (`pilot`..`pilot13`, `eval_indist1`..`eval_indist6`) that originally produced the
+strong-LLM pairs — prompts, responses, per-round reports — were generated under `data/`, then
+(2026-09-21) consolidated into `pilot_merged`/`eval_indist_merged` as above; the 19 raw round folders
+themselves moved to `data_raw/` (repo root), kept locally but not committed (too bulky, and not needed downstream —
+see [SETUP.md](SETUP.md)). `load_corpus()`/`load_train_pairs()`/`load_eval_indist_pairs()` glob
+`pilot*/`/`eval_indist*/` under `data/`, matching `pilot_merged`, `pilot_qwen3_merged`, and
+`eval_indist_merged` — any new folder named `pilot_<something>/` (with a `pilot_train_pairs.json` inside)
+is picked up automatically with no code changes, which is how the Qwen3 addition slotted in.
+
+### `question_gen_auto.py` — fully-automated local-LLM pipeline (v2, added 2026-09-23)
+
+`question_gen.py`'s pipeline (`make-prompts` → hand the prompt to an LLM session → `validate`) requires a
+human in the loop for every batch. [question_gen_auto.py](../src/data/generator/question_gen_auto.py) removes that: it
+calls a locally-served Ollama model's REST API directly (`think=false` to disable Qwen3-style reasoning
+output), reuses `question_gen.py`'s sampling/prompt-building/validation functions unchanged (so the two
+pipelines can never drift onto different validation rules), and adds what a local weak-model call needs
+that a human-mediated one doesn't: a 3-layer JSON repair (`extract_json_array` — plain parse → common
+bracket-pattern fixes → regex field extraction that ignores bracket structure entirely), per-batch retry,
+a resume-skip (rerunning the same command after an interruption doesn't redo completed batches), and a
+consecutive-failure circuit breaker (aborts early if the Ollama server itself appears to be down, instead
+of burning the whole time budget on doomed retries). See `tests/test_question_gen_auto.py` for the exact
+malformed-JSON shapes this was built against — they're all real Qwen3-14B output, not hypothetical.
+
+Piloted against Qwen3-14B (3 rounds, 41 batches, ~2,900 questions): 92–99% rule-validation pass rate
+(vs. 100% for the original strong-LLM rounds), 19–25% template-skeleton repeat ratio (vs. 15–20%), and
+a newly-added rule (10 — see below) followed in roughly 0% of applicable cases despite being spelled out
+explicitly in the prompt, vs. ~50% "for free" from the strong model with no such rule at all. Take from
+this that a 14B-class local model is usable as a second data source (see `pilot_qwen3_merged` above), not
+that it's a drop-in replacement for the original pipeline's LLM.
+
+### `question_gen.py` validation hardening (2026-09-23)
+
+Several checks were added or tightened, all covered by `tests/test_question_gen.py`:
+
+- **Rule 10** (`small_model_rules_blurb`'s rules text, `soft_flags()`): when `select == where_col`, the
+  SQL's answer is already stated in the question (e.g. `SELECT price ... WHERE price = 97.56`) — the
+  prompt now asks for an existence-check framing ("is there an item priced at 97.56?") instead of a
+  tautological one, and `soft_flags()` flags violations for manual review (soft, not a hard failure).
+- **`literal_in_question()`** switched from plain substring matching to boundary-aware matching: text
+  values require a word boundary (but allow a trailing `s`/`'s`/`es` for natural pluralization — a strict
+  `\b` alone broke on real data like "colanders"); numeric values reject a match embedded in a longer
+  number (`97.56` inside `197.56`) or extended by more digits after a decimal point, while still allowing
+  a sentence-ending period right after the number. Re-validated against all 28,815 pre-cleanup pairs with
+  zero regressions before shipping.
+- **`find_intra_group_duplicates()`**: `validate()` now hard-fails a question that's an exact or
+  punctuation-only-different repeat of another question for the *same* SQL — enforcing rule 6 (5 questions
+  must genuinely differ), which `template_check()` never covered (it only compares *across* different SQL
+  sharing a `(SELECT, WHERE)` shape, not within one SQL's own set).
+- **`find_cross_sql_question_conflicts()` / `corpus_check` CLI command**: a corpus-wide check for the same
+  question text mapped to two different SQL answers — a real label conflict, distinct from the
+  tautological-phrasing issue above. Run via `python src/data/generator/question_gen.py corpus-check --data-dir data`; this
+  is what found the 20 conflicting pairs removed in the 2026-09-23 cleanup (see progress report).
+
+The BPE tokenizer ([src/tokenizer/bpe.py](../src/tokenizer/bpe.py)) is implemented and verified: 726/726 merge budget
+used, exact round-trip on the full 45,724-string training corpus (0 failures), and 3.52 average subword
 tokens per unseen name on the holdout entity pool (60 customers + 40 items) — under the plan's 4-token
-threshold (5-2). See the architecture section below. `bpe_merges.json` in `datasets/` is the trained
+threshold (5-2). See the architecture section below. `bpe_merges.json` in the repo root is the trained
 artifact; it is not committed (see [SETUP.md](SETUP.md)) and is reproduced deterministically by rerunning
 the script against the same corpus.
 
@@ -68,9 +129,10 @@ One gap remains open, deferred by decision on 2026-09-19 (see plan section 3-3 �
   written now, the "sealed before seeing LLM output" premise no longer holds — see plan section 3-3
   진행 기록 for the resulting caveat and mitigation options.
 
-The PyTorch `Dataset` ([dataset.py](../dataset.py)) is implemented and verified: 28,815 (question, SQL) pairs
-(23,045 train + 5,770 in-distribution eval) tokenize to 23–64 tokens each (mean 38.2), all well under the
-context length of 128. See the architecture section below.
+The PyTorch `Dataset` ([src/data/dataset.py](../src/data/dataset.py)) is implemented and verified: as last measured
+(2026-09-23, rerun against the current 22,862 train + 5,202 eval = 28,064-pair corpus after the
+tautological/conflict cleanup and the Qwen3 addition), sequences tokenize to 22–64 tokens each (mean
+38.3, p50 38, p99 53), all well under the context length of 128 (0/28,064 exceed it).
 
 Not yet implemented: decoder-only Transformer + training loop (`train.py`, plan step 6, next up),
 constrained decoder + evaluator (plan step 8's prerequisite). PyTorch (CUDA build, cu130) is now installed
@@ -86,64 +148,82 @@ itself.
 
 ## Commands
 
-The three generators live in [db/](../db/) and write to `db/data/` by default; run them from inside `db/`
-(i.e. `datasets/db/`). `bpe_tokenizer.py` lives in `datasets/` (see Directory layout above — not the
-actual repo root) and reads `db/data/...` as a relative path, so run it from `datasets/` instead. See
-[SETUP.md](SETUP.md) if this trips you up — the working directory differs per script.
+The generators live in [src/data/generator/](../src/data/generator/) and write to `data/` by default. Run everything from
+the repo root: generators as scripts (`python src/data/generator/<file>.py`), and `bpe`/`dataset` as
+modules (`python -m ...`, since `dataset.py` imports `src.tokenizer`). See [SETUP.md](SETUP.md).
 
 ```
-cd datasets/db          # from the repo root (capstone-design-1/)
-python db_gen.py build      # generate db/data/shop.db and db/data/holdout.json
-python db_gen.py verify     # check an existing DB against distribution/FK/format constraints
-python db_gen.py test       # 4 checks: distribution, determinism, price equality, holdout separation
-python db_gen.py summary    # print row counts and value distributions
-python db_gen.py space      # compute the count of unique SQL queries the stage-1 grammar can produce
+python src/data/generator/db_gen.py build      # generate data/shop.db and data/holdout.json
+python src/data/generator/db_gen.py verify     # check an existing DB against distribution/FK/format constraints
+python src/data/generator/db_gen.py test       # 4 checks: distribution, determinism, price equality, holdout separation
+python src/data/generator/db_gen.py summary    # print row counts and value distributions
+python src/data/generator/db_gen.py space      # compute the count of unique SQL queries the stage-1 grammar can produce
 ```
 
 Options: `--preset small|large` (default `large`; `small` is the original plan-doc schema), `--seed N`
 (default 0), `--out DIR` (default `./data`), `--name-style single|two_word` (default `single`).
 
 ```
-python sql_gen.py build --cap-nonid 9999 --cap-id 9999   # db/data/sql_train.json, db/data/sql_eval_indist.json
-python sql_gen.py verify                                  # re-check the 3 completion conditions (3-3 step 2)
-python sql_gen.py test                                    # determinism, no holdout literals, train/eval disjoint
-python sql_gen.py summary                                 # per-(table, where_col) quota table
+python src/data/generator/sql_gen.py build --cap-nonid 9999 --cap-id 9999   # data/sql_train.json, data/sql_eval_indist.json
+python src/data/generator/sql_gen.py verify                                  # re-check the 3 completion conditions (3-3 step 2)
+python src/data/generator/sql_gen.py test                                    # determinism, no holdout literals, train/eval disjoint
+python src/data/generator/sql_gen.py summary                                 # per-(table, where_col) quota table
 ```
 
 ```
-python question_gen.py make-prompts --out data/pilotN --n 200 --batch-size 25 --seed N \
+python src/data/generator/question_gen.py make-prompts --out data/pilotN --n 200 --batch-size 25 --seed N \
     --exclude-dir data_raw/pilot,data_raw/pilot2,...,data_raw/eval_indist6   # raw rounds moved to data_raw/
     # (data/pilot_merged, data/eval_indist_merged have no pilot_sql.json, so they can't be passed here —
     #  exclude-dir needs the original per-round folders in data_raw/, not the merged file)
 # hand each prompts/batch_NN.txt to an independent LLM session (see architecture note below),
 # save its JSON reply to responses/batch_NN.json, then:
-python question_gen.py validate --out data/pilotN         # literal/lowercase/number-word checks -> pilot_train_pairs.json
-python question_gen.py template-check --out data/pilotN   # diversity diagnostic, see below
+python src/data/generator/question_gen.py validate --out data/pilotN         # literal/lowercase/number-word checks -> pilot_train_pairs.json
+python src/data/generator/question_gen.py template-check --out data/pilotN   # diversity diagnostic, see below
+python src/data/generator/question_gen.py corpus-check --data-dir data        # cross-file label-conflict scan (see Current state)
+```
+
+`make-prompts` has a `make-prompts-small` sibling for weaker/local models: smaller default batch size,
+more explicit per-slot phrasing instructions, a few-shot example, and a `--questions-per-sql` knob (up to
+`len(QUESTION_STYLE_SLOTS)`, currently 8). It still needs a human (or `question_gen_auto.py`, below) to
+actually call an LLM and save `responses/batch_NN.json` — `make-prompts-small` only changes the prompt.
+
+```
+# fully automated (no human LLM session) — needs a local model already pulled in Ollama
+python src/data/generator/question_gen_auto.py --model qwen3:14b --n 128 --batch-size 8 --questions-per-sql 8 \
+    --seed 0   # writes to data_raw/auto_pilot/ by default (gitignored — see SETUP.md commit list)
+# does sampling -> prompting -> Ollama call -> JSON repair -> validate -> template-check in one run;
+# rerunning the same command resumes (skips already-completed batches) instead of redoing them
 ```
 
 ```
-cd ..    # back to datasets/ (not the actual repo root — see Directory layout above)
-python bpe_tokenizer.py     # trains BPE on db/data/pilot*/pilot_train_pairs.json, writes bpe_merges.json,
+python -m src.tokenizer.bpe  # trains BPE on data/pilot*/pilot_train_pairs.json, writes bpe_merges.json,
                              # then round-trips the full corpus and measures holdout unseen-name token counts
 ```
 
 ```
-python dataset.py     # self-test only, writes no files: tokenizes all train+eval_indist pairs, prints
+python -m src.data.dataset  # self-test only, writes no files: tokenizes all train+eval_indist pairs, prints
                        # length stats, round-trips a sample, and sanity-checks collate_fn/DataLoader output
 ```
 
 ```
-python -m pytest tests/ -v     # unit tests for bpe_tokenizer.py (tests/test_bpe_tokenizer.py) and
-                                # dataset.py (tests/test_dataset.py) — run from datasets/
+python -m pytest tests/ -v     # embedding.py, bpe.py, dataset.py, question_gen.py, question_gen_auto.py
+                                # (test_embedding.py / test_tokenizer.py / test_dataset.py /
+                                # test_question_gen.py / test_question_gen_auto.py). db_gen.py/sql_gen.py
+                                # are checked by their own `test`/`verify` CLI subcommands instead (data
+                                # property checks, not pytest — see their sections in Commands above).
 ```
 
-The data-pipeline scripts above (`db_gen.py`, `sql_gen.py`, `question_gen.py`, `bpe_tokenizer.py`) use only
-the stdlib and need no environment setup. The Dataset/model/training-loop stage needs PyTorch/NumPy/
+The data-pipeline scripts above (`db_gen.py`, `sql_gen.py`, `question_gen.py`, `question_gen_auto.py`,
+`bpe.py`) use only the stdlib and need no environment setup — including `question_gen_auto.py`
+(plain `urllib.request` against Ollama's local REST API, no HTTP client dependency). It does need an
+Ollama server already running on `127.0.0.1:11434` with the target `--model` already pulled
+(`ollama pull qwen3:14b`, etc.) — that's an external local service, not a Python dependency, so
+`requirements.txt` doesn't (and can't) cover it. The Dataset/model/training-loop stage needs PyTorch/NumPy/
 TensorBoard, and `tests/` needs pytest — see [SETUP.md](SETUP.md) section 0 for the venv + `requirements.txt`
 setup (PyTorch installed as a CUDA build, matched to the local driver's max supported CUDA version, not a
 CPU-only build).
 
-## DB generator architecture ([db/db_gen.py](../db/db_gen.py))
+## DB generator architecture ([db_gen.py](../src/data/generator/db_gen.py))
 
 Generates a fixed-schema SQLite shop DB: `customers` (300 rows) — `items` (200 rows) — `orders` (500 rows,
 N:M bridge). Design choices that affect any code built on top of this DB:
@@ -170,11 +250,15 @@ N:M bridge). Design choices that affect any code built on top of this DB:
 - All text values are stored lowercase; SQL keywords are expected uppercase in generated SQL (normalization
   rules, plan section 4-3).
 
-## LLM question-generation pipeline architecture ([db/question_gen.py](../db/question_gen.py))
+## LLM question-generation pipeline architecture ([question_gen.py](../src/data/generator/question_gen.py))
 
 Turns `sql_gen.py`'s SQL into (question, SQL) training pairs. LLM output is never trusted as ground truth —
 `validate()` always re-checks it in code (literal-value inclusion, lowercase, no spelled-out numbers, no
-known synonym swaps) before a pair is accepted, per the scratch-build constraint in the table above.
+known synonym swaps, no intra-group duplicate, no existence-check-framing violation on `select==where_col`
+questions — see "Current state" above for the last two, added 2026-09-23) before a pair is accepted, per
+the scratch-build constraint in the table above. [question_gen_auto.py](../src/data/generator/question_gen_auto.py) is
+a separate file (v2) that swaps the "hand prompts to an LLM session" step for a direct local-Ollama API
+call, reusing every function below unchanged — it doesn't duplicate or reimplement any validation logic.
 
 - **Round-based, not one-shot**: each run samples `--n` not-yet-used SQL into a new `data/pilotN/` directory
   (`--exclude-dir` lists every prior round so SQL is never reused across rounds), producing one prompt file
@@ -210,7 +294,7 @@ known synonym swaps) before a pair is accepted, per the scratch-build constraint
   whether a round's *generation method* needs fixing before scaling it up further, not whether that round's
   already-produced pairs get thrown away.
 
-## BPE tokenizer architecture ([bpe_tokenizer.py](../bpe_tokenizer.py))
+## BPE tokenizer architecture ([src/tokenizer/bpe.py](../src/tokenizer/bpe.py))
 
 A from-scratch byte-level BPE tokenizer (no HuggingFace `tokenizers`/SentencePiece/tiktoken, per the
 scratch-build constraint above). Vocab size is fixed at 1,024, laid out in four contiguous ID ranges:
@@ -234,19 +318,21 @@ scratch-build constraint above). Vocab size is fixed at 1,024, laid out in four 
 - **Deterministic merge selection**: on a tie in pair frequency, `train()` always picks the pair with the
   lexicographically smallest `(id, id)` tuple, so the same corpus always produces the same 726 merges in the
   same order regardless of dict iteration order or hash randomization.
-- **Training corpus** (`load_corpus()`): glob `db/data/pilot*/pilot_train_pairs.json` — matches
-  `db/data/pilot_merged/` (23,045 pairs × 2 strings = 46,090; the 13 raw `pilot`..`pilot13` rounds it was
-  consolidated from now live outside the glob path, in `db/data_raw/` — see Current state above), **not**
-  `eval_indist_merged` (different name prefix, doesn't match `pilot*`). This means the in-distribution eval
-  set never influenced the learned merges — a deliberate-looking side effect of the glob, not stated as
-  intentional anywhere, but worth preserving: don't widen this glob to include eval data without
-  considering that it'd leak eval strings into vocab training.
-- **Verified** (by running `python bpe_tokenizer.py`): 726/726 merge budget used, exact round-trip on all
-  46,090 corpus strings (0 failures), and 3.49 average subword tokens per name on the holdout unseen-entity
-  pool (60 customers + 40 items) — under the plan's 4-token threshold (5-2). Since the corpus and tie-break
-  rule are both fixed, this run is fully reproducible: rerunning produces byte-identical `bpe_merges.json`.
+- **Training corpus** (`load_corpus()`): glob `data/pilot*/pilot_train_pairs.json` — matches both
+  `data/pilot_merged/` and `data/pilot_qwen3_merged/` (22,862 pairs combined as of 2026-09-23 × 2
+  strings = 45,724), **not** `eval_indist_merged` (different name prefix, doesn't match `pilot*`).
+  This means the in-distribution eval set never influenced the learned merges — a deliberate-looking side
+  effect of the glob, not stated as intentional anywhere, but worth preserving: don't widen this glob to
+  include eval data without considering that it'd leak eval strings into vocab training. It does mean any
+  new `pilot_<name>_merged/` folder (like the Qwen3 one) automatically feeds the tokenizer's training
+  corpus too, with no code change — same mechanism as `load_train_pairs()` in `dataset.py`.
+- **Verified** (by running `python -m src.tokenizer.bpe`, last rerun 2026-09-23 against the current 22,862-pair
+  corpus): 726/726 merge budget used, exact round-trip on all 45,724 corpus strings (0 failures), and 3.52
+  average subword tokens per name on the holdout unseen-entity pool (60 customers + 40 items) — under the
+  plan's 4-token threshold (5-2). Since the corpus and tie-break rule are both fixed, this run is fully
+  reproducible: rerunning produces byte-identical `bpe_merges.json`.
 
-## Dataset architecture ([dataset.py](../dataset.py))
+## Dataset architecture ([src/data/dataset.py](../src/data/dataset.py))
 
 Turns tokenized (question, SQL) pairs into PyTorch batches. Two design decisions here aren't obvious from
 the code alone:
@@ -262,13 +348,14 @@ the code alone:
   builds this as a `loss_mask` that's `True` only for target positions from `sql_start` onward (i.e. every
   SQL token plus the final `<eos>`) and `False` everywhere else, including padding.
 - **Padding is dynamic per batch, not fixed to the context length (128)**: `collate_fn` right-pads each
-  batch only to that batch's own max length. Measured sequence lengths across all 28,815 train+eval_indist
-  pairs are 23–64 tokens (mean 38.2, p99 52) — padding every batch out to a fixed 128 would waste roughly
-  2–3x the compute for no benefit. Padding is on the right because this is a causal (unidirectional) decoder:
-  a real token at position *i* only ever attends to positions ≤ *i*, so it can never see trailing padding
-  regardless of whether an explicit attention/padding mask is added — the `loss_mask` alone is enough to keep
-  padding out of training signal.
-- **Verified** (by running `python dataset.py`): 0/28,815 sequences exceed context length 128; sample
+  batch only to that batch's own max length. Measured sequence lengths across all 28,064 train+eval_indist
+  pairs are 22–64 tokens (mean 38.3, p50 38, p99 53) — padding every batch out to a fixed 128 would waste
+  roughly 2–3x the compute for no benefit. Padding is on the right because this is a causal (unidirectional)
+  decoder: a real token at position *i* only ever attends to positions ≤ *i*, so it can never see trailing
+  padding regardless of whether an explicit attention/padding mask is added — the `loss_mask` alone is enough
+  to keep padding out of training signal.
+- **Verified** (by running `python -m src.data.dataset`, last rerun 2026-09-23): 0/28,064 sequences exceed context
+  length 128; sample
   round-trips (`bpe.decode` reconstructing the original question/SQL from token IDs) all pass; `collate_fn`'s
   `loss_mask` true-count matches the expected SQL+`<eos>` length on every checked row.
 

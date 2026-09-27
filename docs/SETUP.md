@@ -9,25 +9,23 @@
 
 ## 폴더 구조
 
-이 저장소(`capstone-design-1/`)의 실제 git 루트는 팀원 4명이 공유하는 상위 폴더다. 팀원1이 다루는
-코드·데이터·문서는 다른 팀원 폴더와 겹치지 않게 전부 `capstone-design-1/datasets/` 밑에 몰아뒀고,
-이 문서를 포함한 `.md` 문서 5개는 그 안에서 한 단계 더 들어간 `capstone-design-1/datasets/docs/`에
-있다. 아래 안내에서 "저장소 루트"라고 쓴 곳은 실제 git 루트가 아니라 **`datasets/`**를 가리킨다.
-전체 파일 구조는 [README.md](../README.md)에 있다.
+저장소는 `src/` 표준 구조를 따른다 — 코드는 `src/`(`src/data/generator/`에 DB·SQL·질문 생성기,
+`src/tokenizer/bpe.py`, `src/data/dataset.py`, `src/models/`), 커밋되는 데이터 산출물은 `data/`,
+테스트는 `tests/`, 문서는 `docs/`에 있다. 아래 안내에서 "저장소 루트"는 실제 git 루트를 가리키며,
+**모든 명령은 저장소 루트에서 실행한다.** 전체 파일 구조는 [README.md](../README.md)에 있다.
 
 ## 요구 사항
 
 - Python 3.10 이상 (개발에는 3.13.14 사용)
-- `db/db_gen.py`, `db/sql_gen.py`, `db/question_gen.py`, `bpe_tokenizer.py`는 외부 패키지 없이 표준
+- `db_gen.py`, `sql_gen.py`, `question_gen.py`, `question_gen_auto.py`, `bpe.py`는 외부 패키지 없이 표준
   라이브러리(`sqlite3`, `json`, `re`, `argparse`, `collections`, `pathlib` 등)만 사용한다
 - Dataset/train.py 단계부터는 PyTorch·NumPy·TensorBoard가 필요하다 — 아래 0절 참고
 
 ## 0. 가상환경 설정 및 PyTorch 설치
 
-`.venv`는 `datasets/` 안에 있다(`requirements.txt`와 같은 위치) — 아래 명령은 **`datasets/`에서** 실행한다.
+`.venv`는 저장소 루트에 만든다(`requirements.txt`와 같은 위치, `.gitignore`로 커밋 제외).
 
 ```
-cd datasets
 python -m venv .venv
 .venv\Scripts\pip install --upgrade pip
 .venv\Scripts\pip install -r requirements.txt
@@ -48,50 +46,65 @@ Windows용 CUDA 빌드는 일반 PyPI에 없다 — `pip install torch`만 하�
   ```
   `2.14.0+cu130 True NVIDIA GeForce RTX 4070 SUPER`처럼 나와야 한다. `False`가 나오면 드라이버 버전과
   빌드 태그가 안 맞는 경우가 가장 흔하다.
-- 이후 모든 `python` 명령은 `.venv\Scripts\python`(또는 venv를 activate한 셸)으로 실행한다고 가정한다.
-  `.venv`가 `datasets/` 안에 있으므로, `datasets/`(또는 그 하위 `db/`)에서는 상대경로 그대로
-  (`db/`에서는 `..\.venv\Scripts\python`) 쓰면 되고, 미리 `.venv\Scripts\activate`로 셸을
-  activate해두면 경로 신경 안 써도 된다.
+- 이후 모든 `python` 명령은 `.venv\Scripts\python`(또는 `.venv\Scripts\activate`로 activate한 셸)으로
+  저장소 루트에서 실행한다고 가정한다.
 
 ## 실행 위치 주의
 
-스크립트마다 상대 경로 기준이 다르다. 잘못된 위치에서 실행하면 `data/` 폴더가 엉뚱한 곳에 생긴다.
-아래 "저장소 루트"는 위 폴더 구조대로 **`datasets/`**를 뜻한다 (실제 git 루트인 `capstone-design-1/`가 아님).
+모든 스크립트는 현재 작업 디렉터리 기준 상대 경로(`data/...`, `bpe_merges.json`)를 쓰므로 **반드시 저장소
+루트에서** 실행한다. 다른 위치에서 실행하면 `data/` 폴더가 엉뚱한 곳에 생긴다.
 
-| 스크립트 | 실행 위치 | 기본 출력 경로 |
+| 스크립트 | 실행 방법 (저장소 루트에서) | 기본 입출력 경로 |
 | --- | --- | --- |
-| `db/db_gen.py`, `db/sql_gen.py`, `db/question_gen.py` | `datasets/db/` 폴더 안 | `db/data/...` (`--out` 기본값이 `./data`) |
-| `bpe_tokenizer.py`, `dataset.py` | `datasets/` | `db/data/...`, `bpe_merges.json`을 상대경로로 읽음 (`dataset.py`는 저장 파일 없이 콘솔 출력만) |
+| `db_gen.py`, `sql_gen.py`, `question_gen.py`, `question_gen_auto.py` | `python src/data/generator/<파일>.py ...` | `data/...` (`--out` 기본값이 `./data`) |
+| `bpe.py` | `python -m src.tokenizer.bpe` | `data/pilot*/...`, `data/holdout.json`을 읽고 루트에 `bpe_merges.json` 저장 |
+| `dataset.py` | `python -m src.data.dataset` (`src` 패키지 import 때문에 `-m` 필수) | `data/...`, `bpe_merges.json`을 읽음 (저장 파일 없이 콘솔 출력만) |
 
 ## 1. DB 생성
 
 ```
-cd datasets/db          # capstone-design-1/ 루트에서 (datasets/db/ — 위 폴더 구조 참고)
-python db_gen.py build            # db/data/shop.db, db/data/holdout.json 생성 (seed=0, preset=large 기본값)
-python db_gen.py test             # 분포/결정성/price 등호/홀드아웃 분리 4종 검증
+python src/data/generator/db_gen.py build   # data/shop.db, data/holdout.json 생성 (seed=0, preset=large 기본값)
+python src/data/generator/db_gen.py test             # 분포/결정성/price 등호/홀드아웃 분리 4종 검증
 ```
 
 ## 2. SQL 생성
 
 ```
-python sql_gen.py build --cap-nonid 9999 --cap-id 9999
-# db/data/sql_train.json (학습용 4,609개), db/data/sql_eval_indist.json (분포 내 평가용 1,154개) 생성
-python sql_gen.py verify          # 완료 조건 재확인
-python sql_gen.py test            # 결정성/홀드아웃 리터럴 미포함/학습-평가 분리 검증
+python src/data/generator/sql_gen.py build --cap-nonid 9999 --cap-id 9999
+# data/sql_train.json (학습용 4,609개), data/sql_eval_indist.json (분포 내 평가용 1,154개) 생성
+python src/data/generator/sql_gen.py verify          # 완료 조건 재확인
+python src/data/generator/sql_gen.py test            # 결정성/홀드아웃 리터럴 미포함/학습-평가 분리 검증
 ```
 
-## 3. 질문 생성 (LLM 세션 필요 — 완전 자동화 불가)
+## 3. 질문 생성
 
-`db/data/pilot`~`pilot13`(학습용, 13라운드)과 `db/data/eval_indist1`~`eval_indist6`(분포 내 평가용,
+**(2026-09-23) 더는 "완전 자동화 불가"가 아니다** — 아래 3-1~3-4는 사람이 LLM 세션에 프롬프트를
+붙여넣는 **v1(`question_gen.py`)** 방식이고, 이건 여전히 유효하지만 유일한 방법은 아니다. 로컬에
+Ollama로 모델을 하나 받아뒀다면(예: `ollama pull qwen3:14b`), 사람 개입 없이 샘플링→프롬프트→모델
+호출→검증까지 한 번에 끝내는 **v2(`src/data/generator/question_gen_auto.py`)** 를 대신 쓸 수 있다:
+
+```
+python src/data/generator/question_gen_auto.py --model qwen3:14b --n 128 --batch-size 8 --questions-per-sql 8 --seed 0
+```
+
+기본 저장 위치는 `data_raw/auto_pilot/`(커밋 안 되는 실험 영역 — 아래 "커밋해야 하는 것" 참고)이고,
+결과를 정식 채택하려면 `pilot_qwen3_merged/`를 만들 때처럼 검토 후 사람이 `data/pilot_<이름>_merged/`로
+직접 옮겨야 한다(v2가 자동으로 정식 코퍼스에 합치지는 않음). 약한/로컬 모델은 JSON 형식이 자주 깨져서
+`question_gen_auto.py`에 3단계 복구 로직이 들어있다 — 자세한 내용과 실제 품질 수치(통과율 92~99%,
+Qwen3-14B 기준)는 [CLAUDE.md](CLAUDE.md)의 "Current state" 절 참고.
+
+아래는 v1(사람이 LLM 세션에 직접 붙여넣는 방식) 절차다 — 원본 13+6라운드가 이 방식으로 만들어졌다.
+
+`data/pilot`~`pilot13`(학습용, 13라운드)과 `data/eval_indist1`~`eval_indist6`(분포 내 평가용,
 6라운드)는 각 라운드마다 `prompts/`·`responses/`·`validation_report.json`·`template_check_report.json`
 등 중간 산출물을 포함해 폴더 전체가 약 8.1MB인데, 이 중 실제로 필요한 건 검증 통과한 (질문,SQL) 쌍뿐이다.
-그래서 (2026-09-21) 13라운드 전부를 `db/data/pilot_merged/pilot_train_pairs.json`(23,045쌍, 약 2.5MB)으로,
-6라운드 전부를 `db/data/eval_indist_merged/pilot_train_pairs.json`(5,770쌍, 약 0.65MB)으로 합쳐서
-**이 합친 파일 2개만 GitHub에 커밋**하기로 했다. 원본 19개 라운드 폴더는 `db/data_raw/`로 옮겨 로컬에는
+그래서 (2026-09-21) 13라운드 전부를 `data/pilot_merged/pilot_train_pairs.json`(23,045쌍, 약 2.5MB)으로,
+6라운드 전부를 `data/eval_indist_merged/pilot_train_pairs.json`(5,770쌍, 약 0.65MB)으로 합쳐서
+**이 합친 파일 2개만 GitHub에 커밋**하기로 했다. 원본 19개 라운드 폴더는 저장소 루트의 `data_raw/`로 옮겨 로컬에는
 그대로 두되 커밋은 안 한다(`.gitignore` 참고) — DB/SQL(1·2단계)과 달리 이 데이터는 LLM 세션 19라운드를
 다시 거쳐야만 재현되므로(아래 3-4절), 합친 파일을 커밋해두면 새로 클론한 사람이 그 과정을 반복할 필요가
 없다. `load_corpus()`/`load_train_pairs()`/`load_eval_indist_pairs()`는 `pilot*/`, `eval_indist*/`를
-글롭으로 찾으므로 `db/data_raw/`(이름이 다름)는 안 잡히고 병합 폴더만 잡힌다 — 코드 변경 없음.
+`data/` 밑에서 글롭으로 찾으므로 `data_raw/`(`data/` 밖)는 안 잡히고 병합 폴더만 잡힌다 — 코드 변경 없음.
 
 아래 3-1~3-3은 그 19라운드가 처음에 어떻게 만들어졌는지의 절차이고, 지금 다시 밟을 필요는 없다(이미
 병합해서 커밋해뒀으므로). 이후 라운드를 새로 추가하게 되면 이 절차를 그대로 따르면 된다.
@@ -112,13 +125,13 @@ python sql_gen.py test            # 결정성/홀드아웃 리터럴 미포함/�
 4. **`template-check`**: 표현이 몇 가지 틀로만 획일화되지 않았는지 진단(참고용, 통과/실패 게이트 아님).
 
 ```
-python question_gen.py make-prompts --out data/pilotN --n 200 --batch-size 25 --seed N \
+python src/data/generator/question_gen.py make-prompts --out data/pilotN --n 200 --batch-size 25 --seed N \
     --exclude-dir data_raw/pilot,data_raw/pilot2,...,data_raw/pilot13,data_raw/eval_indist1,...,data_raw/eval_indist6
 # (원본 19라운드가 data_raw/로 옮겨졌으니 exclude-dir도 그쪽을 가리켜야 함 — data/pilot_merged,
 #  data/eval_indist_merged는 pilot_sql.json이 없어서 exclude-dir로 못 씀. 위 "3. 질문 생성" 도입부 참고)
 # prompts/batch_NN.txt 각각을 독립된 LLM 세션에 전달 → 응답을 responses/batch_NN.json으로 저장
-python question_gen.py validate --out data/pilotN        # pilot_train_pairs.json 생성 + 자동 검증
-python question_gen.py template-check --out data/pilotN  # 표현 다양성 진단
+python src/data/generator/question_gen.py validate --out data/pilotN        # pilot_train_pairs.json 생성 + 자동 검증
+python src/data/generator/question_gen.py template-check --out data/pilotN  # 표현 다양성 진단
 ```
 
 ### 3-2. 프롬프트 구성 (`build_batch_prompt()`가 만드는 실제 텍스트, 3부분)
@@ -167,60 +180,64 @@ LLM 세션 응답은 결정적이지 않으므로, 이 단계는 같은 명령�
 ## 4. BPE 토크나이저 학습
 
 ```
-cd ..            # datasets/ 로 이동 (실제 git 루트는 아님 — 위 폴더 구조 참고)
-python bpe_tokenizer.py
+python -m src.tokenizer.bpe
 ```
 
-`db/data/pilot*/pilot_train_pairs.json` 전체(46,090개 질문+SQL 문자열)를 코퍼스로 병합 726개를 학습하고,
-결과를 `datasets/`의 `bpe_merges.json`에 저장한다. 이어서 전체 코퍼스 round-trip 검증과
-`db/data/holdout.json` 미등장 이름 평균 분할 토큰 수 측정까지 같은 실행에서 끝낸다. 코퍼스가 고정되어
+`data/pilot*/pilot_train_pairs.json` 전체(45,724개 질문+SQL 문자열)를 코퍼스로 병합 726개를 학습하고,
+결과를 저장소 루트의 `bpe_merges.json`에 저장한다. 이어서 전체 코퍼스 round-trip 검증과
+`data/holdout.json` 미등장 이름 평균 분할 토큰 수 측정까지 같은 실행에서 끝낸다. 코퍼스가 고정되어
 있고 동점 처리가 사전순 최솟값으로 결정적이므로, 이 단계는 실행할 때마다 완전히 동일한 `bpe_merges.json`이
 나온다.
 
 ## 5. Dataset 자체 테스트
 
 ```
-python dataset.py
+python -m src.data.dataset
 ```
 
-`bpe_merges.json`으로 학습용(23,045쌍)·분포 내 평가용(5,770쌍) 전체를 토큰화해 길이 통계를 내고,
-`collate_fn`/`DataLoader`로 배치 하나를 실제로 만들어 shape과 loss 마스크가 맞는지 확인한다. 파일을
-저장하지 않고 콘솔 출력만 낸다 — `train.py`가 이 모듈을 가져다 쓸 때 실제로 호출하는 함수들
-(`load_train_pairs`/`tokenize_pairs`/`TextToSQLDataset`/`collate_fn`)이 제대로 맞물리는지 미리 확인하는
-용도다.
+`bpe_merges.json`으로 학습용·분포 내 평가용 전체를 토큰화해 길이 통계를 내고, `collate_fn`/`DataLoader`로
+배치 하나를 실제로 만들어 shape과 loss 마스크가 맞는지 확인한다. 파일을 저장하지 않고 콘솔 출력만 낸다 —
+`train.py`가 이 모듈을 가져다 쓸 때 실제로 호출하는 함수들(`load_train_pairs`/`tokenize_pairs`/
+`TextToSQLDataset`/`collate_fn`)이 제대로 맞물리는지 미리 확인하는 용도다. (2026-09-23 데이터 정리·
+Qwen3 추가로 코퍼스가 학습 22,862쌍·평가 5,202쌍으로 바뀐 뒤, `bpe_merges.json` 재학습과 함께 이
+통계도 재계산 완료.)
 
 ## 재현 결과 확인
 
-경로는 모두 `datasets/` 기준이다.
+경로는 모두 저장소 루트 기준이다.
 
 | 파일 | 무엇을 확인하나 |
 | --- | --- |
-| `db/data/sql_gen_report.json` | SQL 구조별 할당량이 표(계획문서 5-3)와 일치하는지 |
+| `data/sql_gen_report.json` | SQL 구조별 할당량이 표(계획문서 5-3)와 일치하는지 |
 | `bpe_merges.json` | 병합 726개, `MERGE_BASE=298`부터 순서대로 |
-| `python bpe_tokenizer.py` 출력 | round-trip 실패 0건, 미등장 이름 평균 분할 토큰 수 ≈ 3.49 |
-| `python dataset.py` 출력 | 시퀀스 길이 min=23 max=64 mean=38.2, 컨텍스트 128 초과 0건, `loss_mask` 검증 통과 |
+| `python -m src.tokenizer.bpe` 출력 | round-trip 실패 0건, 미등장 이름 평균 분할 토큰 수 ≈ 3.52 |
+| `python -m src.data.dataset` 출력 | 시퀀스 길이 min=22 max=64 mean=38.3, 컨텍스트 128 초과 0건, `loss_mask` 검증 통과 |
+| `python -m pytest tests/ -v` | 전체 단위 테스트 통과 (임베딩/토크나이저/Dataset/질문 생성) |
 
 ## 커밋해야 하는 것 / 재생성 가능한 것
 
-아래 경로는 실제 git 루트(`capstone-design-1/`) 기준이다 — `git add` 등 git 명령을 쓸 때는 이 경로 그대로 쓰면 된다.
+아래 경로는 저장소 루트 기준이다 — `git add` 등 git 명령을 쓸 때는 이 경로 그대로 쓰면 된다.
 
-- **커밋**: 파이썬 코드(`datasets/db/db_gen.py`, `datasets/db/sql_gen.py`, `datasets/db/question_gen.py`,
-  `datasets/bpe_tokenizer.py`, `datasets/dataset.py`), `datasets/requirements.txt`, 계획 문서, 진행
-  보고서, 이 가이드, [function-reference.md](function-reference.md) (전부 `datasets/docs/` 아래),
-  그리고 데이터 산출물 `datasets/db/data/shop.db`, `sql_train.json`, `sql_eval_indist.json`,
-  `holdout.json`, `sql_gen_report.json`, `pilot_merged/pilot_train_pairs.json`(23,045쌍),
-  `eval_indist_merged/pilot_train_pairs.json`(5,770쌍) — 전부 1.5MB(DB/SQL) + 3.3MB(질문 쌍) 수준으로
+- **커밋**: 파이썬 코드(`src/` 전체 — `src/data/generator/*.py`, `src/tokenizer/bpe.py`,
+  `src/data/dataset.py`, `src/models/*.py` — 와 `tests/*.py`), `requirements.txt`, 계획 문서, 진행 보고서,
+  이 가이드, [function-reference.md](function-reference.md) (전부 `docs/` 아래), 그리고 데이터 산출물
+  `data/shop.db`, `sql_train.json`, `sql_eval_indist.json`, `holdout.json`,
+  `sql_gen_report.json`, `pilot_merged/pilot_train_pairs.json`(21,095쌍),
+  `pilot_qwen3_merged/pilot_train_pairs.json`(1,767쌍, Qwen3-14B 파일럿분 — 2026-09-23 추가),
+  `eval_indist_merged/pilot_train_pairs.json`(5,202쌍) — 전부 1.5MB(DB/SQL) + 3MB 안팎(질문 쌍) 수준으로
   가볍고, DB/SQL은 시드 고정으로 바이트 단위까지, 질문 쌍은 이미 검증 통과한 최종 결과물이라 커밋해두면
-  다른 사람이 4단계(토크나이저)까지 스크립트 실행만으로 바로 재현할 수 있다
-- **커밋 안 함**: `.venv/`(로컬 가상환경, `requirements.txt`로 재현), `datasets/db/data_raw/`(3절 참고 —
-  19라운드 원본, prompts/responses/report 포함 약 8.1MB — 이미 검증 통과분만 병합해서 커밋했으므로
-  다시 볼 일이 없는 중간 산출물), `bpe_merges.json`(코드+시드로 재현되는 학습 산출물). `.gitignore`가
-  이 경로들을 이미 제외하도록 돼 있다
+  다른 사람이 4단계(토크나이저)까지 스크립트 실행만으로 바로 재현할 수 있다. (원래 23,045/5,770쌍이었으나
+  동어반복형·라벨 충돌 정리로 줄고 Qwen3 데이터가 더해졌다 — 경위는 진행보고서 2026-09-23 항목 참고)
+- **커밋 안 함**: `.venv/`(로컬 가상환경, `requirements.txt`로 재현), `data_raw/`(3절 참고 —
+  19라운드 원본 + `question_gen_auto.py`가 기본으로 쓰는 실험 출력 폴더들, prompts/responses/report
+  포함 — 이미 검증 통과분만 병합해서 커밋했으므로 다시 볼 일이 없는 중간 산출물),
+  `qwen3_14b_test/`(Qwen3-14B 파일럿 테스트용 임시 폴더, 정식 채택 전까지), `bpe_merges.json`
+  (코드+시드로 재현되는 학습 산출물). `.gitignore`가 이 경로들을 이미 제외하도록 돼 있다
 
 ### `bpe_merges.json`만 로컬에서 한 번 더 돌려야 한다
 
 3-1~3-3의 원본 LLM 세션 19라운드(prompts/responses)는 커밋하지 않지만, 그 결과물(검증 통과한 질문 쌍)은
 `pilot_merged`/`eval_indist_merged`로 커밋해뒀으므로, 이 저장소를 새로 클론한 사람은 1~3단계까지는 바로
-재현된 상태로 받는다. 남은 건 `bpe_merges.json`(4절)뿐인데, 이건 `python bpe_tokenizer.py` 한 번이면
+재현된 상태로 받는다. 남은 건 `bpe_merges.json`(4절)뿐인데, 이건 `python -m src.tokenizer.bpe` 한 번이면
 코드+고정 코퍼스+결정적 동점 처리로 항상 바이트 단위까지 똑같이 재현되므로, LLM 세션을 다시 거칠 필요
 없이 스크립트 실행 한 번으로 끝난다.

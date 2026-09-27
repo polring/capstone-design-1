@@ -10,14 +10,19 @@ SQL 정답은 이미 sql_gen.py 가 정했다. LLM은 그 SQL에 맞는 자연�
 (CLAUDE.md 스크래치 원칙: LLM은 SQL 정답을 만들거나 수정하지 않는다).
 
 사용법
-    python question_gen.py make-prompts --out data/pilot --n 200 --batch-size 25 --seed 0
+    python src/data/generator/question_gen.py make-prompts --out data/pilot --n 200 --batch-size 25 --seed 0
         data/pilot/prompts/batch_XX.txt          LLM에 붙여넣을 프롬프트
         data/pilot/pilot_sql.json                배치별 SQL과 메타데이터 (검증용)
+
+    python src/data/generator/question_gen.py make-prompts-small --out data/pilot_small --n 200 --seed 0
+        make-prompts와 동일하지만 14B급 이하 약한 모델용 프롬프트를 만든다:
+        배치 크기가 작고(기본 8, --batch-size로 조절), 규칙을 더 구체적으로 풀어 쓰고,
+        5문장의 말투 슬롯을 명시적으로 지정하고, few-shot 예시를 포함한다.
 
     (사람이 각 batch_XX.txt 를 LLM에 붙여넣고, 응답 JSON을
      data/pilot/responses/batch_XX.json 으로 저장)
 
-    python question_gen.py validate --out data/pilot
+    python src/data/generator/question_gen.py validate --out data/pilot
         data/pilot/pilot_train_pairs.json        검증 통과한 (질문, SQL) 쌍
         data/pilot/validation_report.json        통과율 · 실패 사유 · 수동 확인용 flag
 """
@@ -94,6 +99,11 @@ Rules (all must hold for every question):
 9. never write a raw sql column name with an underscore (item_id, order_id, customer_id, item_name) in the
    question text. use natural words instead -- "item id" (with a space) or just "item"/"order"/"customer",
    never the literal snake_case identifier.
+10. if select and where_col are the SAME column, the sql's answer already equals a value stated in the
+    question -- do NOT write a redundant "what is X of the thing whose X is <value>" question (e.g. never
+    "what price is the item priced 97.56?"). Instead phrase all 5 as an existence/confirmation check, e.g.
+    "is there an item priced at 97.56?", "confirm the item priced 97.56 exists", "check if a customer with
+    id 1653 exists", "does an order with id 5432 exist".
 
 Return ONLY a JSON array, no commentary, no markdown code fences, in exactly this shape:
 [
@@ -127,8 +137,96 @@ def build_batch_prompt(batch: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def make_prompts(out_dir: str, train_path: str, n: int, batch_size: int, seed: int,
-                  exclude_dirs: list[str] | None = None) -> None:
+QUESTION_STYLE_SLOTS = [
+    "casual/conversational style",
+    "formal, complete-sentence style",
+    "terse keyword-only style (no full sentence, just the key words)",
+    'a direct command ("show me...", "give me...", "look up...")',
+    'a "how many / what / which / is there" question',
+    "a very short, telegraphic style (fewest words possible)",
+    'an informal style like a text message to a coworker (may drop "the"/"a")',
+    'a polite request style ("would you mind...", "could you possibly...")',
+]
+
+
+EXAMPLE_QUESTIONS_BY_SLOT = [
+    "yo what city is customer 1042 from",
+    "could you please tell me which city customer id 1042 lives in?",
+    "customer 1042 city",
+    "look up the city for customer id 1042.",
+    "which city is customer 1042 in?",
+    "1042 city?",
+    "customer 1042 city pls",
+    "would you mind telling me the city for customer id 1042?",
+]
+
+
+def small_model_rules_blurb(n_questions: int = 5) -> str:
+    if n_questions > len(QUESTION_STYLE_SLOTS):
+        raise ValueError(f"n_questions={n_questions}는 정의된 말투 슬롯({len(QUESTION_STYLE_SLOTS)}개)보다 많음")
+    slots = "\n".join(f"{i}. {s}" for i, s in enumerate(QUESTION_STYLE_SLOTS[:n_questions], start=1))
+    example_lines = ",\n    ".join(f'"{q}"' for q in EXAMPLE_QUESTIONS_BY_SLOT[:n_questions])
+    return f"""\
+For EACH sql below, write {n_questions} different english questions that a person could ask to get exactly
+that sql as the answer.
+
+Write ONE question for EACH of these {n_questions} slots below, in this exact order. Do not skip a slot or
+repeat a style.
+{slots}
+
+Rules (all must hold for EVERY question):
+1. all lowercase. no capital letters anywhere.
+2. the question MUST contain the where-value EXACTLY as given, character for character.
+   example: value "marilyn" -> the word "marilyn" must appear. value 1864 -> the digits "1864" must appear.
+3. never replace an item/category word with a different word. write it exactly as given.
+   wrong: value is "laptop" but question says "computer". wrong: value is "sneakers" but question says "shoes".
+4. always write numbers as digits, never spelled out. wrong: "twenty". right: "20".
+5. only use facts from THIS one sql line. never assume information from another table.
+6. if select is "stock": ask about inventory / units left. if select is "quantity": ask about how many units
+   were ordered. these are two different columns -- do not mix them up.
+7. if select is "*": ask a general "tell me about" / "show me everything about" question. do not name one
+   specific column (not "what is the price of...", just "tell me about...").
+8. never write a column name with an underscore (item_id, order_id, customer_id, item_name) in the question.
+   write it as separate natural words instead: "item id", "order", "customer", "item".
+9. if select and where_col are the SAME column: do NOT ask "what is x of the thing whose x is <value>".
+   instead write an existence-check question: "is there...", "confirm...", "check if...", "does... exist".
+
+Worked example (a DIFFERENT sql, only to show the exact output shape -- do not reuse these words):
+sql: SELECT city FROM customers WHERE customer_id = 1042
+[
+  {{"id": 999, "questions": [
+    {example_lines}
+  ]}}
+]
+
+Return ONLY a JSON array in exactly the shape shown above, one object per sql below. Nothing else.
+- do not add ```json or ``` code fences.
+- do not add any explanation, note, or text before or after the JSON array.
+- do not wrap the array in another object.
+"""
+
+
+def build_small_model_batch_prompt(batch: list[dict], n_questions: int = 5) -> str:
+    """build_batch_prompt()와 같은 정보를 담되, 14B급 이하 모델을 겨냥해 규칙을 더 구체적으로 풀어
+    쓰고, n_questions개 문장의 각 말투 슬롯을 명시적으로 지정하고, few-shot 예시 1개를 포함한 프롬프트."""
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import sql_gen
+
+    lines = [SCHEMA_BLURB, "", small_model_rules_blurb(n_questions), "", "sql list:"]
+    for item in batch:
+        e = item["entry"]
+        coltype = sql_gen.COLUMN_TYPES[(e["table"], e["where_col"])]
+        lit = format_literal_for_prompt(e["where_val"], coltype)
+        lines.append(
+            f'- id={item["id"]} | sql: {e["sql"]} | select={e["select"]} | '
+            f'where_col={e["where_col"]} | where_value={lit} | exists={not e["is_nonexistent"]}'
+        )
+    return "\n".join(lines)
+
+
+def _make_prompts_impl(out_dir: str, train_path: str, n: int, batch_size: int, seed: int,
+                        exclude_dirs: list[str] | None, prompt_builder, log_prefix: str = "") -> None:
     with open(train_path, encoding="utf-8") as f:
         entries = json.load(f)
 
@@ -150,7 +248,7 @@ def make_prompts(out_dir: str, train_path: str, n: int, batch_size: int, seed: i
 
     batches = [items[i:i + batch_size] for i in range(0, len(items), batch_size)]
     for bi, batch in enumerate(batches, start=1):
-        prompt = build_batch_prompt(batch)
+        prompt = prompt_builder(batch)
         path = os.path.join(out_dir, "prompts", f"batch_{bi:02d}.txt")
         with open(path, "w", encoding="utf-8") as f:
             f.write(prompt)
@@ -159,10 +257,30 @@ def make_prompts(out_dir: str, train_path: str, n: int, batch_size: int, seed: i
     with open(os.path.join(out_dir, "pilot_sql.json"), "w", encoding="utf-8") as f:
         json.dump(pilot_sql, f, ensure_ascii=False, indent=2)
 
-    print(f"SQL {len(items)}개 -> {len(batches)}개 배치")
+    print(f"{log_prefix}SQL {len(items)}개 -> {len(batches)}개 배치 (배치 크기 {batch_size})")
     print(f"프롬프트: {os.path.join(out_dir, 'prompts')}/batch_01.txt ~ batch_{len(batches):02d}.txt")
     print(f"응답을 저장할 위치: {os.path.join(out_dir, 'responses')}/batch_01.json ~ batch_{len(batches):02d}.json")
     print(f"메타데이터: {os.path.join(out_dir, 'pilot_sql.json')}")
+
+
+def make_prompts(out_dir: str, train_path: str, n: int, batch_size: int, seed: int,
+                  exclude_dirs: list[str] | None = None) -> None:
+    _make_prompts_impl(out_dir, train_path, n, batch_size, seed, exclude_dirs, build_batch_prompt)
+
+
+def make_prompts_small_model(out_dir: str, train_path: str, n: int, batch_size: int, seed: int,
+                              exclude_dirs: list[str] | None = None, n_questions: int = 5) -> None:
+    """14B급 이하 약한 모델용. make_prompts()와의 차이:
+    - 배치 크기를 작게(기본 8) 잡아 한 프롬프트가 다뤄야 할 SQL 개수를 줄인다 -- 배치가 커질수록
+      표현이 "무난한 패턴"으로 수렴하는 문제가 약한 모델에서 더 빨리, 더 심하게 나타나기 때문이다.
+    - small_model_rules_blurb(더 구체적인 규칙 설명 + n_questions개 문장 슬롯 명시 + few-shot 예시)를 쓴다.
+    - n_questions로 SQL 하나당 요구하는 질문 개수를 조절할 수 있다(기본 5, QUESTION_STYLE_SLOTS 길이인
+      8까지 가능).
+    """
+    import functools
+    builder = functools.partial(build_small_model_batch_prompt, n_questions=n_questions)
+    _make_prompts_impl(out_dir, train_path, n, batch_size, seed, exclude_dirs, builder,
+                        log_prefix=f"[작은 모델용, {n_questions}문장] ")
 
 
 # ---------------------------------------------------------------------------
@@ -182,12 +300,39 @@ KNOWN_SYNONYM_SWAPS = {
 }
 
 
+def _isolated_number_match(q: str, lit: str) -> bool:
+    """숫자 리터럴이 더 긴 숫자(정수부가 늘어나거나 소수부가 이어지는 경우) 안에
+    파묻혀 우연히 매치되는 것만 막는다. 문장을 끝내는 마침표처럼 뒤에 숫자가
+    더 없는 '.'는 정상 통과시킨다 (예: 목표값 97.56이 "...97.56." 끝에 와도 통과,
+    197.56 안에 파묻히거나 97.567 처럼 소수부가 더 이어지면 차단)."""
+    for m in re.finditer(re.escape(lit), q):
+        start, end = m.start(), m.end()
+        before_ok = not (start > 0 and (
+            q[start - 1].isdigit()
+            or (q[start - 1] == "." and start >= 2 and q[start - 2].isdigit())
+        ))
+        after_ok = not (end < len(q) and (
+            q[end].isdigit()
+            or (q[end] == "." and end + 1 < len(q) and q[end + 1].isdigit())
+        ))
+        if before_ok and after_ok:
+            return True
+    return False
+
+
 def literal_in_question(q: str, where_val, coltype: str) -> bool:
     if coltype == "text":
-        return str(where_val).lower() in q
+        # 뒤에 자연스러운 복수형 어미('s, es, s)가 붙는 것은 허용하되 (예: colander -> colanders),
+        # 완전히 다른 단어 안에 파묻히는 것(예: ana가 anastasia 안에 들어있는 경우)은 \b로 차단한다.
+        lit = re.escape(str(where_val).lower())
+        return re.search(rf"\b{lit}(?:'?s|es)?\b", q) is not None
     if coltype == "float":
-        return f"{where_val:.2f}" in q or f"{where_val:.2f}".rstrip("0").rstrip(".") in q
-    return str(where_val) in q
+        full = f"{where_val:.2f}"
+        if _isolated_number_match(q, full):
+            return True
+        stripped = full.rstrip("0").rstrip(".")
+        return bool(stripped and stripped != full and _isolated_number_match(q, stripped))
+    return _isolated_number_match(q, str(where_val))
 
 
 def check_question(q: str, entry: dict) -> list[str]:
@@ -224,7 +369,45 @@ def soft_flags(q: str, entry: dict) -> list[str]:
     if entry["where_col"] == "quantity" or entry["select"] == "quantity":
         if "stock" in q:
             flags.append("quantity 질문인데 stock 언급 (혼동 의심)")
+    if entry["select"] == entry["where_col"]:
+        existence_markers = ("is there", "exist", "confirm", "verify", "check")
+        if not any(m in q for m in existence_markers):
+            flags.append("select==where_col인데 존재확인/검증 형태가 아님 (동어반복형 의심, 규칙 10 위반)")
     return flags
+
+
+def _normalize_for_dup(q: str) -> str:
+    """중복 판정용 정규화: 문장부호 제거 + 공백 정리. 완전 동일 문장뿐 아니라
+    문장부호만 다른 사실상 동일 문장도 같은 키로 묶는다."""
+    return re.sub(r"\s+", " ", re.sub(r"[^\w\s]", "", q)).strip()
+
+
+def find_intra_group_duplicates(qs: list[str]) -> set[int]:
+    """같은 id(=같은 SQL)의 5문장 안에서, 먼저 나온 문장과 사실상 동일한
+    (정규화 후 일치) 문장의 인덱스를 반환한다 (규칙 6: 5문장은 서로 달라야 함).
+    첫 등장은 정상으로 두고, 재등장한 것만 실패 처리한다."""
+    seen: set[str] = set()
+    dup_idx: set[int] = set()
+    for i, q in enumerate(qs):
+        norm = _normalize_for_dup(q)
+        if norm in seen:
+            dup_idx.add(i)
+        else:
+            seen.add(norm)
+    return dup_idx
+
+
+def find_cross_sql_question_conflicts(pairs: list[dict]) -> list[dict]:
+    """전체 코퍼스에서 동일한 질문 문자열이 서로 다른 SQL에 매핑된 경우를 찾는다.
+    같은 입력(질문)에 다른 정답(SQL)이 붙는 것은 라벨 충돌이라 학습에 해롭다."""
+    by_question: dict[str, set[str]] = {}
+    for p in pairs:
+        by_question.setdefault(p["question"], set()).add(p["sql"])
+    conflicts = []
+    for q, sqls in by_question.items():
+        if len(sqls) > 1:
+            conflicts.append({"question": q, "conflicting_sqls": sorted(sqls)})
+    return conflicts
 
 
 def _load_pilot_sql(out_dir: str) -> dict[int, dict]:
@@ -245,12 +428,23 @@ def _load_responses(out_dir: str) -> tuple[dict[int, list[str]], list[str]]:
             except json.JSONDecodeError as e:
                 missing_files.append(f"{fname}: JSON 파싱 실패 ({e})")
                 continue
+        if not isinstance(batch, list):
+            missing_files.append(f"{fname}: 응답이 JSON 배열이 아님 ({type(batch).__name__})")
+            continue
         for item in batch:
-            responses[int(item["id"])] = item["questions"]
+            try:
+                qid = int(item["id"])
+                qs = item["questions"]
+            except (KeyError, TypeError, ValueError) as e:
+                missing_files.append(f"{fname}: 항목 형식 오류 ({e}) - {item!r}")
+                continue
+            if qid in responses:
+                missing_files.append(f"{fname}: id {qid} 중복 등장 (이전 응답을 덮어씀)")
+            responses[qid] = qs
     return responses, missing_files
 
 
-def validate(out_dir: str) -> dict:
+def validate(out_dir: str, expected_questions: int = 5) -> dict:
     pilot_sql = _load_pilot_sql(out_dir)
     responses, missing_files = _load_responses(out_dir)
 
@@ -264,12 +458,15 @@ def validate(out_dir: str) -> dict:
         if qs is None:
             failures.append({"id": qid, "sql": entry["sql"], "question": None, "reasons": ["응답 없음"]})
             continue
-        if len(qs) != 5:
+        if len(qs) != expected_questions:
             failures.append({"id": qid, "sql": entry["sql"], "question": None,
-                              "reasons": [f"질문 5개가 아니라 {len(qs)}개"]})
-        for q in qs:
+                              "reasons": [f"질문 {expected_questions}개가 아니라 {len(qs)}개"]})
+        dup_idx = find_intra_group_duplicates(qs)
+        for i, q in enumerate(qs):
             total_q += 1
             fails = check_question(q, entry)
+            if i in dup_idx:
+                fails = fails + ["같은 id 내 중복/사실상 동일 질문 (규칙6 위반)"]
             if fails:
                 failures.append({"id": qid, "sql": entry["sql"], "question": q, "reasons": fails})
             else:
@@ -385,24 +582,83 @@ def template_check(out_dir: str, threshold: float = 0.3) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# 5. 전역 코퍼스 검사 (라운드를 넘나드는 충돌 탐지)
+# ---------------------------------------------------------------------------
+
+def load_all_merged_pairs(data_dir: str) -> list[dict]:
+    """지금까지 merge된 모든 라운드(pilot*, eval_indist*)의 (질문, SQL) 쌍을 합쳐서 반환.
+    dataset.py의 load_train_pairs/load_eval_indist_pairs와 같은 glob 규칙을 쓴다."""
+    import glob
+    pairs: list[dict] = []
+    for pattern in ("pilot*/pilot_train_pairs.json", "eval_indist*/pilot_train_pairs.json"):
+        for pf in sorted(glob.glob(os.path.join(data_dir, pattern))):
+            with open(pf, encoding="utf-8") as f:
+                pairs.extend(json.load(f))
+    return pairs
+
+
+def corpus_check(data_dir: str) -> dict:
+    pairs = load_all_merged_pairs(data_dir)
+    conflicts = find_cross_sql_question_conflicts(pairs)
+    report = {
+        "n_pairs_checked": len(pairs),
+        "n_conflicting_questions": len(conflicts),
+        "conflicts": conflicts,
+    }
+    out_path = os.path.join(data_dir, "corpus_check_report.json")
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(report, f, ensure_ascii=False, indent=2)
+    return report
+
+
+# ---------------------------------------------------------------------------
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="1단계 LLM 질문 생성 파이프라인 (수동 호출)")
-    ap.add_argument("command", choices=["make-prompts", "validate", "template-check"])
+    ap.add_argument("command", choices=["make-prompts", "make-prompts-small", "validate",
+                                         "template-check", "corpus-check"])
     ap.add_argument("--out", default="data/pilot")
     ap.add_argument("--train", default="data/sql_train.json")
     ap.add_argument("--n", type=int, default=200)
-    ap.add_argument("--batch-size", type=int, default=25)
+    ap.add_argument("--batch-size", type=int, default=None,
+                     help="한 프롬프트에 담을 SQL 개수 (기본값: make-prompts=25, make-prompts-small=8)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--exclude-dir", default=None,
                      help="이 디렉터리들의 pilot_sql.json에 있는 SQL은 샘플링 후보에서 제외 (쉼표로 여러 개 지정 가능)")
     ap.add_argument("--threshold", type=float, default=0.3,
                      help="template-check: 이 비율 이상 틀이 재사용되면 그 (select,where_col) 조합을 flag")
+    ap.add_argument("--data-dir", default="data",
+                     help="corpus-check: pilot*/eval_indist* 병합 결과가 있는 상위 디렉터리")
+    ap.add_argument("--questions-per-sql", type=int, default=5,
+                     help="make-prompts-small: SQL 하나당 요구할 질문 개수 (기본 5, 최대 %d)"
+                          % len(QUESTION_STYLE_SLOTS))
+    ap.add_argument("--expected-questions", type=int, default=5,
+                     help="validate: 항목당 기대하는 질문 개수 (make-prompts-small을 --questions-per-sql로 "
+                          "다르게 만들었다면 여기도 맞춰줘야 함)")
     args = ap.parse_args()
+
+    if args.command == "corpus-check":
+        report = corpus_check(args.data_dir)
+        print(f"전체 병합 쌍 {report['n_pairs_checked']}개 검사")
+        print(f"동일 질문이 서로 다른 SQL에 매핑된 충돌: {report['n_conflicting_questions']}건")
+        for c in report["conflicts"][:10]:
+            print(f"  질문: {c['question']!r}")
+            for s in c["conflicting_sqls"]:
+                print(f"    -> {s}")
+        print(f"저장: {os.path.join(args.data_dir, 'corpus_check_report.json')}")
+        return 0
 
     if args.command == "make-prompts":
         exclude_dirs = args.exclude_dir.split(",") if args.exclude_dir else None
-        make_prompts(args.out, args.train, args.n, args.batch_size, args.seed, exclude_dirs)
+        batch_size = args.batch_size if args.batch_size is not None else 25
+        make_prompts(args.out, args.train, args.n, batch_size, args.seed, exclude_dirs)
+        return 0
+
+    if args.command == "make-prompts-small":
+        exclude_dirs = args.exclude_dir.split(",") if args.exclude_dir else None
+        batch_size = args.batch_size if args.batch_size is not None else 8
+        make_prompts_small_model(args.out, args.train, args.n, batch_size, args.seed, exclude_dirs,
+                                  n_questions=args.questions_per_sql)
         return 0
 
     if args.command == "template-check":
@@ -416,7 +672,7 @@ def main() -> int:
         print(f"저장: {os.path.join(args.out, 'template_check_report.json')}")
         return 0
 
-    report = validate(args.out)
+    report = validate(args.out, expected_questions=args.expected_questions)
     print(f"질문 {report['n_questions_seen']}개 중 {report['n_passed']}개 통과 "
           f"(통과율 {report['pass_rate']:.1%}, 목표 90%)")
     print(f"실패 {report['n_failures']}건, 응답 파일 누락 {report['n_missing_response_files']}건, "
