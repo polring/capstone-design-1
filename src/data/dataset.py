@@ -5,6 +5,7 @@ from pathlib import Path
 import torch
 from torch.utils.data import Dataset
 
+from src.config import SEQ_LEN, BATCH_SIZE, DATA_DIR, BPE_MERGES_PATH
 from src.tokenizer import bpe
 
 BOS_ID = bpe.SPECIAL_BASE + bpe.SPECIAL_TOKENS.index("<bos>")
@@ -22,10 +23,10 @@ def load_pairs(data_dir: str | Path, glob: str) -> list[Pair]:
             pairs.extend(json.load(f))
     return pairs
 
-def load_train_pairs(data_dir: str | Path = "data") -> list[Pair]:
+def load_train_pairs(data_dir: str | Path = DATA_DIR) -> list[Pair]:
     return load_pairs(data_dir, "pilot*/pilot_train_pairs.json")
 
-def load_eval_indist_pairs(data_dir: str | Path = "data") -> list[Pair]:
+def load_eval_indist_pairs(data_dir: str | Path = DATA_DIR) -> list[Pair]:
     return load_pairs(data_dir, "eval_indist*/pilot_train_pairs.json")
 
 def encode_pair(question: str, sql: str, merges: list[bpe.Merge]) -> list[int]:
@@ -72,7 +73,7 @@ def collate_fn(batch: list[Example]) -> dict[str, torch.Tensor]:
     return {"input_ids": input_ids, "target_ids": target_ids, "loss_mask": loss_mask}
 
 if __name__ == "__main__":
-    merges = bpe.load_merges("bpe_merges.json")
+    merges = bpe.load_merges(BPE_MERGES_PATH)
 
     train_pairs = load_train_pairs()
     eval_pairs = load_eval_indist_pairs()
@@ -88,7 +89,7 @@ if __name__ == "__main__":
           f"min={lengths[0]} max={lengths[-1]} mean={sum(lengths) / n:.1f} "
           f"p50={lengths[n // 2]} p99={lengths[int(n * 0.99)]}")
 
-    context_len = 128
+    context_len = SEQ_LEN
     over = sum(1 for L in lengths if L > context_len)
     print(f"sequences exceeding context length {context_len}: {over} / {n} ({over / n:.2%})")
 
@@ -118,7 +119,7 @@ if __name__ == "__main__":
     print(f"loss_mask true-count matches expected SQL+<eos> length for every row: {ok}")
 
     from torch.utils.data import DataLoader
-    loader = DataLoader(TextToSQLDataset(train_examples), batch_size=32, shuffle=True, collate_fn=collate_fn)
+    loader = DataLoader(TextToSQLDataset(train_examples), batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_fn)
     real_batch = next(iter(loader))
-    print(f"DataLoader batch (bs=32, shuffled): input_ids={tuple(real_batch['input_ids'].shape)} "
+    print(f"DataLoader batch (bs={BATCH_SIZE}, shuffled): input_ids={tuple(real_batch['input_ids'].shape)} "
           f"(max length in this random batch, vs. fixed context {context_len})")
