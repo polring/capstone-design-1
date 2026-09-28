@@ -1,4 +1,5 @@
 
+import pytest
 import torch
 import sys
 import os
@@ -9,6 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.config import VOCAB_SIZE, HIDDEN_DIM, SEQ_LEN, NUM_HEADS, HEAD_DIM
 from src.models.embedding import TokenEmbedding, precompute_freqs_cis, apply_rotary_emb
 
+@pytest.mark.unit
 def test_token_embedding():
     batch_size = 4
     seq_len = 128
@@ -18,7 +20,8 @@ def test_token_embedding():
     x_emb = token_emb(x)
     
     assert x_emb.shape == (batch_size, seq_len, HIDDEN_DIM), "Token Embedding 차원 오류!"
-
+    
+@pytest.mark.unit
 def test_rope_shape():
     batch_size = 4
     seq_len = 128
@@ -33,7 +36,8 @@ def test_rope_shape():
     
     assert xq_rot.shape == (batch_size, seq_len, NUM_HEADS, HEAD_DIM), "RoPE 변환 후 Query 차원 오류!"
     assert xk_rot.shape == (batch_size, seq_len, NUM_HEADS, HEAD_DIM), "RoPE 변환 후 Key 차원 오류!"
-
+    
+@pytest.mark.unit
 def test_rope_norm_preservation():
     # 벡터 길이(Norm) 보존 검증: 회전에 의해서는 벡터의 길이가 변하지 않아야 함
     batch_size = 2
@@ -54,7 +58,8 @@ def test_rope_norm_preservation():
     norm_xk_after = torch.linalg.norm(xk_rot, dim=-1)
     
     assert torch.allclose(norm_xk_before, norm_xk_after, atol=1e-5), "Key 벡터 Norm이 보존되지 않습니다."
-
+    
+@pytest.mark.unit
 def test_rope_rotation_angle():
     # 회전 각도 검증: 상대 거리가 동일한 두 토큰(벡터) 쌍의 내적(Attention Score) 값이 같아야 함
     batch_size = 1
