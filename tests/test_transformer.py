@@ -112,9 +112,18 @@ def test_transformer_decoder_block_forward_and_backward(use_swiglu):
         dim=C, num_heads=NUM_HEADS, hidden_dim=HIDDEN_DIM
     )
     x = torch.randn(B, T, C, requires_grad=True)
+    # 테스트용 freqs_cis 생성
+    head_dim = C // NUM_HEADS
+    
+    #RoPE 주파수 계산
+    freqs = 1.0 / (10000.0 ** (torch.arange(0, head_dim, 2).float() / head_dim))
+    t = torch.arange(T, dtype=torch.float32)
+    freqs = torch.outer(t, freqs)
+    freqs_cis = torch.polar(torch.ones_like(freqs), freqs).to(x.device)
+    
 
     # 1. Forward Pass
-    out = block(x)
+    out = block(x,freqs_cis)
     assert out.shape == (B, T, C), "Decoder Block output shape mismatch"
 
     # 2. Loss & Backward Pass
