@@ -22,3 +22,6 @@ __pycache__/
 data_raw/
 data/**/data_raw/
 bpe_merges.json
+
+# Local compiled binaries
+*.exe
