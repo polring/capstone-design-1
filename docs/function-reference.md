@@ -1,25 +1,29 @@
 # 함수 레퍼런스
 
-`db/db_gen.py`, `db/sql_gen.py`, `db/question_gen.py`, `bpe_tokenizer.py`, `dataset.py` 5개 파일의 함수를
-정리한 것. 파일마다 먼저 **실행 순서**(어떤 명령을 돌리면 함수들이 어떤 순서로 호출되는지)를 보여주고,
-그다음 **함수별 입력/처리/출력**을 정리한다. "왜 이렇게 설계했는가"는 여기 없다 — 그건
-[CLAUDE.md](CLAUDE.md)와 [text-to-sql-llm-project-plan.md](text-to-sql-llm-project-plan.md)에 있다.
+`src/data/generator/`의 `db_gen.py`, `sql_gen.py`, `question_gen.py`, `question_gen_auto.py`와
+`src/tokenizer/bpe.py`, `src/data/dataset.py` 6개 파일의 함수를 정리한 것. 모든 명령은 저장소 루트에서 실행한다. 파일마다 먼저 **실행 순서**(어떤 명령을 돌리면 함수들이 어떤
+순서로 호출되는지)를 보여주고, 그다음 **함수별 입력/처리/출력**을 정리한다. "왜 이렇게 설계했는가"는
+여기 없다 — 그건 [CLAUDE.md](CLAUDE.md)와
+[text-to-sql-llm-project-plan.md](text-to-sql-llm-project-plan.md)에 있다.
 
 ## 전체 파이프라인 순서 (파일 간)
 
 ```
-1. db/db_gen.py        build   →  data/shop.db, data/holdout.json
-2. db/sql_gen.py        build   →  data/sql_train.json, data/sql_eval_indist.json
-3. db/question_gen.py   make-prompts → (사람이 LLM에 붙여넣음) → validate
+1. src/data/generator/db_gen.py        build   →  data/shop.db, data/holdout.json
+2. src/data/generator/sql_gen.py       build   →  data/sql_train.json, data/sql_eval_indist.json
+3. src/data/generator/question_gen.py  make-prompts → (사람이 LLM에 붙여넣음) → validate
                          ── 13+6라운드 반복 ──→ data/pilot*/, data/eval_indist*/ 의 pilot_train_pairs.json
-4. bpe_tokenizer.py      (직접 실행)  →  bpe_merges.json
-5. dataset.py             1~4의 산출물을 읽어 토큰화·배치 생성 (아직 직접 실행 스크립트가 아니라
+   또는 src/data/generator/question_gen_auto.py  → 로컬 Ollama 모델을 직접 호출해 3을 사람 개입 없이 한 번에 끝냄
+                         (question_gen.py의 샘플링/프롬프트/검증 함수를 그대로 재사용, 모델 호출과
+                         JSON 복구만 새로 추가)
+4. src/tokenizer/bpe.py  (python -m src.tokenizer.bpe)  →  bpe_merges.json
+5. src/data/dataset.py    1~4의 산출물을 읽어 토큰화·배치 생성 (아직 직접 실행 스크립트가 아니라
                           train.py가 가져다 쓸 모듈)
 ```
 
 ---
 
-## `db/db_gen.py` — DB 생성기
+## `src/data/generator/db_gen.py` — DB 생성기
 
 ### 실행 순서
 
@@ -125,7 +129,7 @@
 
 ---
 
-## `db/sql_gen.py` — SQL 생성기
+## `src/data/generator/sql_gen.py` — SQL 생성기
 
 ### 실행 순서
 
@@ -220,16 +224,18 @@
 
 ---
 
-## `db/question_gen.py` — LLM 질문 생성 파이프라인
+## `src/data/generator/question_gen.py` — LLM 질문 생성 파이프라인
 
 ### 실행 순서
 
 | 명령 | 호출 순서 |
 |---|---|
-| `make-prompts` | `main` → `make_prompts`(내부에서 `stratified_sample` → 배치마다 `build_batch_prompt`[내부에서 `format_literal_for_prompt`] → `prompts/*.txt`, `pilot_sql.json` 저장) |
-| (사람이 LLM에 프롬프트를 붙여넣고 `responses/*.json` 저장) | — |
-| `validate` | `main` → `validate`(내부에서 `_load_pilot_sql` → `_load_responses` → 질문마다 `check_question`[내부에서 `literal_in_question`] → 통과분에 `soft_flags` → `pilot_train_pairs.json`, `validation_report.json` 저장) |
+| `make-prompts` | `main` → `make_prompts` → `_make_prompts_impl`(내부에서 `stratified_sample` → 배치마다 `build_batch_prompt`[내부에서 `format_literal_for_prompt`] → `prompts/*.txt`, `pilot_sql.json` 저장) |
+| `make-prompts-small` (2026-09-23 추가, 약한/로컬 모델용) | `main` → `make_prompts_small_model` → `_make_prompts_impl`(`build_batch_prompt` 대신 `build_small_model_batch_prompt`[내부에서 `small_model_rules_blurb`] 사용, 배치 크기 기본값이 더 작음) |
+| (사람이 LLM에 프롬프트를 붙여넣고 `responses/*.json` 저장 — 또는 `question_gen_auto.py`가 이 단계를 자동화) | — |
+| `validate` | `main` → `validate`(내부에서 `_load_pilot_sql` → `_load_responses` → id별로 `find_intra_group_duplicates` → 질문마다 `check_question`[내부에서 `literal_in_question`→`_isolated_number_match`] → 통과분에 `soft_flags` → `pilot_train_pairs.json`, `validation_report.json` 저장) |
 | `template-check` | `main` → `template_check`(내부에서 `_load_pilot_sql` → `_load_responses` → 질문마다 `skeletonize` → `template_check_report.json` 저장) |
+| `corpus-check` (2026-09-23 추가) | `main` → `corpus_check`(내부에서 `load_all_merged_pairs` → `find_cross_sql_question_conflicts` → `corpus_check_report.json` 저장) — 개별 라운드가 아니라 `data/` 전체(모든 `pilot*`/`eval_indist*` 병합 파일)를 대상으로, 라운드를 넘나드는 라벨 충돌(같은 질문, 다른 SQL)을 찾음 |
 
 ### 함수
 
@@ -248,14 +254,51 @@
   - 처리: 프롬프트에 보여줄 형식으로 변환 (float→소수점 2자리)
   - 출력: 문자열
 
+- **`_make_prompts_impl(out_dir, train_path, n, batch_size, seed, exclude_dirs, prompt_builder, log_prefix="") -> None`**
+  - 입력: `make_prompts`/`make_prompts_small_model` 공통 인자 + 어느 프롬프트 빌더 함수를 쓸지(`prompt_builder`)
+  - 처리: 이전 라운드 SQL 제외 → `stratified_sample` → `batch_size`개씩 나눠 `prompt_builder(batch)` 호출
+  - 출력: 없음 — `prompts/batch_NN.txt`들과 `pilot_sql.json` 파일 저장이 결과물
+
 - **`make_prompts(out_dir, train_path, n, batch_size, seed, exclude_dirs=None) -> None`**
   - 입력: `sql_train.json` 경로, 뽑을 개수·배치 크기·이전 라운드 폴더들
-  - 처리: 이전 라운드 SQL 제외 → `stratified_sample` → `batch_size`개씩 나눠 프롬프트 생성
-  - 출력: 없음 — `prompts/batch_NN.txt`들과 `pilot_sql.json` 파일 저장이 결과물
+  - 처리: `_make_prompts_impl`을 `build_batch_prompt`로 호출 (강한 모델용, 사람이 붙여넣는 걸 전제)
+  - 출력: 없음
+
+- **`QUESTION_STYLE_SLOTS` (상수)** / **`EXAMPLE_QUESTIONS_BY_SLOT` (상수)**
+  - 각각 5~8개 말투 슬롯 설명 문자열 리스트, 그 슬롯 순서에 맞춘 few-shot 예시 질문 리스트
+  - `small_model_rules_blurb`가 `n_questions`만큼 앞에서부터 잘라 씀 (그래서 `n_questions`는 이 리스트
+    길이, 현재 8을 넘을 수 없음)
+
+- **`small_model_rules_blurb(n_questions=5) -> str`** (2026-09-23 추가)
+  - 입력: SQL 하나당 요구할 질문 개수
+  - 처리: `build_batch_prompt`의 규칙 9개보다 더 구체적으로 풀어 쓰고, `n_questions`개 말투 슬롯을
+    번호 매겨 명시하고, `EXAMPLE_QUESTIONS_BY_SLOT` 기반 few-shot 예시 1개를 포함, JSON-only 출력
+    지시를 반복 강조
+  - 출력: 프롬프트에 들어갈 규칙 텍스트
+
+- **`build_small_model_batch_prompt(batch, n_questions=5) -> str`** (2026-09-23 추가)
+  - 입력: SQL 배치, 질문 개수
+  - 처리: `SCHEMA_BLURB` + `small_model_rules_blurb(n_questions)` + SQL 목록을 이어붙임
+  - 출력: 약한/로컬 모델용 프롬프트 텍스트
+
+- **`make_prompts_small_model(out_dir, train_path, n, batch_size, seed, exclude_dirs=None, n_questions=5) -> None`** (2026-09-23 추가)
+  - 입력: `make_prompts`와 동일 + `n_questions`
+  - 처리: `_make_prompts_impl`을 `build_small_model_batch_prompt`(부분 적용, `n_questions` 고정)로 호출,
+    배치 크기 기본값이 더 작음(호출부 기준 8)
+  - 출력: 없음
+
+- **`_isolated_number_match(q, lit) -> bool`** (2026-09-23 추가)
+  - 입력: 질문 문자열, 숫자 리터럴 문자열
+  - 처리: `lit`이 질문 안에 등장하되, 앞뒤로 숫자나 `.`이 이어 붙어 더 긴 숫자의 일부가 되는 경우는
+    제외(예: 목표값 `97.56`이 `197.56` 안에 파묻히거나 `97.567`처럼 소수부가 더 이어지면 실패, 문장을
+    끝내는 마침표는 허용)
+  - 출력: `True`/`False`
 
 - **`literal_in_question(q, where_val, coltype) -> bool`**
   - 입력: 질문 문자열, 정답 리터럴·타입
-  - 처리: 리터럴이 타입에 맞는 형식으로 질문 안에 포함돼 있는지 확인
+  - 처리: 텍스트는 단어 경계(자연스러운 복수형 `s`/`'s`/`es`는 허용) 매칭, 숫자(float/int)는
+    `_isolated_number_match`로 매칭 — 원래는 단순 substring 검사였으나 2026-09-23에 경계 인식
+    방식으로 강화(숫자가 더 긴 숫자에 파묻혀 오탐 통과하는 문제 방지)
   - 출력: `True`/`False`
 
 - **`check_question(q, entry) -> list[str]`**
@@ -265,8 +308,22 @@
 
 - **`soft_flags(q, entry) -> list[str]`**
   - 입력: 질문, 메타데이터
-  - 처리: stock/quantity 혼동 의심 표현 확인
+  - 처리: stock/quantity 혼동 의심 표현 확인 + (2026-09-23 추가) `select == where_col`인데 존재확인/
+    검증 프레이밍("is there"/"exist"/"confirm"/"verify"/"check")이 아니면 규칙10 위반으로 표시
+    (동어반복형 의심)
   - 출력: 경고 문자열 리스트 (하드 실패 아님)
+
+- **`find_intra_group_duplicates(qs) -> set[int]`** (2026-09-23 추가)
+  - 입력: 같은 SQL(id)에 달린 질문 리스트
+  - 처리: 문장부호를 지우고 정규화한 뒤, 먼저 나온 문장과 사실상 동일한(완전 동일 포함) 재등장 문장의
+    인덱스를 찾음 — 첫 등장은 정상으로 둠
+  - 출력: 실패 처리해야 할 인덱스 집합 (규칙6: 5문장은 서로 달라야 함, `template_check`는 다른 id
+    사이의 재사용만 보고 같은 id 안의 중복은 못 잡으므로 이걸로 보완)
+
+- **`find_cross_sql_question_conflicts(pairs) -> list[dict]`** (2026-09-23 추가)
+  - 입력: `{"question":..., "sql":...}` 쌍 리스트 (라운드 하나가 아니라 전체 코퍼스 가능)
+  - 처리: 동일한 질문 문자열이 서로 다른 SQL에 매핑된 경우를 찾음 (완전히 같은 (질문,SQL) 중복은 제외)
+  - 출력: `[{"question":..., "conflicting_sqls": [...]}]` — 진짜 라벨 충돌 목록
 
 - **`_load_pilot_sql(out_dir) -> dict[int, dict]`**
   - 입력: 라운드 폴더
@@ -275,12 +332,17 @@
 
 - **`_load_responses(out_dir) -> tuple[dict[int, list[str]], list[str]]`**
   - 입력: 라운드 폴더
-  - 처리: `responses/*.json` 전부 읽기
-  - 출력: `({id: 질문 5개 리스트}, 파싱 실패 파일명 리스트)`
+  - 처리: `responses/*.json` 전부 읽기. 2026-09-23부터 항목 단위 예외 처리 추가 — JSON 배열이 아닌
+    응답, `id`/`questions` 필드 누락, 같은 배치 안 `id` 중복을 개별적으로 감지해 `missing_files`에
+    보고하고 나머지 정상 항목은 계속 처리(예전엔 배치 하나의 형식 오류가 전체를 예외로 죽였음)
+  - 출력: `({id: 질문 리스트}, 문제 상황 설명 문자열 리스트)`
 
-- **`validate(out_dir) -> dict`**
-  - 입력: 라운드 폴더
-  - 처리: `_load_pilot_sql`/`_load_responses`로 읽은 뒤 모든 질문에 `check_question` 적용, 통과분만 수집
+- **`validate(out_dir, expected_questions=5) -> dict`**
+  - 입력: 라운드 폴더, SQL 하나당 기대하는 질문 개수(2026-09-23 추가 — `make_prompts_small_model`을
+    `n_questions`로 다르게 만들었으면 여기도 맞춰야 함)
+  - 처리: `_load_pilot_sql`/`_load_responses`로 읽은 뒤, id별로 `find_intra_group_duplicates`를 먼저
+    돌리고 모든 질문에 `check_question` 적용(중복으로 잡힌 인덱스는 추가 실패 사유로 병합), 통과분만
+    수집 후 `soft_flags`
   - 출력: report 딕셔너리 — `pilot_train_pairs.json`(통과 쌍), `validation_report.json`(통계) 저장
 
 - **`skeletonize(q, entry) -> str`**
@@ -293,18 +355,104 @@
   - 처리: `(select, where_col)` 조합별로 `skeletonize` 결과 재사용 비율 계산
   - 출력: report 딕셔너리 — `template_check_report.json` 저장
 
+- **`load_all_merged_pairs(data_dir) -> list[dict]`** (2026-09-23 추가)
+  - 입력: `data/` 폴더 경로
+  - 처리: `pilot*/pilot_train_pairs.json` + `eval_indist*/pilot_train_pairs.json`(즉 지금까지 merge된
+    모든 라운드)를 전부 합침 — `dataset.py`의 `load_train_pairs`/`load_eval_indist_pairs`와 같은 glob
+  - 출력: `{"question":..., "sql":...}` 쌍 전체 리스트
+
+- **`corpus_check(data_dir) -> dict`** (2026-09-23 추가)
+  - 입력: `data/` 폴더 경로
+  - 처리: `load_all_merged_pairs` → `find_cross_sql_question_conflicts` — 개별 라운드가 아니라 지금까지
+    커밋된 전체 코퍼스 차원에서 라벨 충돌을 찾음(라운드를 넘나드는 충돌은 개별 라운드의 `validate`로는
+    못 잡음)
+  - 출력: report 딕셔너리 — `corpus_check_report.json` 저장
+
 - **`main() -> int`**
-  - 입력: 커맨드라인 인자 (`make-prompts`/`validate`/`template-check`)
+  - 입력: 커맨드라인 인자 (`make-prompts`/`make-prompts-small`/`validate`/`template-check`/`corpus-check`)
   - 처리: 해당 함수 호출
   - 출력: 종료 코드
 
 ---
 
-## `bpe_tokenizer.py` — BPE 토크나이저
+## `src/data/generator/question_gen_auto.py` — 로컬 LLM(Ollama) 질문 생성 파이프라인 (완전 자동화, 2026-09-23 추가)
+
+`question_gen.py`의 샘플링·프롬프트 생성·검증 함수를 그대로 가져다 쓰고(`import question_gen as qg`),
+"사람이 프롬프트를 LLM 세션에 붙여넣는다" 단계만 로컬 Ollama API 호출로 바꾼 파일. 검증 로직은 이
+파일에 따로 없다 — 전부 `question_gen.py`를 재사용.
 
 ### 실행 순서
 
-CLI 서브커맨드가 없는 단일 스크립트. `python bpe_tokenizer.py` 실행 시:
+```
+main → run_pipeline
+  → qg.make_prompts_small_model  (샘플링 + 프롬프트 생성, question_gen.py 재사용)
+  → 배치마다 반복:
+      call_ollama  (내부: extract_json_array[ _try_parse → _repair_bracket_patterns → _regex_extract_items ])
+      실패 시 남은 예산 안에서 재시도(--max-retries), 연속 실패가 임계치 넘으면 조기 중단
+      (ollama 서버 다운으로 추정, --max-consecutive-failures)
+  → qg.validate            (question_gen.py 재사용)
+  → qg.template_check      (question_gen.py 재사용)
+  → pipeline_summary.json 저장
+```
+
+### 함수
+
+- **`_try_parse(text) -> list | None`**
+  - 입력: JSON처럼 보이는 문자열
+  - 처리: `json.JSONDecoder().raw_decode`로 앞부분만 파싱 시도(뒤에 쓰레기 문자가 있어도 허용)
+  - 출력: 파싱된 리스트, 실패/리스트가 아니면 `None`
+
+- **`_expected_item_count(text) -> int`**
+  - 입력: 원본 텍스트
+  - 처리: `"id":` 등장 횟수를 셈 — 괄호가 깨져도 이 개수는 보존된다는 전제
+  - 출력: 원래 있어야 할 항목 개수 추정치
+
+- **`_repair_bracket_patterns(text) -> list | None`**
+  - 입력: 파싱 실패한 원본 텍스트
+  - 처리: 실제로 관찰된 두 가지 패턴을 정규식으로 보정 — (1) `"questions"` 배열을 닫는 `]` 누락(`"}` →
+    `"]}`), (2) 객체 사이 콤마 누락(`}{` → `},{`). 전역 치환으로 안 되면 `]` 삽입 위치를 하나씩 바꿔가며
+    재시도. 복구 결과 항목 개수가 `_expected_item_count`와 다르면(일부만 조용히 잘려나간 거짓 성공)
+    버림
+  - 출력: 복구된 리스트, 실패 시 `None`
+
+- **`_regex_extract_items(text) -> list | None`**
+  - 입력: 위 두 복구도 실패한 원본 텍스트
+  - 처리: 괄호 구조를 아예 무시하고 `"id":<숫자>,"questions":[<따옴표 문자열들>]` 패턴만 정규식으로
+    직접 추출 — 배열/객체 닫는 순서가 뒤바뀌거나 `{`가 통째로 빠져도 살아남는 마지막 수단
+  - 출력: 복구된 리스트, 항목 개수가 안 맞으면 `None`
+
+- **`extract_json_array(raw) -> list | None`**
+  - 입력: 모델의 원본 응답 텍스트
+  - 처리: `<think>` 태그·코드펜스 제거 → `_try_parse` → 실패 시 `_repair_bracket_patterns` → 그래도
+    실패 시 `_regex_extract_items` (3단계, 앞 단계가 성공하면 뒷 단계는 안 씀)
+  - 출력: 복구된 JSON 배열, 완전히 실패하면 `None`
+
+- **`call_ollama(model, prompt, timeout) -> tuple[str, list | None, float]`**
+  - 입력: 모델 이름, 프롬프트, 타임아웃(초)
+  - 처리: ollama REST API(`/api/generate`, `think=false`)를 직접 호출(CLI는 스트리밍 렌더링용 ANSI
+    코드가 섞여 들어와서 안 씀), 응답을 `extract_json_array`로 파싱
+  - 출력: `(원본 응답 텍스트, 파싱된 리스트 또는 None, 소요 시간)`
+
+- **`run_pipeline(model, train_path, n, batch_size, n_questions, seed, out_dir, exclude_dirs, budget_seconds, per_batch_timeout, max_retries, max_consecutive_failures=5) -> dict`**
+  - 입력: 모델·샘플링·시간 예산 관련 전체 인자
+  - 처리: `qg.make_prompts_small_model`로 프롬프트 생성 → 배치마다 `call_ollama`(이미 완료된 배치는
+    건너뜀 — 중단 후 재시작 안전장치) → 연속 실패 임계치 넘으면 조기 중단 → `qg.validate`/
+    `qg.template_check` 호출
+  - 출력: 통과율·반복비율·소요시간 등을 담은 summary 딕셔너리, `pipeline_summary.json`으로도 저장
+
+- **`main() -> int`**
+  - 입력: 커맨드라인 인자 (`--model`/`--n`/`--batch-size`/`--questions-per-sql`/`--out`/`--budget-seconds`/
+    `--per-batch-timeout`/`--max-retries`/`--max-consecutive-failures`/`--exclude-dir` 등)
+  - 처리: `run_pipeline` 호출 후 요약 출력
+  - 출력: 종료 코드
+
+---
+
+## `src/tokenizer/bpe.py` — BPE 토크나이저
+
+### 실행 순서
+
+CLI 서브커맨드가 없는 단일 스크립트. `python -m src.tokenizer.bpe` 실행 시:
 
 ```
 (모듈 로드 시) _validate_seeds
@@ -352,7 +500,7 @@ load_corpus
   - 처리: 조각 분해 결과를 사람이 읽기 좋게 정리 (디버깅용)
   - 출력: 없음 (콘솔 출력)
 
-- **`load_corpus(data_dir="db/data") -> list[str]`**
+- **`load_corpus(data_dir="data") -> list[str]`**
   - 입력: 데이터 폴더
   - 처리: `pilot*/pilot_train_pairs.json`(학습 라운드만, `eval_indist*`는 이름이 달라 제외)을 전부 읽음
   - 출력: question·sql 문자열이 펼쳐진 리스트
@@ -412,11 +560,11 @@ load_corpus
 
 ---
 
-## `dataset.py` — PyTorch Dataset
+## `src/data/dataset.py` — PyTorch Dataset
 
 ### 실행 순서
 
-CLI 서브커맨드 없음. `python dataset.py` 실행 시 (자체 테스트, 저장 파일 없음):
+CLI 서브커맨드 없음. `python -m src.data.dataset` 실행 시 (자체 테스트, 저장 파일 없음):
 
 ```
 load_merges
@@ -438,9 +586,10 @@ load_merges
   - 처리: 매칭되는 모든 `pilot_train_pairs.json`의 항목을 합침
   - 출력: `{"question":..., "sql":...}` 리스트
 
-- **`load_train_pairs(data_dir="db/data") -> list[Pair]`** / **`load_eval_indist_pairs(...) -> list[Pair]`**
+- **`load_train_pairs(data_dir="data") -> list[Pair]`** / **`load_eval_indist_pairs(...) -> list[Pair]`**
   - 입력: 데이터 폴더 경로
-  - 처리: `load_pairs`를 각각 `"pilot*/..."`(학습, 23,045쌍) / `"eval_indist*/..."`(평가, 5,770쌍) 패턴으로 호출
+  - 처리: `load_pairs`를 각각 `"pilot*/..."`(학습, `pilot_merged`+`pilot_qwen3_merged` 합쳐 22,862쌍) /
+    `"eval_indist*/..."`(평가, 5,202쌍) 패턴으로 호출 — 2026-09-23 데이터 정리·Qwen3 추가 반영
   - 출력: (question, sql) 쌍 리스트
 
 - **`encode_pair(question, sql, merges) -> list[int]`**

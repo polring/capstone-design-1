@@ -26,19 +26,23 @@ capstone-design-1/
 │           ├── __init__.py
 │           ├── db_gen.py                 # SQLite DB 및 데이터 생성
 │           ├── sql_gen.py                # SQL 쿼리 생성
-│           └── question_gen.py           # LLM 기반 자연어 질문 생성
+│           ├── question_gen.py           # LLM 기반 자연어 질문 생성 v1 (수동 붙여넣기 방식)
+│           └── question_gen_auto.py      # v2 — 로컬 Ollama 모델 호출 완전 자동화
 ├── data/                                 # 실제 데이터 산출물 (DB, JSON)
 │   ├── shop.db                           # 평가/학습용 SQLite DB
 │   ├── holdout.json                      # 미등장 평가용 엔티티
 │   ├── sql_train.json                    # 학습용 SQL 목록
 │   ├── sql_eval_indist.json              # 평가용 SQL 목록
 │   ├── pilot_merged/                     # 학습용 (질문, SQL) 페어 데이터
+│   ├── pilot_qwen3_merged/               # 학습용 페어 (Qwen3-14B 파일럿, v2로 생성)
 │   └── eval_indist_merged/               # 평가용 (질문, SQL) 페어 데이터
 ├── tests/                                # 전체 단위 테스트 (pytest)
 │   ├── conftest.py                       # pytest 환경 설정 (sys.path)
 │   ├── test_embedding.py                 # 임베딩 및 RoPE 검증
 │   ├── test_tokenizer.py                 # BPE 토크나이저 검증
-│   └── test_dataset.py                   # PyTorch Dataset 검증
+│   ├── test_dataset.py                   # PyTorch Dataset 검증
+│   ├── test_question_gen.py              # 질문 생성 검증 로직 검증
+│   └── test_question_gen_auto.py         # 자동화 파이프라인 JSON 복구 로직 검증
 ├── docs/                                 # 프로젝트 설계 및 규칙 문서
 │   ├── CONVENTION.md                     # 팀 협업 규칙 및 커밋 컨벤션
 │   ├── SETUP.md                          # 환경 설정 가이드

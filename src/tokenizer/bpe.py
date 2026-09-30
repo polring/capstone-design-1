@@ -5,7 +5,8 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-VOCAB_SIZE = 1024
+from src.config import VOCAB_SIZE, DATA_DIR, HOLDOUT_PATH, BPE_MERGES_PATH
+
 BYTE_BASE = 0
 SPECIAL_BASE = 256
 SEED_BASE = 260
@@ -83,7 +84,7 @@ def show(text: str) -> None:
     print(f"Pieces: {' '.join(parts)}\\n")
     print(f"조각 {len(pieces)}개, Seed 토큰 {sum(1 for _, sid in pieces if sid is not None)}개\\n")
 
-def load_corpus(data_dir: str | Path = "data") -> list[str]:
+def load_corpus(data_dir: str | Path = DATA_DIR) -> list[str]:
     corpus: list[str] = []
     for pf in sorted(Path(data_dir).glob("pilot*/pilot_train_pairs.json")):
         with open(pf, encoding="utf-8") as f:
@@ -201,7 +202,7 @@ if __name__ == "__main__":
 
     merges, id_to_bytes = train(corpus)
     print(f"학습된 병합 수: {len(merges)} / {MERGE_BUDGET}")
-    save_merges(merges, "bpe_merges.json")
+    save_merges(merges, BPE_MERGES_PATH)
 
     bad = 0
     for text in corpus:
@@ -212,7 +213,7 @@ if __name__ == "__main__":
                 print(f"ROUNDTRIP FAIL: {text!r} -> {restored!r}")
     print(f"round-trip 실패: {bad} / {len(corpus)}")
 
-    holdout_path = Path("data/holdout.json")
+    holdout_path = Path(HOLDOUT_PATH)
     if holdout_path.exists():
         with open(holdout_path, encoding="utf-8") as f:
             holdout = json.load(f)
