@@ -1,0 +1,93 @@
+"""GGUF v3 writer, little endian F32 with 32-byte alignment.
+
+capstone_sql is our custom architecture, not an automatically llama.cpp-supported
+model. The writer uses the standard library, PyTorch and the team's tokenizer.
+"""
+import argparse
+import io
+import struct
+from pathlib import Path
+import torch
+from src.inference import InferenceModel, ModelConfig, load_checkpoint
+from src.tokenizer import bpe
+
+
+def _string(value):
+    raw = value.encode("utf-8")
+    return struct.pack("<Q", len(raw)) + raw
+
+
+def export_model(model, output, merges):
+    config = model.config
+    known = set(range(256)) | set(range(260, 298))
+    flat = []
+    for index, ((a, b), new) in enumerate(merges):
+        if a not in known or b not in known or new != 298 + index or new >= config.vocab_size:
+            raise ValueError("invalid ordered tokenizer merges")
+        known.add(new)
+        flat.extend((a, b, new))
+    metadata = [("general.architecture", 8, _string("capstone_sql")),
+                ("general.alignment", 4, struct.pack("<I", 32)),
+                ("capstone_sql.contract_version", 4, struct.pack("<I", 1))]
+    for name in ("vocab_size", "dim", "layers", "heads", "ffn_dim", "context"):
+        metadata.append(("capstone_sql." + name, 4, struct.pack("<I", getattr(config, name))))
+    for name in ("eps", "theta"):
+        metadata.append(("capstone_sql." + name, 6, struct.pack("<f", getattr(config, name))))
+    metadata += [
+        ("capstone_sql.tokenizer.seeds", 9,
+         struct.pack("<IQ", 8, len(bpe.SEED_TOKENS)) + b"".join(map(_string, bpe.SEED_TOKENS))),
+        ("capstone_sql.tokenizer.merges", 9,
+         struct.pack("<IQ", 4, len(flat)) + struct.pack(f"<{len(flat)}I", *flat))]
+    expected = InferenceModel(config).state_dict()
+    state = model.state_dict()
+    if state.keys() != expected.keys():
+        raise ValueError("state_dict names do not match inference contract")
+    header = io.BytesIO()
+    header.write(struct.pack("<4sIQQ", b"GGUF", 3, len(state), len(metadata)))
+    for key, kind, value in metadata:
+        header.write(_string(key) + struct.pack("<I", kind) + value)
+    tensor_data = bytearray()
+    for name, tensor in state.items():
+        if tensor.shape != expected[name].shape:
+            raise ValueError(f"wrong shape: {name}")
+        tensor = tensor.detach().cpu().to(torch.float32).contiguous()
+        if not torch.isfinite(tensor).all():
+            raise ValueError(f"non-finite tensor: {name}")
+        # GGUF dimensions are fastest-first; bytes remain PyTorch row-major.
+        dims = tuple(reversed(tensor.shape))
+        header.write(_string(name) + struct.pack("<I", len(dims)))
+        header.write(struct.pack(f"<{len(dims)}Q", *dims))
+        header.write(struct.pack("<IQ", 0, len(tensor_data)))
+        tensor_data.extend(tensor.numpy().astype("<f4", copy=False).tobytes())
+        tensor_data.extend(b"\0" * (-len(tensor_data) % 32))
+    output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with output.open("wb") as stream:
+        stream.write(header.getvalue())
+        stream.write(b"\0" * (-header.tell() % 32))
+        stream.write(tensor_data)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Export capstone_sql F32 GGUF")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--checkpoint")
+    source.add_argument("--dummy", action="store_true")
+    parser.add_argument("--output", required=True)
+    parser.add_argument("--merges", help="team bpe_merges.json; required for checkpoints")
+    args = parser.parse_args()
+    if args.dummy:
+        torch.manual_seed(17)
+        model = InferenceModel(ModelConfig(dim=16, heads=2, layers=2, ffn_dim=32)).eval()
+        merges = bpe.load_merges(args.merges) if args.merges else []
+    else:
+        if not args.merges:
+            parser.error("--checkpoint requires --merges")
+        model = load_checkpoint(args.checkpoint)
+        merges = bpe.load_merges(args.merges)
+    export_model(model, args.output, merges)
+    print(f"saved {args.output}; architecture=capstone_sql; dummy={args.dummy}")
+
+
+if __name__ == "__main__":
+    main()
