@@ -1,99 +1,93 @@
-"""Export model tensors to the small binary format consumed by the C loader.
+"""GGUF v3 writer, little endian F32 with 32-byte alignment.
 
-The format is deliberately simple for the baseline:
-
-    magic (4 bytes: ``EXL1``)
-    tensor_count (uint32, little endian)
-    repeated tensor records:
-      name_length (uint32), name (UTF-8)
-      ndim (uint32), shape (ndim * uint32)
-      values (shape product * float32, little endian)
-
-Keeping the header and tensor order explicit makes the eventual PyTorch model
-and the standalone C inference engine independently testable.
+capstone_sql is our custom architecture, not an automatically llama.cpp-supported
+model. The writer uses the standard library, PyTorch and the team's tokenizer.
 """
-
-from __future__ import annotations
-
+import argparse
+import io
 import struct
 from pathlib import Path
-from typing import Iterable, Mapping, Sequence
-
-MAGIC = b"EXL1"
-VERSION = 1
-_U32 = struct.Struct("<I")
+import torch
+from src.inference import InferenceModel, ModelConfig, load_checkpoint
+from src.tokenizer import bpe
 
 
-def _as_flat_float32(values: object) -> tuple[tuple[int, ...], bytes]:
-    """Return a tensor-like object's shape and little-endian float32 bytes."""
-    shape = tuple(int(x) for x in getattr(values, "shape", ()))
-    if hasattr(values, "detach"):
-        values = values.detach().cpu().contiguous().numpy()
-        shape = tuple(int(x) for x in values.shape)
-        raw = values.astype("<f4", copy=False).tobytes()
-        return shape, raw
-
-    # Standard-library fallback used by the dummy test and useful for simple
-    # lists before torch is available in the project environment.
-    if not shape:
-        values = list(values)  # type: ignore[arg-type]
-
-        def infer_shape(item: object) -> tuple[int, ...]:
-            if not isinstance(item, (list, tuple)):
-                return ()
-            return (len(item),) + (infer_shape(item[0]) if item else ())
-
-        shape = infer_shape(values)
-    flat: list[float] = []
-
-    def visit(item: object) -> None:
-        if isinstance(item, (list, tuple)):
-            for child in item:
-                visit(child)
-        else:
-            flat.append(float(item))
-
-    visit(values)
-    return shape, struct.pack(f"<{len(flat)}f", *flat)
+def _string(value):
+    raw = value.encode("utf-8")
+    return struct.pack("<Q", len(raw)) + raw
 
 
-def export_state_dict(state_dict: Mapping[str, object], output: str | Path) -> None:
-    """Write a mapping of tensor names to tensor-like values as ``output``."""
+def export_model(model, output, merges):
+    config = model.config
+    known = set(range(256)) | set(range(260, 298))
+    flat = []
+    for index, ((a, b), new) in enumerate(merges):
+        if a not in known or b not in known or new != 298 + index or new >= config.vocab_size:
+            raise ValueError("invalid ordered tokenizer merges")
+        known.add(new)
+        flat.extend((a, b, new))
+    metadata = [("general.architecture", 8, _string("capstone_sql")),
+                ("general.alignment", 4, struct.pack("<I", 32)),
+                ("capstone_sql.contract_version", 4, struct.pack("<I", 1))]
+    for name in ("vocab_size", "dim", "layers", "heads", "ffn_dim", "context"):
+        metadata.append(("capstone_sql." + name, 4, struct.pack("<I", getattr(config, name))))
+    for name in ("eps", "theta"):
+        metadata.append(("capstone_sql." + name, 6, struct.pack("<f", getattr(config, name))))
+    metadata += [
+        ("capstone_sql.tokenizer.seeds", 9,
+         struct.pack("<IQ", 8, len(bpe.SEED_TOKENS)) + b"".join(map(_string, bpe.SEED_TOKENS))),
+        ("capstone_sql.tokenizer.merges", 9,
+         struct.pack("<IQ", 4, len(flat)) + struct.pack(f"<{len(flat)}I", *flat))]
+    expected = InferenceModel(config).state_dict()
+    state = model.state_dict()
+    if state.keys() != expected.keys():
+        raise ValueError("state_dict names do not match inference contract")
+    header = io.BytesIO()
+    header.write(struct.pack("<4sIQQ", b"GGUF", 3, len(state), len(metadata)))
+    for key, kind, value in metadata:
+        header.write(_string(key) + struct.pack("<I", kind) + value)
+    tensor_data = bytearray()
+    for name, tensor in state.items():
+        if tensor.shape != expected[name].shape:
+            raise ValueError(f"wrong shape: {name}")
+        tensor = tensor.detach().cpu().to(torch.float32).contiguous()
+        if not torch.isfinite(tensor).all():
+            raise ValueError(f"non-finite tensor: {name}")
+        # GGUF dimensions are fastest-first; bytes remain PyTorch row-major.
+        dims = tuple(reversed(tensor.shape))
+        header.write(_string(name) + struct.pack("<I", len(dims)))
+        header.write(struct.pack(f"<{len(dims)}Q", *dims))
+        header.write(struct.pack("<IQ", 0, len(tensor_data)))
+        tensor_data.extend(tensor.numpy().astype("<f4", copy=False).tobytes())
+        tensor_data.extend(b"\0" * (-len(tensor_data) % 32))
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("wb") as stream:
-        stream.write(MAGIC)
-        stream.write(_U32.pack(VERSION))
-        stream.write(_U32.pack(len(state_dict)))
-        for name, values in state_dict.items():
-            encoded_name = name.encode("utf-8")
-            shape, raw = _as_flat_float32(values)
-            stream.write(_U32.pack(len(encoded_name)))
-            stream.write(encoded_name)
-            stream.write(_U32.pack(len(shape)))
-            for dimension in shape:
-                stream.write(_U32.pack(dimension))
-            stream.write(raw)
+        stream.write(header.getvalue())
+        stream.write(b"\0" * (-header.tell() % 32))
+        stream.write(tensor_data)
 
 
-def export_checkpoint(checkpoint: str | Path, output: str | Path) -> None:
-    """Load a PyTorch checkpoint and export its ``state_dict``.
-
-    PyTorch remains an optional dependency for this baseline; importing it only
-    happens when this checkpoint-oriented entry point is called.
-    """
-    import torch
-
-    checkpoint_data = torch.load(checkpoint, map_location="cpu", weights_only=True)
-    state_dict = checkpoint_data.get("state_dict", checkpoint_data)
-    export_state_dict(state_dict, output)
+def main():
+    parser = argparse.ArgumentParser(description="Export capstone_sql F32 GGUF")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--checkpoint")
+    source.add_argument("--dummy", action="store_true")
+    parser.add_argument("--output", required=True)
+    parser.add_argument("--merges", help="team bpe_merges.json; required for checkpoints")
+    args = parser.parse_args()
+    if args.dummy:
+        torch.manual_seed(17)
+        model = InferenceModel(ModelConfig(dim=16, heads=2, layers=2, ffn_dim=32)).eval()
+        merges = bpe.load_merges(args.merges) if args.merges else []
+    else:
+        if not args.merges:
+            parser.error("--checkpoint requires --merges")
+        model = load_checkpoint(args.checkpoint)
+        merges = bpe.load_merges(args.merges)
+    export_model(model, args.output, merges)
+    print(f"saved {args.output}; architecture=capstone_sql; dummy={args.dummy}")
 
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Export a PyTorch checkpoint")
-    parser.add_argument("checkpoint")
-    parser.add_argument("output")
-    args = parser.parse_args()
-    export_checkpoint(args.checkpoint, args.output)
+    main()
