@@ -25,3 +25,6 @@ bpe_merges.json
 
 # 약한/대체 모델(예: Qwen3-14B) 파일럿 테스트용 임시 폴더 — 정식 채택 전까지는 커밋 안 함
 qwen3_14b_test/
+
+# 학습 산출물 (체크포인트, TensorBoard 로그)
+runs/
