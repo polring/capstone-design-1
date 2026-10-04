@@ -27,7 +27,7 @@ capstone-design-1/
 │   └── data/                             # 데이터셋 및 데이터 생성 모듈
 │       ├── __init__.py
 │       ├── dataset.py                    # PyTorch Dataset & collate_fn
-│       ├── name_swap.py                  # 이름 교체 학습 파일 생성 (미등장 이름 복사 실험)
+│       ├── name_swap.py                  # 이름 교체 (가짜 이름 생성, 기본 학습에 사용)
 │       ├── clean_ambiguous.py            # 질문만으로 정답이 정해지지 않는 학습 쌍 제거
 │       └── generator/                    # SQL/질문 데이터 파이프라인
 │           ├── __init__.py
@@ -93,3 +93,4 @@ pytest tests/ -v
 ## 📜 협업 규칙 및 문서
 - 팀 협업 및 Git 커밋/PR 규칙은 [docs/CONVENTION.md](docs/CONVENTION.md)를 확인하세요.
 - 전체 데이터셋 구조 및 모델 아키텍처 계획은 [docs/text-to-sql-llm-project-plan.md](docs/text-to-sql-llm-project-plan.md)를 참고하세요.
+- 현재 진행 상황과 결과는 [docs/text-to-sql-stage1-report.md](docs/text-to-sql-stage1-report.md), 실행·재현 방법은 [docs/SETUP.md](docs/SETUP.md)에 있습니다.

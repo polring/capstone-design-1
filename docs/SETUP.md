@@ -61,7 +61,7 @@ python src/data/generator/sql_gen.py holdout # data/sql_eval_holdout.json (미�
 ```
 
 주요 옵션: `--seed`(기본 0), `--out`(기본 `./data`), `db_gen.py`의 `--preset small|large`(기본 `large`)와
-`--name-style single|two_word`(`--preset small`은 원안 스키마, `two_word`는 두 단어 이름). `db_gen.py space`는
+`--name-style single|two_word`(`--preset small`은 80 / 40 / 150행 원안 스키마, `two_word`는 두 단어 이름). `db_gen.py space`는
 SQL 공간과 ID 조건 비중을, `summary`는 분포·할당량 표를 출력한다. 결정성 판정은 SQLite 파일 바이트가 아니라
 행 내용 기준 해시로 한다.
 
@@ -178,7 +178,7 @@ python -m src.evaluation --ckpt runs/stage1_ffn683_swap40/best.pt   # 저장된 
 | `python -m src.train --overfit 100` | EM 100% 도달 |
 | `python -m src.train` (seed 0) | 파라미터 4,985,600, 최고 검증 EM 24 epoch 0.990, 분포 내 EM ≈ 0.967, 미등장 값 EM ≈ 0.907 |
 | `python -m src.train --name-swap-ratio 0` (seed 0) | 이름 교체 없는 기준: 분포 내 EM ≈ 0.955, 미등장 값 EM ≈ 0.712 |
-| `data/sql_gen_report.json` | SQL 구조별 할당량이 계획서 5-3과 일치 |
+| `data/sql_gen_report.json` | 구조별 할당량이 층화 샘플링 방침(계획서 5-3)대로, ID 조건 비중 30% 이하 |
 
 ## 9. 커밋 대상
 
