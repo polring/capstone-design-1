@@ -210,3 +210,84 @@ def test_checkpoint_contract(fixture_model, tmp_path):
         torch.testing.assert_close(loaded.state_dict()[key], value)
     with pytest.raises(ValueError, match="merges"):
         export_model(loaded, tmp_path / "bad.gguf", [((99999, 1), 298)])
+
+
+@pytest.mark.parametrize(
+    "field, value, message",
+    [
+        ("heads", 0, b"invalid dimension"),
+        ("vocab_size", 297, b"incomplete or incompatible config"),
+        ("dim", 15, b"incomplete or incompatible config"),
+        ("heads", 16, b"incomplete or incompatible config"),
+        ("layers", 257, b"incomplete or incompatible config"),
+        ("context", 4097, b"incomplete or incompatible config"),
+    ],
+)
+def test_c_rejects_incompatible_config(
+    engine, fixture_model, tmp_path, field, value, message
+):
+    _, path, _ = fixture_model
+    raw = bytearray(path.read_bytes())
+    key = f"capstone_sql.{field}".encode()
+    # A scalar value follows the key bytes and its four-byte GGUF type.
+    value_position = raw.index(key) + len(key) + 4
+    struct.pack_into("<I", raw, value_position, value)
+    invalid = tmp_path / "bad_config.gguf"
+    invalid.write_bytes(raw)
+    result = run(engine, invalid, "--logits", 257, check=False)
+    assert result.returncode != 0 and message in result.stderr
+
+
+def test_c_rejects_overlapping_tensor_data(engine, fixture_model, tmp_path):
+    _, path, _ = fixture_model
+    raw = bytearray(path.read_bytes())
+    name = b"blocks.0.attn_norm.weight"
+    descriptor_position = raw.index(name) + len(name)
+    rank = struct.unpack_from("<I", raw, descriptor_position)[0]
+    offset_position = descriptor_position + 8 + rank * 8
+    # The first tensor already starts at offset zero; overlap the next tensor.
+    struct.pack_into("<Q", raw, offset_position, 0)
+    invalid = tmp_path / "overlap.gguf"
+    invalid.write_bytes(raw)
+    result = run(engine, invalid, "--logits", 257, check=False)
+    assert result.returncode != 0 and b"overlapping tensor data" in result.stderr
+
+
+@pytest.mark.parametrize("input_id", [256, 298, 300])
+def test_c_rejects_missing_or_forward_merge_references(
+    engine, fixture_model, tmp_path, input_id
+):
+    _, path, _ = fixture_model
+    raw = bytearray(path.read_bytes())
+    key = b"capstone_sql.tokenizer.merges"
+    # Skip the array type, element type and element count to reach merge[0].a.
+    first_merge_position = raw.index(key) + len(key) + 16
+    struct.pack_into("<I", raw, first_merge_position, input_id)
+    invalid = tmp_path / "bad_merge.gguf"
+    invalid.write_bytes(raw)
+    result = run(engine, invalid, "--logits", 257, check=False)
+    assert result.returncode != 0 and b"invalid merge references" in result.stderr
+
+
+@pytest.mark.parametrize("value", ["2x", "2147483648", "999999999999999999999999"])
+def test_c_rejects_invalid_integer_arguments(engine, fixture_model, value):
+    _, path, _ = fixture_model
+    result = run(engine, path, "--logits", value, check=False)
+    assert result.returncode != 0 and b"expected nonnegative integer" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ("--encode",),
+        ("--encode", "hello", "extra"),
+        ("--generate",),
+        ("--generate", "hello", "1", "extra"),
+    ],
+)
+def test_c_rejects_invalid_mode_argument_counts(engine, fixture_model, args):
+    _, path, _ = fixture_model
+    result = run(engine, path, *args, check=False)
+    assert (
+        result.returncode != 0 and b"unknown mode or invalid arguments" in result.stderr
+    )

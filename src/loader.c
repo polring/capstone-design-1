@@ -123,13 +123,49 @@ static size_t product(size_t a, size_t b) {
     return a * b;
 }
 
+static int has_expected_tensor_shape(const Tensor *tensor, const char *name,
+                                     size_t rows, size_t cols) {
+    int is_norm_vector = strstr(name, "norm.weight") != NULL;
+    return tensor->dims[0] == cols &&
+           (is_norm_vector ? tensor->rank == 1
+                           : tensor->rank == 2 && tensor->dims[1] == rows);
+}
+
+static int is_model_config_compatible(const Model *model, unsigned seen) {
+    /* All 13 metadata fields must be present before using the head count.
+     * Dimensions have already been checked as positive while reading them. */
+    const unsigned all_metadata_fields = (1u << 13) - 1;
+    return seen == all_metadata_fields && model->vocab >= 298 &&
+           model->dim % model->heads == 0 && (model->dim / model->heads) % 2 == 0 &&
+           model->layers <= 256 && model->context <= 4096;
+}
+
+static int is_tensor_data_in_bounds(const Tensor *tensor, size_t bytes,
+                                    size_t data_base, size_t file_size) {
+    /* The caller has already checked that data_base is inside the file.
+     * Check the offset first to avoid underflow in the remaining-byte count. */
+    return tensor->offset <= file_size - data_base &&
+           bytes <= file_size - data_base - (size_t)tensor->offset;
+}
+
+static int tensor_data_overlaps(const Tensor *tensor, size_t bytes,
+                                const Tensor *previous) {
+    return tensor->offset < previous->offset + previous->count * 4 &&
+           previous->offset < tensor->offset + bytes;
+}
+
+static int has_valid_merge_references(const Model *model, Merge merge, size_t index) {
+    /* Bounds and ordering must be checked before indexing token pieces. */
+    return merge.id == 298 + index && merge.id < (uint32_t)model->vocab &&
+           merge.a < merge.id && merge.b < merge.id && model->pieces[merge.a] &&
+           model->pieces[merge.b];
+}
+
 static float *weight(Model *m, const char *name, size_t rows, size_t cols) {
     for (size_t i = 0; i < m->nt; i++) {
         if (!strcmp(m->t[i].name, name)) {
             Tensor *t = &m->t[i];
-            int vector = strstr(name, "norm.weight") != NULL;
-            if (t->dims[0] != cols ||
-                (vector ? t->rank != 1 : t->rank != 2 || t->dims[1] != rows)) {
+            if (!has_expected_tensor_shape(t, name, rows, cols)) {
                 fail("tensor shape disagrees with model config");
             }
             return t->w;
@@ -292,8 +328,7 @@ static Model load_model(const char *path) {
     for (size_t i = 0; i < nk; i++) {
         free(keys[i]);
     }
-    if (seen != 8191 || m.vocab < 298 || m.dim % m.heads || (m.dim / m.heads) % 2 ||
-        m.layers > 256 || m.context > 4096) {
+    if (!is_model_config_compatible(&m, seen)) {
         fail("incomplete or incompatible config");
     }
     if (m.nt != (size_t)(3 + 7 * m.layers)) {
@@ -335,12 +370,12 @@ static Model load_model(const char *path) {
     for (size_t i = 0; i < m.nt; i++) {
         Tensor *t = &m.t[i];
         size_t bytes = product(t->count, 4);
-        if (t->offset > r.size - base || bytes > r.size - base - (size_t)t->offset) {
+        if (!is_tensor_data_in_bounds(t, bytes, base, r.size)) {
             fail("truncated tensor data");
         }
         for (size_t j = 0; j < i; j++) {
             Tensor *u = &m.t[j];
-            if (t->offset < u->offset + u->count * 4 && u->offset < t->offset + bytes) {
+            if (tensor_data_overlaps(t, bytes, u)) {
                 fail("overlapping tensor data");
             }
         }
@@ -381,8 +416,7 @@ static Model load_model(const char *path) {
     }
     for (size_t i = 0; i < m.nm; i++) {
         Merge v = m.merges[i];
-        if (v.id != 298 + i || v.id >= (uint32_t)m.vocab || v.a >= v.id ||
-            v.b >= v.id || !m.pieces[v.a] || !m.pieces[v.b]) {
+        if (!has_valid_merge_references(&m, v, i)) {
             fail("invalid merge references");
         }
         size_t n = m.lengths[v.a] + m.lengths[v.b];
@@ -553,6 +587,22 @@ static void append(int *ids, int *n, int cap, int value) {
     ids[(*n)++] = value;
 }
 
+static int is_better_seed_match(const char *text, size_t text_length, size_t position,
+                                const char *seed, size_t seed_length,
+                                size_t best_length) {
+    /* Match a longer seed only at whole-word boundaries, never a substring. */
+    return seed_length <= text_length - position && seed_length > best_length &&
+           (!position || !word((unsigned char)text[position - 1])) &&
+           (position + seed_length == text_length ||
+            !word((unsigned char)text[position + seed_length])) &&
+           !memcmp(text + position, seed, seed_length);
+}
+
+static int matches_merge_pair(const int *piece, int count, int position, Merge merge) {
+    return position + 1 < count && piece[position] == (int)merge.a &&
+           piece[position + 1] == (int)merge.b;
+}
+
 /* Match the team's regex pre-tokenizer for the project's ASCII English track. */
 static int encode(Model *m, const char *text, int *ids, int cap) {
     size_t len = strlen(text);
@@ -568,10 +618,7 @@ static int encode(Model *m, const char *text, int *ids, int cap) {
         int seed = -1;
         for (size_t i = 0; i < m->ns; i++) {
             size_t k = strlen(m->seeds[i]);
-            if (k <= len - pos && k > best &&
-                (!pos || !word((unsigned char)text[pos - 1])) &&
-                (pos + k == len || !word((unsigned char)text[pos + k])) &&
-                !memcmp(text + pos, m->seeds[i], k)) {
+            if (is_better_seed_match(text, len, pos, m->seeds[i], k, best)) {
                 best = k;
                 seed = (int)i;
             }
@@ -595,7 +642,7 @@ static int encode(Model *m, const char *text, int *ids, int cap) {
             Merge v = m->merges[j];
             int out = 0;
             for (int i = 0; i < np; i++) {
-                if (i + 1 < np && piece[i] == (int)v.a && piece[i + 1] == (int)v.b) {
+                if (matches_merge_pair(piece, np, i, v)) {
                     piece[out++] = (int)v.id;
                     i++;
                 } else {
@@ -613,11 +660,16 @@ static int encode(Model *m, const char *text, int *ids, int cap) {
     return n;
 }
 
+static int is_valid_nonnegative_integer(const char *text, const char *end, long value,
+                                        int parse_error) {
+    return !parse_error && end != text && !*end && value >= 0 && value <= INT_MAX;
+}
+
 static int number(const char *s) {
     char *end;
     errno = 0;
     long n = strtol(s, &end, 10);
-    if (errno || end == s || *end || n < 0 || n > INT_MAX) {
+    if (!is_valid_nonnegative_integer(s, end, n, errno)) {
         fail("expected nonnegative integer");
     }
     return (int)n;
@@ -639,6 +691,21 @@ static void cleanup(Model *m) {
     }
     free(m->pieces);
     free(m->lengths);
+}
+
+static int is_encode_request(int argc, char **argv) {
+    return !strcmp(argv[2], "--encode") && argc == 4;
+}
+
+static int is_generation_request(int argc, char **argv) {
+    return !strcmp(argv[2], "--generate") && (argc == 4 || argc == 5);
+}
+
+static int is_better_generation_candidate(const Model *model, const float *logits,
+                                          int candidate, int current) {
+    /* Only decodable tokens may replace the current choice; ties keep it.
+     * Starting with EOS therefore preserves the existing EOS-first policy. */
+    return model->pieces[candidate] && logits[candidate] > logits[current];
 }
 
 int main(int argc, char **argv) {
@@ -668,13 +735,13 @@ int main(int argc, char **argv) {
         }
         puts("");
         free(logits);
-    } else if (!strcmp(argv[2], "--encode") && argc == 4) {
+    } else if (is_encode_request(argc, argv)) {
         n = encode(&m, argv[3], ids, m.context);
         for (int i = 0; i < n; i++) {
             printf("%s%d", i ? " " : "", ids[i]);
         }
         puts("");
-    } else if (!strcmp(argv[2], "--generate") && (argc == 4 || argc == 5)) {
+    } else if (is_generation_request(argc, argv)) {
         int limit = argc == 5 ? number(argv[4]) : 32;
         char *question = allocate(strlen(argv[3]) + 1, 1);
         strcpy(question, argv[3]);
@@ -697,7 +764,7 @@ int main(int argc, char **argv) {
             float *logits = forward(&m, ids, n);
             int next = EOS;
             for (int i = 0; i < m.vocab; i++) {
-                if (m.pieces[i] && logits[i] > logits[next]) {
+                if (is_better_generation_candidate(&m, logits, i, next)) {
                     next = i;
                 }
             }

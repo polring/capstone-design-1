@@ -18,18 +18,20 @@ def _string(value):
     return struct.pack("<Q", len(raw)) + raw
 
 
+def _is_valid_ordered_merge(merge, index, known, vocab_size):
+    """A merge must use existing tokens and the next available vocabulary ID."""
+    (a, b), new = merge
+    return a in known and b in known and new == 298 + index and new < vocab_size
+
+
 def export_model(model, output, merges):
     config = model.config
     known = set(range(256)) | set(range(260, 298))
     flat = []
-    for index, ((a, b), new) in enumerate(merges):
-        if (
-            a not in known
-            or b not in known
-            or new != 298 + index
-            or new >= config.vocab_size
-        ):
+    for index, merge in enumerate(merges):
+        if not _is_valid_ordered_merge(merge, index, known, config.vocab_size):
             raise ValueError("invalid ordered tokenizer merges")
+        (a, b), new = merge
         known.add(new)
         flat.extend((a, b, new))
     metadata = [

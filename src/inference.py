@@ -20,9 +20,19 @@ class ModelConfig:
     theta: float = 10000.0
 
     def __post_init__(self):
-        if any(
-            type(v) is not int or v <= 0
-            for v in (
+        if not self._has_positive_integer_dimensions():
+            raise ValueError("dimensions must be positive integers")
+        if not self._has_compatible_attention_dimensions():
+            raise ValueError(
+                "vocab >= 298; dim divisible by heads; even head dimension required"
+            )
+        if not self._has_valid_numeric_parameters():
+            raise ValueError("eps and theta must be finite and positive")
+
+    def _has_positive_integer_dimensions(self):
+        return all(
+            type(value) is int and value > 0
+            for value in (
                 self.vocab_size,
                 self.dim,
                 self.layers,
@@ -30,18 +40,30 @@ class ModelConfig:
                 self.ffn_dim,
                 self.context,
             )
-        ):
-            raise ValueError("dimensions must be positive integers")
-        if (
-            self.vocab_size < 298
-            or self.dim % self.heads
-            or (self.dim // self.heads) % 2
-        ):
-            raise ValueError(
-                "vocab >= 298; dim divisible by heads; even head dimension required"
-            )
-        if not all(math.isfinite(v) and v > 0 for v in (self.eps, self.theta)):
-            raise ValueError("eps and theta must be finite and positive")
+        )
+
+    def _has_compatible_attention_dimensions(self):
+        """Called after dimensions are validated, so the head count is positive."""
+        return (
+            self.vocab_size >= 298
+            and self.dim % self.heads == 0
+            and (self.dim // self.heads) % 2 == 0
+        )
+
+    def _has_valid_numeric_parameters(self):
+        return all(
+            math.isfinite(value) and value > 0 for value in (self.eps, self.theta)
+        )
+
+
+def _is_input_shape_within_context(ids, context):
+    return ids.ndim == 2 and 0 < ids.shape[1] <= context
+
+
+def _has_checkpoint_contract(checkpoint):
+    return (
+        isinstance(checkpoint, dict) and {"config", "state_dict"} <= checkpoint.keys()
+    )
 
 
 class InferenceModel(nn.Module):
@@ -68,7 +90,7 @@ class InferenceModel(nn.Module):
         )
 
     def forward(self, ids):
-        if ids.ndim != 2 or not 0 < ids.shape[1] <= self.config.context:
+        if not _is_input_shape_within_context(ids, self.config.context):
             raise ValueError("expected [batch, sequence] within context")
         x = self.embedding(ids)
         for block in self.blocks:
@@ -81,10 +103,7 @@ class InferenceModel(nn.Module):
 
 def load_checkpoint(path):
     checkpoint = torch.load(path, map_location="cpu", weights_only=True)
-    if (
-        not isinstance(checkpoint, dict)
-        or not {"config", "state_dict"} <= checkpoint.keys()
-    ):
+    if not _has_checkpoint_contract(checkpoint):
         raise ValueError(
             "checkpoint requires config and state_dict; see docs/exporter-loader.md"
         )
