@@ -14,7 +14,9 @@ def test_extract_json_array_valid_input():
 
 def test_extract_json_array_strips_think_tags():
     # Qwen3 계열의 기본 사고 모드 출력을 무시해야 함
-    raw = "<think>let me think about this...</think>" + '[{"id": 1, "questions": ["a"]}]'
+    raw = (
+        "<think>let me think about this...</think>" + '[{"id": 1, "questions": ["a"]}]'
+    )
     assert qga.extract_json_array(raw) == [{"id": 1, "questions": ["a"]}]
 
 
@@ -33,7 +35,10 @@ def test_extract_json_array_repairs_missing_array_close_on_every_item():
     # 실제 관찰된 패턴: 모든 항목의 "questions" 배열에 닫는 ']'가 통째로 빠짐
     broken = '[{"id":1,"questions":["a","b"},{"id":2,"questions":["c","d"}]'
     result = qga.extract_json_array(broken)
-    assert result == [{"id": 1, "questions": ["a", "b"]}, {"id": 2, "questions": ["c", "d"]}]
+    assert result == [
+        {"id": 1, "questions": ["a", "b"]},
+        {"id": 2, "questions": ["c", "d"]},
+    ]
 
 
 def test_extract_json_array_repairs_missing_comma_between_objects():
@@ -49,7 +54,10 @@ def test_extract_json_array_regex_fallback_survives_swapped_brackets_and_missing
     # id/questions 필드를 직접 정규식으로 뽑는 마지막 단계에서만 살아남아야 한다.
     broken = '[{"id":1,"questions":["a","b"}],"id":2,"questions":["c","d"}]'
     result = qga.extract_json_array(broken)
-    assert result == [{"id": 1, "questions": ["a", "b"]}, {"id": 2, "questions": ["c", "d"]}]
+    assert result == [
+        {"id": 1, "questions": ["a", "b"]},
+        {"id": 2, "questions": ["c", "d"]},
+    ]
 
 
 def test_extract_json_array_gives_up_when_no_array_present():

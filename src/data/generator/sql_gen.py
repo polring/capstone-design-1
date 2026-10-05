@@ -40,7 +40,6 @@ from dataclasses import asdict, dataclass
 
 import db_gen
 
-
 # ---------------------------------------------------------------------------
 # 컬럼 메타데이터
 # ---------------------------------------------------------------------------
@@ -70,8 +69,11 @@ LOW_CARD_COLUMNS = {"city", "membership", "category", "quantity", "status"}
 
 # ID 컬럼의 값 도메인이 어느 테이블 PK 에서 나오는지: "존재하는 값" 판정 기준
 ID_DOMAIN_TABLE = {"customer_id": "customers", "item_id": "items", "order_id": "orders"}
-ID_RANGE_ATTR = {"customer_id": "customer_id_range", "item_id": "item_id_range",
-                  "order_id": "order_id_range"}
+ID_RANGE_ATTR = {
+    "customer_id": "customer_id_range",
+    "item_id": "item_id_range",
+    "order_id": "order_id_range",
+}
 
 
 @dataclass
@@ -95,7 +97,10 @@ class SqlGenConfig:
 # 리터럴 수집
 # ---------------------------------------------------------------------------
 
-def available_literals(con: sqlite3.Connection, bans: dict, table: str, col: str) -> list:
+
+def available_literals(
+    con: sqlite3.Connection, bans: dict, table: str, col: str
+) -> list:
     """홀드아웃으로 금지된 값을 뺀, 결정적으로 정렬된 사용 가능 리터럴 목록."""
     rows = {r[0] for r in con.execute(f"SELECT DISTINCT {col} FROM {table}")}
     rows -= bans.get(table, {}).get(col, set())
@@ -114,12 +119,14 @@ def existing_ids_by_domain(con: sqlite3.Connection) -> dict[str, set[int]]:
 # 할당량 결정 (테이블 × WHERE 컬럼 단위)
 # ---------------------------------------------------------------------------
 
+
 def _select_variants(table: str) -> list[str]:
     return db_gen.TABLE_COLUMNS[table] + ["*"]
 
 
-def decide_quota_pools(con: sqlite3.Connection, bans: dict, cfg: SqlGenConfig
-                       ) -> dict[tuple[str, str], dict]:
+def decide_quota_pools(
+    con: sqlite3.Connection, bans: dict, cfg: SqlGenConfig
+) -> dict[tuple[str, str], dict]:
     """(table, col) -> {"exist_pool": [...], "nonexistent_pool": [...]}.
 
     풀은 seed 가 같으면 항상 같은 순서로 섞인다 (재현성). cap_id 는 나중에
@@ -134,7 +141,9 @@ def decide_quota_pools(con: sqlite3.Connection, bans: dict, cfg: SqlGenConfig
         for col in cols:
             avail = available_literals(con, bans, table, col)
             if col in ID_COLUMNS:
-                exist_pool = rng.sample(avail, len(avail))  # 섞기만 함(전량은 cap_id 가 자름)
+                exist_pool = rng.sample(
+                    avail, len(avail)
+                )  # 섞기만 함(전량은 cap_id 가 자름)
                 lo, hi = getattr(dbcfg, ID_RANGE_ATTR[col])
                 domain_existing = existing[col]
                 candidates = [v for v in range(lo, hi + 1) if v not in domain_existing]
@@ -142,11 +151,16 @@ def decide_quota_pools(con: sqlite3.Connection, bans: dict, cfg: SqlGenConfig
             else:
                 exist_pool = rng.sample(avail, len(avail))
                 nonexistent_pool = []
-            pools[(table, col)] = {"exist_pool": exist_pool, "nonexistent_pool": nonexistent_pool}
+            pools[(table, col)] = {
+                "exist_pool": exist_pool,
+                "nonexistent_pool": nonexistent_pool,
+            }
     return pools
 
 
-def _combo_counts(pools: dict, cfg: SqlGenConfig, cap_id: int) -> dict[tuple[str, str], dict]:
+def _combo_counts(
+    pools: dict, cfg: SqlGenConfig, cap_id: int
+) -> dict[tuple[str, str], dict]:
     """주어진 cap_id 로 각 (table, col) 조합의 실제 사용 리터럴 수 / SQL 수를 계산."""
     counts = {}
     for (table, col), pool in pools.items():
@@ -156,14 +170,19 @@ def _combo_counts(pools: dict, cfg: SqlGenConfig, cap_id: int) -> dict[tuple[str
             n_non = 0
         elif col in ID_COLUMNS:
             n_exist = min(cap_id, len(pool["exist_pool"]))
-            n_non = round(n_exist * cfg.id_nonexistent_ratio / (1 - cfg.id_nonexistent_ratio))
+            n_non = round(
+                n_exist * cfg.id_nonexistent_ratio / (1 - cfg.id_nonexistent_ratio)
+            )
             n_non = min(n_non, len(pool["nonexistent_pool"]))
         else:
             n_exist = min(cfg.cap_nonid, len(pool["exist_pool"]))
             n_non = 0
         n_sql = (n_exist + n_non) * n_variants
         counts[(table, col)] = {
-            "n_variants": n_variants, "n_exist": n_exist, "n_nonexistent": n_non, "n_sql": n_sql,
+            "n_variants": n_variants,
+            "n_exist": n_exist,
+            "n_nonexistent": n_non,
+            "n_sql": n_sql,
             "is_id": col in ID_COLUMNS,
         }
     return counts
@@ -186,6 +205,7 @@ def apply_id_ratio_cap(pools: dict, cfg: SqlGenConfig) -> tuple[dict, int]:
 # SQL 문자열 생성
 # ---------------------------------------------------------------------------
 
+
 def format_literal(value, coltype: str) -> str:
     if coltype == "text":
         return f"'{value}'"
@@ -200,8 +220,9 @@ def build_sql(table: str, select_col: str, where_col: str, value) -> str:
     return f"SELECT {select_clause} FROM {table} WHERE {where_col} = {format_literal(value, coltype)}"
 
 
-def generate(con: sqlite3.Connection, bans: dict, cfg: SqlGenConfig
-            ) -> tuple[list[dict], list[dict], list[dict]]:
+def generate(
+    con: sqlite3.Connection, bans: dict, cfg: SqlGenConfig
+) -> tuple[list[dict], list[dict], list[dict]]:
     """(train, eval, quota_table) 반환. quota_table 은 요약 출력/재현성 검증용."""
     pools = decide_quota_pools(con, bans, cfg)
     counts, cap_id_used = apply_id_ratio_cap(pools, cfg)
@@ -213,31 +234,45 @@ def generate(con: sqlite3.Connection, bans: dict, cfg: SqlGenConfig
 
     for (table, col), pool in pools.items():
         c = counts[(table, col)]
-        literals = [(v, False) for v in pool["exist_pool"][:c["n_exist"]]]
-        literals += [(v, True) for v in pool["nonexistent_pool"][:c["n_nonexistent"]]]
+        literals = [(v, False) for v in pool["exist_pool"][: c["n_exist"]]]
+        literals += [(v, True) for v in pool["nonexistent_pool"][: c["n_nonexistent"]]]
 
         combo_sqls = []
         for value, is_nonexistent in literals:
             for sel in _select_variants(table):
                 sql = build_sql(table, sel, col, value)
                 n_rows = con.execute(sql).fetchall()
-                combo_sqls.append({
-                    "sql": sql, "table": table, "select": sel, "where_col": col,
-                    "where_val": value, "is_id_condition": col in ID_COLUMNS,
-                    "is_nonexistent": is_nonexistent, "n_rows": len(n_rows),
-                })
+                combo_sqls.append(
+                    {
+                        "sql": sql,
+                        "table": table,
+                        "select": sel,
+                        "where_col": col,
+                        "where_val": value,
+                        "is_id_condition": col in ID_COLUMNS,
+                        "is_nonexistent": is_nonexistent,
+                        "n_rows": len(n_rows),
+                    }
+                )
 
         rng.shuffle(combo_sqls)
         split = round(len(combo_sqls) * cfg.train_ratio)
         train.extend(combo_sqls[:split])
         ev.extend(combo_sqls[split:])
 
-        quota_table.append({
-            "table": table, "where_col": col, "is_id": col in ID_COLUMNS,
-            "n_exist": c["n_exist"], "n_nonexistent": c["n_nonexistent"],
-            "n_select_variants": c["n_variants"], "n_sql": c["n_sql"],
-            "n_train": split, "n_eval": len(combo_sqls) - split,
-        })
+        quota_table.append(
+            {
+                "table": table,
+                "where_col": col,
+                "is_id": col in ID_COLUMNS,
+                "n_exist": c["n_exist"],
+                "n_nonexistent": c["n_nonexistent"],
+                "n_select_variants": c["n_variants"],
+                "n_sql": c["n_sql"],
+                "n_train": split,
+                "n_eval": len(combo_sqls) - split,
+            }
+        )
 
     quota_table.sort(key=lambda r: (r["table"], r["where_col"]))
     return train, ev, quota_table
@@ -246,6 +281,7 @@ def generate(con: sqlite3.Connection, bans: dict, cfg: SqlGenConfig
 # ---------------------------------------------------------------------------
 # 빌드 / 저장
 # ---------------------------------------------------------------------------
+
 
 def _paths(out_dir: str) -> dict[str, str]:
     return {
@@ -270,7 +306,9 @@ def build(out_dir: str, cfg: SqlGenConfig) -> dict:
     report = {
         "config": asdict(cfg),
         "quota_table": quota_table,
-        "n_train": len(train), "n_eval": len(ev), "n_total_sql": total,
+        "n_train": len(train),
+        "n_eval": len(ev),
+        "n_total_sql": total,
         "id_ratio": round(id_total / total, 4) if total else 0.0,
     }
 
@@ -286,6 +324,7 @@ def build(out_dir: str, cfg: SqlGenConfig) -> dict:
 # ---------------------------------------------------------------------------
 # 검증
 # ---------------------------------------------------------------------------
+
 
 def verify(out_dir: str) -> list[str]:
     """완료 조건 3종: 실행 오류 없음 / 할당량 표 재현 가능 / ID 비중 30% 이하."""
@@ -309,12 +348,16 @@ def verify(out_dir: str) -> list[str]:
             fails.append(f"실행 오류: {row['sql']!r} ({e})")
             continue
         if n != row["n_rows"]:
-            fails.append(f"n_rows 불일치: {row['sql']!r} 저장값 {row['n_rows']} != 실제 {n}")
+            fails.append(
+                f"n_rows 불일치: {row['sql']!r} 저장값 {row['n_rows']} != 실제 {n}"
+            )
     con.close()
 
     # 2. 구조별 할당량이 표로 재현 가능 (같은 config 로 다시 만들면 같은 표가 나와야 함)
     if quota_table != report["quota_table"]:
-        fails.append("quota_table 이 재현되지 않음 (config 로부터 다시 만든 표가 저장된 표와 다름)")
+        fails.append(
+            "quota_table 이 재현되지 않음 (config 로부터 다시 만든 표가 저장된 표와 다름)"
+        )
 
     # 3. ID 조건 비중 30% 이하
     total = sum(q["n_sql"] for q in quota_table)
@@ -344,7 +387,9 @@ def test(out_dir: str, cfg: SqlGenConfig) -> list[tuple[str, list[str]]]:
     results = []
 
     f = []
-    if canonical_hash(train_a) != canonical_hash(train_b) or canonical_hash(eval_a) != canonical_hash(eval_b):
+    if canonical_hash(train_a) != canonical_hash(train_b) or canonical_hash(
+        eval_a
+    ) != canonical_hash(eval_b):
         f.append("같은 seed 인데 생성 결과가 다름")
     results.append(("결정성", f))
 
@@ -378,6 +423,7 @@ def test(out_dir: str, cfg: SqlGenConfig) -> list[tuple[str, list[str]]]:
 # 요약
 # ---------------------------------------------------------------------------
 
+
 def summary(out_dir: str) -> None:
     paths = _paths(out_dir)
     if not os.path.exists(paths["report"]):
@@ -385,18 +431,27 @@ def summary(out_dir: str) -> None:
         return
     report = json.load(open(paths["report"], encoding="utf-8"))
 
-    print(f"{'테이블':<11}{'WHERE 컬럼':<14}{'실존':>6}{'미존재':>8}{'변형':>6}{'SQL':>8}{'train':>8}{'eval':>7}")
+    print(
+        f"{'테이블':<11}{'WHERE 컬럼':<14}{'실존':>6}{'미존재':>8}{'변형':>6}{'SQL':>8}{'train':>8}{'eval':>7}"
+    )
     print("-" * 70)
     for q in report["quota_table"]:
         tag = "ID" if q["is_id"] else ""
-        print(f"{q['table']:<11}{q['where_col']:<14}{q['n_exist']:>6}{q['n_nonexistent']:>8}"
-              f"{q['n_select_variants']:>6}{q['n_sql']:>8}{q['n_train']:>8}{q['n_eval']:>7}  {tag}")
+        print(
+            f"{q['table']:<11}{q['where_col']:<14}{q['n_exist']:>6}{q['n_nonexistent']:>8}"
+            f"{q['n_select_variants']:>6}{q['n_sql']:>8}{q['n_train']:>8}{q['n_eval']:>7}  {tag}"
+        )
     print("-" * 70)
-    print(f"{'합계':<25}{'':>19}{report['n_total_sql']:>8}{report['n_train']:>8}{report['n_eval']:>7}")
-    print(f"ID 조건 비중  {report['id_ratio']:.1%}  (상한 {report['config']['id_ratio_max']:.0%})")
+    print(
+        f"{'합계':<25}{'':>19}{report['n_total_sql']:>8}{report['n_train']:>8}{report['n_eval']:>7}"
+    )
+    print(
+        f"ID 조건 비중  {report['id_ratio']:.1%}  (상한 {report['config']['id_ratio_max']:.0%})"
+    )
 
 
 # ---------------------------------------------------------------------------
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="1단계 SQL 생성기")
@@ -410,14 +465,23 @@ def main() -> int:
     ap.add_argument("--train-ratio", type=float, default=0.80)
     args = ap.parse_args()
 
-    cfg = SqlGenConfig(seed=args.seed, preset=args.preset, cap_nonid=args.cap_nonid,
-                       cap_id=args.cap_id, id_ratio_max=args.id_ratio_max,
-                       train_ratio=args.train_ratio)
+    cfg = SqlGenConfig(
+        seed=args.seed,
+        preset=args.preset,
+        cap_nonid=args.cap_nonid,
+        cap_id=args.cap_id,
+        id_ratio_max=args.id_ratio_max,
+        train_ratio=args.train_ratio,
+    )
 
     if args.command == "build":
         report = build(args.out, cfg)
-        print(f"생성  {os.path.join(args.out, 'sql_train.json')} ({report['n_train']}개)")
-        print(f"      {os.path.join(args.out, 'sql_eval_indist.json')} ({report['n_eval']}개)")
+        print(
+            f"생성  {os.path.join(args.out, 'sql_train.json')} ({report['n_train']}개)"
+        )
+        print(
+            f"      {os.path.join(args.out, 'sql_eval_indist.json')} ({report['n_eval']}개)"
+        )
         fails = verify(args.out)
         print("검증 ", "통과" if not fails else "실패\n  - " + "\n  - ".join(fails))
         print(f"ID 조건 비중  {report['id_ratio']:.1%}")

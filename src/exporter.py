@@ -3,6 +3,7 @@
 capstone_sql is our custom architecture, not an automatically llama.cpp-supported
 model. The writer uses the standard library, PyTorch and the team's tokenizer.
 """
+
 import argparse
 import io
 import struct
@@ -22,22 +23,41 @@ def export_model(model, output, merges):
     known = set(range(256)) | set(range(260, 298))
     flat = []
     for index, ((a, b), new) in enumerate(merges):
-        if a not in known or b not in known or new != 298 + index or new >= config.vocab_size:
+        if (
+            a not in known
+            or b not in known
+            or new != 298 + index
+            or new >= config.vocab_size
+        ):
             raise ValueError("invalid ordered tokenizer merges")
         known.add(new)
         flat.extend((a, b, new))
-    metadata = [("general.architecture", 8, _string("capstone_sql")),
-                ("general.alignment", 4, struct.pack("<I", 32)),
-                ("capstone_sql.contract_version", 4, struct.pack("<I", 1))]
+    metadata = [
+        ("general.architecture", 8, _string("capstone_sql")),
+        ("general.alignment", 4, struct.pack("<I", 32)),
+        ("capstone_sql.contract_version", 4, struct.pack("<I", 1)),
+    ]
     for name in ("vocab_size", "dim", "layers", "heads", "ffn_dim", "context"):
-        metadata.append(("capstone_sql." + name, 4, struct.pack("<I", getattr(config, name))))
+        metadata.append(
+            ("capstone_sql." + name, 4, struct.pack("<I", getattr(config, name)))
+        )
     for name in ("eps", "theta"):
-        metadata.append(("capstone_sql." + name, 6, struct.pack("<f", getattr(config, name))))
+        metadata.append(
+            ("capstone_sql." + name, 6, struct.pack("<f", getattr(config, name)))
+        )
     metadata += [
-        ("capstone_sql.tokenizer.seeds", 9,
-         struct.pack("<IQ", 8, len(bpe.SEED_TOKENS)) + b"".join(map(_string, bpe.SEED_TOKENS))),
-        ("capstone_sql.tokenizer.merges", 9,
-         struct.pack("<IQ", 4, len(flat)) + struct.pack(f"<{len(flat)}I", *flat))]
+        (
+            "capstone_sql.tokenizer.seeds",
+            9,
+            struct.pack("<IQ", 8, len(bpe.SEED_TOKENS))
+            + b"".join(map(_string, bpe.SEED_TOKENS)),
+        ),
+        (
+            "capstone_sql.tokenizer.merges",
+            9,
+            struct.pack("<IQ", 4, len(flat)) + struct.pack(f"<{len(flat)}I", *flat),
+        ),
+    ]
     expected = InferenceModel(config).state_dict()
     state = model.state_dict()
     if state.keys() != expected.keys():
@@ -74,11 +94,15 @@ def main():
     source.add_argument("--checkpoint")
     source.add_argument("--dummy", action="store_true")
     parser.add_argument("--output", required=True)
-    parser.add_argument("--merges", help="team bpe_merges.json; required for checkpoints")
+    parser.add_argument(
+        "--merges", help="team bpe_merges.json; required for checkpoints"
+    )
     args = parser.parse_args()
     if args.dummy:
         torch.manual_seed(17)
-        model = InferenceModel(ModelConfig(dim=16, heads=2, layers=2, ffn_dim=32)).eval()
+        model = InferenceModel(
+            ModelConfig(dim=16, heads=2, layers=2, ffn_dim=32)
+        ).eval()
         merges = bpe.load_merges(args.merges) if args.merges else []
     else:
         if not args.merges:

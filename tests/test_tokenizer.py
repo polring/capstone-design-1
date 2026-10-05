@@ -38,7 +38,9 @@ def test_train_merges_deterministic():
     corpus = ["SELECT name FROM customers", "SELECT name FROM customers"]
     merges1, _ = bpe.train(corpus, merge_budget=5)
     merges2, _ = bpe.train(corpus, merge_budget=5)
-    assert merges1 == merges2, "동일 입력에 대해 병합 결과가 달라지면 안 됨 (동점 처리가 결정적이어야 함)"
+    assert (
+        merges1 == merges2
+    ), "동일 입력에 대해 병합 결과가 달라지면 안 됨 (동점 처리가 결정적이어야 함)"
 
 
 # 코퍼스로 학습한 merges로 encode한 뒤 decode하면 원문 텍스트가 그대로 복원되는지 검증

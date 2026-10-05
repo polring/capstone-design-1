@@ -11,13 +11,17 @@ from src.data.generator import question_gen as qg
 def _entry(table, where_col, where_val, select=None, is_nonexistent=False):
     select = select or where_col
     return {
-        "table": table, "where_col": where_col, "where_val": where_val,
-        "select": select, "is_nonexistent": is_nonexistent,
+        "table": table,
+        "where_col": where_col,
+        "where_val": where_val,
+        "select": select,
+        "is_nonexistent": is_nonexistent,
         "sql": f"SELECT {select} FROM {table} WHERE {where_col} = ?",
     }
 
 
 # --- literal_in_question: 텍스트 -------------------------------------------
+
 
 def test_literal_in_question_text_exact():
     assert qg.literal_in_question("who is marilyn", "marilyn", "text")
@@ -25,7 +29,9 @@ def test_literal_in_question_text_exact():
 
 def test_literal_in_question_text_natural_plural_allowed():
     # 자연스러운 복수형(colander -> colanders)은 허용해야 함 (Qwen3 파일럿에서 실제로 나온 케이스)
-    assert qg.literal_in_question("how many colanders are left in stock", "colander", "text")
+    assert qg.literal_in_question(
+        "how many colanders are left in stock", "colander", "text"
+    )
 
 
 def test_literal_in_question_text_embedded_in_different_word_rejected():
@@ -38,6 +44,7 @@ def test_literal_in_question_text_missing():
 
 
 # --- literal_in_question: 숫자(float/int) 경계 처리 -------------------------
+
 
 def test_literal_in_question_float_exact():
     assert qg.literal_in_question("the item priced 97.56", 97.56, "float")
@@ -72,6 +79,7 @@ def test_literal_in_question_int_embedded_in_longer_number_rejected():
 
 
 # --- check_question ----------------------------------------------------------
+
 
 def test_check_question_passes_clean_question():
     entry = _entry("customers", "name", "marilyn")
@@ -116,6 +124,7 @@ def test_check_question_allows_synonym_word_when_it_is_the_real_literal():
 
 # --- soft_flags ----------------------------------------------------------------
 
+
 def test_soft_flags_stock_quantity_confusion():
     entry = _entry("items", "stock", 40, select="stock")
     flags = qg.soft_flags("how many were ordered for this item", entry)
@@ -148,6 +157,7 @@ def test_soft_flags_rule10_not_applied_when_select_differs_from_where():
 
 # --- find_intra_group_duplicates (규칙6: 같은 id 내 5문장은 서로 달라야 함) ---
 
+
 def test_find_intra_group_duplicates_detects_exact_repeat():
     qs = ["a", "b", "a", "c", "d"]
     assert qg.find_intra_group_duplicates(qs) == {2}
@@ -165,10 +175,17 @@ def test_find_intra_group_duplicates_no_false_positive_on_distinct_questions():
 
 # --- find_cross_sql_question_conflicts (전역 라벨 충돌 검사) -------------------
 
+
 def test_find_cross_sql_question_conflicts_detects_conflict():
     pairs = [
-        {"question": "what item costs 10", "sql": "SELECT * FROM items WHERE price = 10"},
-        {"question": "what item costs 10", "sql": "SELECT item_name FROM items WHERE price = 10"},
+        {
+            "question": "what item costs 10",
+            "sql": "SELECT * FROM items WHERE price = 10",
+        },
+        {
+            "question": "what item costs 10",
+            "sql": "SELECT item_name FROM items WHERE price = 10",
+        },
     ]
     conflicts = qg.find_cross_sql_question_conflicts(pairs)
     assert len(conflicts) == 1
@@ -178,16 +195,25 @@ def test_find_cross_sql_question_conflicts_detects_conflict():
 
 def test_find_cross_sql_question_conflicts_ignores_true_duplicates():
     pairs = [
-        {"question": "what item costs 10", "sql": "SELECT * FROM items WHERE price = 10"},
-        {"question": "what item costs 10", "sql": "SELECT * FROM items WHERE price = 10"},
+        {
+            "question": "what item costs 10",
+            "sql": "SELECT * FROM items WHERE price = 10",
+        },
+        {
+            "question": "what item costs 10",
+            "sql": "SELECT * FROM items WHERE price = 10",
+        },
     ]
     assert qg.find_cross_sql_question_conflicts(pairs) == []
 
 
 # --- stratified_sample ------------------------------------------------------
 
+
 def test_stratified_sample_preserves_group_ratio():
-    entries = [{"table": "a", "where_col": "x"}] * 80 + [{"table": "b", "where_col": "y"}] * 20
+    entries = [{"table": "a", "where_col": "x"}] * 80 + [
+        {"table": "b", "where_col": "y"}
+    ] * 20
     picked = qg.stratified_sample(entries, 10, seed=0)
     groups = {}
     for _, e in picked:
@@ -206,6 +232,7 @@ def test_stratified_sample_deterministic_with_same_seed():
 
 # --- small_model_rules_blurb (작은 모델용 프롬프트 문장 수 조절) ---------------
 
+
 def test_small_model_rules_blurb_respects_question_count():
     blurb = qg.small_model_rules_blurb(3)
     assert "write 3 different" in blurb
@@ -215,21 +242,35 @@ def test_small_model_rules_blurb_respects_question_count():
 
 def test_small_model_rules_blurb_rejects_too_many_slots():
     import pytest
+
     with pytest.raises(ValueError):
         qg.small_model_rules_blurb(len(qg.QUESTION_STYLE_SLOTS) + 1)
 
 
 # --- _load_responses 견고성 (형식 오류/중복 id를 죽지 않고 보고) ----------------
 
+
 def test_load_responses_handles_malformed_and_duplicate_ids(tmp_path):
     resp_dir = tmp_path / "responses"
     resp_dir.mkdir()
-    (resp_dir / "batch_01.json").write_text(json.dumps([
-        {"id": 1, "questions": ["a", "b"]},
-        {"id": 1, "questions": ["c", "d"]},  # 중복 id -- 나중 값으로 덮어써지되 경고를 남겨야 함
-        {"no_id_field": True},               # 형식 오류 -- 이 항목만 건너뛰고 나머지는 처리돼야 함
-    ]), encoding="utf-8")
-    (resp_dir / "batch_02.json").write_text("not a json array, {broken", encoding="utf-8")
+    (resp_dir / "batch_01.json").write_text(
+        json.dumps(
+            [
+                {"id": 1, "questions": ["a", "b"]},
+                {
+                    "id": 1,
+                    "questions": ["c", "d"],
+                },  # 중복 id -- 나중 값으로 덮어써지되 경고를 남겨야 함
+                {
+                    "no_id_field": True
+                },  # 형식 오류 -- 이 항목만 건너뛰고 나머지는 처리돼야 함
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (resp_dir / "batch_02.json").write_text(
+        "not a json array, {broken", encoding="utf-8"
+    )
 
     responses, missing = qg._load_responses(str(tmp_path))
 

@@ -1,4 +1,5 @@
 """End-to-end tests: real team decoder vs compiled C engine, not two toy mocks."""
+
 import shutil
 import struct
 import subprocess
@@ -18,28 +19,48 @@ def engine(tmp_path_factory):
     if not shutil.which("gcc"):
         pytest.skip("GCC is required for standalone C integration tests")
     output = tmp_path_factory.mktemp("engine") / "loader.exe"
-    subprocess.run(["gcc", "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",
-                    str(ROOT / "src/loader.c"), "-lm", "-o", str(output)], check=True)
+    subprocess.run(
+        [
+            "gcc",
+            "-std=c11",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            str(ROOT / "src/loader.c"),
+            "-lm",
+            "-o",
+            str(output),
+        ],
+        check=True,
+    )
     return output
 
 
 def run(engine, path, *args, check=True):
-    return subprocess.run([str(engine), str(path), *map(str, args)],
-                          capture_output=True, check=check)
+    return subprocess.run(
+        [str(engine), str(path), *map(str, args)], capture_output=True, check=check
+    )
 
 
 @pytest.fixture
 def fixture_model(tmp_path):
     torch.manual_seed(17)
-    config = ModelConfig(vocab_size=320, dim=16, heads=2, layers=2, ffn_dim=24, context=128)
+    config = ModelConfig(
+        vocab_size=320, dim=16, heads=2, layers=2, ffn_dim=24, context=128
+    )
     model = InferenceModel(config).eval()
-    merges, _ = bpe.train(["hello hello", "stock mouse", "SELECT stock FROM items;"], merge_budget=12)
+    merges, _ = bpe.train(
+        ["hello hello", "stock mouse", "SELECT stock FROM items;"], merge_budget=12
+    )
     path = tmp_path / "model.gguf"
     export_model(model, path, merges)
     return model, path, merges
 
 
-@pytest.mark.parametrize("ids", [[257], [257, 104, 105, 259], [257, 1, 2, 3, 4, 5, 259]])
+@pytest.mark.parametrize(
+    "ids", [[257], [257, 104, 105, 259], [257, 1, 2, 3, 4, 5, 259]]
+)
 def test_python_c_logits(engine, fixture_model, ids):
     model, path, _ = fixture_model
     with torch.no_grad():
@@ -51,8 +72,18 @@ def test_python_c_logits(engine, fixture_model, ids):
 
 def test_config_variation(engine, tmp_path):
     torch.manual_seed(5)
-    model = InferenceModel(ModelConfig(vocab_size=300, dim=8, heads=1, layers=1,
-                                      ffn_dim=1, context=16, eps=1e-5, theta=5000)).eval()
+    model = InferenceModel(
+        ModelConfig(
+            vocab_size=300,
+            dim=8,
+            heads=1,
+            layers=1,
+            ffn_dim=1,
+            context=16,
+            eps=1e-5,
+            theta=5000,
+        )
+    ).eval()
     path = tmp_path / "variant.gguf"
     export_model(model, path, [])
     ids = [257, 1, 259]
@@ -72,8 +103,17 @@ def test_independent_gguf_reader(fixture_model):
         np.testing.assert_array_equal(tensor.data.reshape(expected.shape), expected)
 
 
-@pytest.mark.parametrize("text", ["hello hello", "SELECT stock FROM items;", "new york_ new york",
-                                  "customers.name = 'mouse'", "123 45.6\n", "stockholm stock"])
+@pytest.mark.parametrize(
+    "text",
+    [
+        "hello hello",
+        "SELECT stock FROM items;",
+        "new york_ new york",
+        "customers.name = 'mouse'",
+        "123 45.6\n",
+        "stockholm stock",
+    ],
+)
 def test_team_bpe_matches_c(engine, fixture_model, text):
     _, path, merges = fixture_model
     actual = list(map(int, run(engine, path, "--encode", text).stdout.split()))
@@ -113,16 +153,26 @@ def test_eos_and_context_stop(engine, fixture_model):
     assert b"stop=context" in result.stderr
 
 
-@pytest.mark.parametrize("args", [("--logits",), ("--logits", "320"),
-                                  ("--logits", "-1"), ("--encode", "한글"),
-                                  ("--generate", "1" * 127, "1")])
+@pytest.mark.parametrize(
+    "args",
+    [
+        ("--logits",),
+        ("--logits", "320"),
+        ("--logits", "-1"),
+        ("--encode", "한글"),
+        ("--generate", "1" * 127, "1"),
+    ],
+)
 def test_bad_inputs_rejected(engine, fixture_model, args):
     _, path, _ = fixture_model
     result = run(engine, path, *args, check=False)
     assert result.returncode != 0 and b"error:" in result.stderr
 
 
-@pytest.mark.parametrize("mutation", ["truncated", "version", "architecture", "tensor_type", "shape", "offset"])
+@pytest.mark.parametrize(
+    "mutation",
+    ["truncated", "version", "architecture", "tensor_type", "shape", "offset"],
+)
 def test_bad_files_rejected(engine, fixture_model, mutation, tmp_path):
     _, path, _ = fixture_model
     raw = bytearray(path.read_bytes())
@@ -132,17 +182,19 @@ def test_bad_files_rejected(engine, fixture_model, mutation, tmp_path):
         struct.pack_into("<I", raw, 4, 2)
     elif mutation == "architecture":
         pos = raw.index(b"capstone_sql", raw.index(b"general.architecture") + 20)
-        raw[pos:pos+12] = b"other_model!"
+        raw[pos : pos + 12] = b"other_model!"
     else:
         # Locate the first descriptor independently through its name bytes.
-        pos = raw.index(b"embedding.embedding.weight") + len(b"embedding.embedding.weight")
+        pos = raw.index(b"embedding.embedding.weight") + len(
+            b"embedding.embedding.weight"
+        )
         rank = struct.unpack_from("<I", raw, pos)[0]
         if mutation == "tensor_type":
-            struct.pack_into("<I", raw, pos + 4 + rank*8, 1)
+            struct.pack_into("<I", raw, pos + 4 + rank * 8, 1)
         elif mutation == "shape":
             struct.pack_into("<Q", raw, pos + 4, 15)
         else:
-            struct.pack_into("<Q", raw, pos + 8 + rank*8, 2**63)
+            struct.pack_into("<Q", raw, pos + 8 + rank * 8, 2**63)
     invalid = tmp_path / "invalid.gguf"
     invalid.write_bytes(raw)
     result = run(engine, invalid, "--logits", 257, check=False)

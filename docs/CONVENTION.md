@@ -39,3 +39,30 @@
 4. **브랜치 삭제**: 머지 직후 사용했던 작업 브랜치는 삭제합니다.
 
 ---
+
+## 📐 4. 코드 가독성과 포맷팅
+
+- Python은 `pyproject.toml`의 Black 설정을 사용합니다.
+- C는 `.clang-format`을 사용하며 들여쓰기는 공백 4칸입니다.
+- C의 `for`, `while`, `if`, `else`는 본문이 한 줄이어도 중괄호를 사용합니다.
+- 한 줄에 여러 실행문을 넣지 않고, 중첩 반복문은 단계별로 들여씁니다.
+- 코드 포맷 변경과 기능 변경은 가능한 한 별도 커밋으로 구분합니다.
+
+저장소 루트에서 프로젝트 가상환경을 활성화한 뒤 실행합니다.
+포맷터는 개발용 도구이며 모델 실행에 필요한 의존성이 아닙니다.
+
+```powershell
+python -m pip install -r requirements-format.txt
+python -m black src tests
+clang-format -i src/loader.c
+```
+
+변경 없이 포맷 검사와 테스트만 실행하려면:
+
+```powershell
+python -m black --check src tests
+clang-format --dry-run --Werror src/loader.c
+python -m pytest tests/ -q
+```
+
+---
