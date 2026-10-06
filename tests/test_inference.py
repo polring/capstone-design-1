@@ -291,3 +291,84 @@ def test_c_rejects_invalid_mode_argument_counts(engine, fixture_model, args):
     assert (
         result.returncode != 0 and b"unknown mode or invalid arguments" in result.stderr
     )
+
+
+@pytest.mark.parametrize(
+    "text", ["", " ", "\t\n", "stock stock", "stock_ stockholm", "aaaaaa"]
+)
+def test_encode_handler_preserves_piece_boundaries(engine, fixture_model, text):
+    _, path, merges = fixture_model
+    result = run(engine, path, "--encode", text)
+    assert list(map(int, result.stdout.split())) == bpe.encode(text, merges)
+
+
+def test_generation_handler_normalizes_uppercase_questions(engine, fixture_model):
+    _, path, _ = fixture_model
+    lowercase = run(engine, path, "--generate", "hello stock", 3)
+    uppercase = run(engine, path, "--generate", "HELLO STOCK", 3)
+    assert uppercase.stdout == lowercase.stdout
+    assert uppercase.stderr == lowercase.stderr
+
+
+def test_generation_handler_zero_budget(engine, fixture_model):
+    _, path, _ = fixture_model
+    result = run(engine, path, "--generate", "", 0)
+    assert result.stdout == b"\n"
+    assert b"stop=max_new_tokens" in result.stderr
+
+
+def test_generation_handler_default_budget_matches_explicit_budget(
+    engine, fixture_model
+):
+    _, path, _ = fixture_model
+    default = run(engine, path, "--generate", "hello")
+    explicit = run(engine, path, "--generate", "hello", 32)
+    assert default.stdout == explicit.stdout
+    assert default.stderr == explicit.stderr
+
+
+def test_generation_selection_skips_special_ids_and_breaks_ties(engine, fixture_model):
+    model, path, merges = fixture_model
+    with torch.no_grad():
+        for parameter in model.parameters():
+            parameter.zero_()
+        model.embedding.embedding.weight.fill_(1)
+        model.final_norm.weight.fill_(1)
+        # The smaller decodable ID must win the tie between A and B.
+        model.lm_head.weight[65].fill_(1)
+        model.lm_head.weight[66].fill_(1)
+        # These IDs have larger logits but cannot be emitted as token bytes.
+        for token_id in (256, 257, 259, 319):
+            model.lm_head.weight[token_id].fill_(2)
+    export_model(model, path, merges)
+    result = run(engine, path, "--generate", "", 2)
+    assert result.stdout == b"AA\n"
+    assert b"stop=max_new_tokens" in result.stderr
+
+
+def test_missing_mode_prints_usage(engine, fixture_model):
+    _, path, _ = fixture_model
+    result = run(engine, path, check=False)
+    assert result.returncode == 2
+    assert result.stdout == b"" and b"usage:" in result.stderr
+
+
+def test_cli_loads_model_before_rejecting_unknown_mode(engine, tmp_path):
+    missing_model = tmp_path / "missing.gguf"
+    result = run(engine, missing_model, "--unknown", check=False)
+    assert result.returncode != 0
+    assert b"cannot open model file" in result.stderr
+
+
+def test_logits_handler_accepts_full_context_and_rejects_overflow(
+    engine, fixture_model
+):
+    model, path, _ = fixture_model
+    ids = [257] + [104] * (model.config.context - 1)
+    with torch.no_grad():
+        expected = model(torch.tensor([ids]))[0, -1].numpy()
+    result = run(engine, path, "--logits", *ids)
+    actual = np.fromstring(result.stdout.decode(), sep=" ")
+    np.testing.assert_allclose(actual, expected, atol=2e-5, rtol=2e-5)
+    overflow = run(engine, path, "--logits", *ids, 104, check=False)
+    assert overflow.returncode != 0 and b"context length exceeded" in overflow.stderr

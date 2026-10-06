@@ -88,6 +88,40 @@ Python writer에는 GGUF 라이브러리가 필요하지 않고 C에는 외부 �
 
 ## C 계산 흐름
 
+### CLI 함수 구조 (2026-10-06 가독성 리팩터링)
+
+기존의 한 파일 빌드 명령과 GGUF 계약을 유지하면서 `src/loader.c` 내부를
+역할별 함수로 분리했다. 기능이나 SQL 지원 범위를 추가한 작업은 아니다.
+
+| 역할 | 주요 함수 |
+| --- | --- |
+| 프로그램 시작 및 정리 | `main`, `release_model`, `release_tokenizer` |
+| CLI 옵션 해석 및 분기 | `parse_cli_options`, `dispatch_cli_command` |
+| 모드별 실행 | `run_logits_command`, `run_encode_command`, `run_generation_command` |
+| 모델 파일 읽기 | `read_model_file`, `read_gguf_header`, `read_model_metadata` |
+| 텐서 로드 및 검증 | `read_tensor_descriptors`, `read_tensor_values`, `validate_model_weights` |
+| 토큰 바이트 복원 | `build_token_pieces`, `build_merged_token_piece` |
+| 질문 준비 및 토큰화 | `normalize_question`, `prepare_prompt_tokens`, `encode_text`, `encode_piece` |
+| 추론 단계 실행 | `forward`, `run_decoder_block`, `compute_last_token_logits` |
+| Attention 및 FFN | `compute_queries_keys_values`, `compute_causal_attention`, `apply_attention_residual`, `apply_ffn_residual` |
+| 다음 토큰 생성 | `generate_tokens`, `select_next_token` |
+| 추론 임시 메모리 | `create_workspace`, `release_workspace` |
+
+`ModelConfig`는 구조 설정, `Tokenizer`는 BPE와 토큰 바이트,
+`InferenceWorkspace`는 계산용 임시 버퍼를 각각 묶는다.
+텐서 이름과 파일의 메타데이터 이름은 변경하지 않았다.
+
+처음 코드를 읽을 때는 `main` → `dispatch_cli_command` → 모드별 실행 함수를
+따라가고, 생성 모드에서는 `prepare_prompt_tokens` → `generate_tokens` →
+`forward` 순서로 확인한다. 파일 로드는 `load_model`에서 단계별 함수를 따라간다.
+
+복잡한 조건은 `is_model_config_compatible`, `is_tensor_data_in_bounds`,
+`has_valid_merge_references` 등으로 분리했다. 단락 평가로 잘못된 배열 접근과
+0으로 나누기를 막는 순서는 유지한다. 주석은 GGUF 바이트 순서와 정렬,
+Q/K RoPE, causal mask, softmax, BPE 병합 순서, EOS 동점 정책을 설명한다.
+
+### 수식 및 생성 흐름
+
 ```text
 GGUF 설정/전체 가중치 로드
 → 소문자 질문을 팀 BPE로 encode
@@ -123,3 +157,15 @@ KV cache, 샘플링, 양자화, Unicode 입력, SQL 문법 제약은 후속 작�
 
 2026-10-03 로컬 검증 결과: 새 추론 테스트 25개 포함 전체 99개 통과.
 CPU PyTorch 2.14.1, GCC, GGUFReader 0.19.0으로 실행했다.
+
+2026-10-06 리팩터링 검증: C11/GCC `-O2 -Wall -Wextra -Werror` 빌드와
+포맷 검사를 통과했다. 전체 160개 테스트 중 Python 및 파일 검증 107개는
+통과했지만, C 실행이 필요한 53개는 Windows 애플리케이션 제어 정책
+(`WinError 4551`)이 새 실행 파일의 시작을 차단하여 실행 결과를 검증하지 못했다.
+이 53개에는 리팩터링 회귀 테스트 13개가 포함되어 있다.
+보안 설정을 변경하지 않았으며, 전체 통과나 변경 전후 CLI 출력 일치를
+확인한 것으로 취급하면 안 된다. 승인된 실행 환경에서 다음 명령으로 재검증한다.
+
+```powershell
+python -m pytest tests/ -q
+```
