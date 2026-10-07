@@ -70,7 +70,7 @@
 | 단계 | 추가되는 SQL 범위 | 스키마 |
 |---|---|---|
 | **1 (현재)** | SELECT 단일 컬럼 또는 `*`, WHERE 단일 등호 조건 | 3개 테이블 고정, JOIN 없음 |
-| 2 | WHERE 2~3개 조건(AND/OR), `> < >= <= != BETWEEN`, ORDER BY, LIMIT | 동일 |
+| 2 | WHERE 2~3개 조건(AND/OR), `> < >= <= != BETWEEN`, 이름 `LIKE`(접두·접미·포함), ORDER BY, LIMIT | 동일 |
 | 3 | GROUP BY, HAVING, COUNT/AVG/SUM/MIN/MAX, 1단계 서브쿼리 | 동일 |
 | 4 | 2테이블 JOIN | 테이블 5~10개로 확장 |
 | 상한 | 다중 JOIN, 중첩 서브쿼리 | 학습된 스키마 한정 |
