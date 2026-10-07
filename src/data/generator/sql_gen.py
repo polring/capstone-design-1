@@ -16,7 +16,7 @@ db_gen.py 가 만든 shop.db / holdout.json 을 입력으로 받아, 1단계 문
     60%+ 를 차지한다(계획서 5-3). cap_id 를 자동으로 줄여 나가며 30% 이하로 맞춘다.
   - 5-2가 지적한 "ID 첫 자리로 테이블 맞히기" 지름길을 깨기 위해, ID 조건 중 일부는
     존재하지 않는 ID(결과 0행)로 채운다 (기본 20%, id_nonexistent_ratio).
-  - "분포 내 평가"(3-5)는 값 자체가 아니라 SQL 문자열 단위로 학습/평가를 분리한다.
+  - "분포 내 평가"(3-4)는 값 자체가 아니라 SQL 문자열 단위로 학습/평가를 분리한다.
     (값은 겹칠 수 있지만, 그 SQL 문자열 자체는 학습에 없었던 것이어야 한다는 뜻이므로.)
     값 자체를 완전히 분리하는 건 홀드아웃(미등장 값)의 몫이다.
 
@@ -26,6 +26,7 @@ db_gen.py 가 만든 shop.db / holdout.json 을 입력으로 받아, 1단계 문
     python sql_gen.py verify                       # 완료 조건 3종 재검사
     python sql_gen.py test                         # 결정성 · 홀드아웃 미포함 · train/eval 비중복
     python sql_gen.py summary                      # 조합별 할당량 표 출력
+    python sql_gen.py holdout                      # data/sql_eval_holdout.json (미등장 값 평가 SQL)
 """
 
 from __future__ import annotations
@@ -289,6 +290,7 @@ def _paths(out_dir: str) -> dict[str, str]:
         "holdout": os.path.join(out_dir, "holdout.json"),
         "train": os.path.join(out_dir, "sql_train.json"),
         "eval": os.path.join(out_dir, "sql_eval_indist.json"),
+        "holdout_eval": os.path.join(out_dir, "sql_eval_holdout.json"),
         "report": os.path.join(out_dir, "sql_gen_report.json"),
     }
 
@@ -420,6 +422,118 @@ def test(out_dir: str, cfg: SqlGenConfig) -> list[tuple[str, list[str]]]:
 
 
 # ---------------------------------------------------------------------------
+# 미등장 값 평가 SQL (계획서 3-4 "미등장 개체" / "미등장 ID")
+# ---------------------------------------------------------------------------
+
+def holdout_literals(ho: dict) -> list[tuple[str, str, str, object]]:
+    """holdout.json 을 (tier, table, where_col, value) 목록으로 편다.
+
+    한 리터럴이 등장할 수 있는 WHERE 자리를 모두 쓴다 (예: 미등장 고객 ID 는
+    customers.customer_id 와 orders.customer_id 양쪽). 순서는 holdout.json 의
+    정렬 순서를 그대로 따르므로 결정적이다.
+    """
+    out: list[tuple[str, str, str, object]] = []
+    for r in ho["customers"]["heldout_rows"]:
+        out.append(("unseen_entity", "customers", "name", r["name"]))
+        out.append(("unseen_entity", "customers", "customer_id", r["customer_id"]))
+        out.append(("unseen_entity", "orders", "customer_id", r["customer_id"]))
+    for r in ho["items"]["heldout_rows"]:
+        out.append(("unseen_entity", "items", "item_name", r["item_name"]))
+        out.append(("unseen_entity", "items", "item_id", r["item_id"]))
+        out.append(("unseen_entity", "orders", "item_id", r["item_id"]))
+    for cid in ho["customers"]["heldout_ids_only"]:
+        out.append(("unseen_id", "customers", "customer_id", cid))
+        out.append(("unseen_id", "orders", "customer_id", cid))
+    for iid in ho["items"]["heldout_ids_only"]:
+        out.append(("unseen_id", "items", "item_id", iid))
+        out.append(("unseen_id", "orders", "item_id", iid))
+    for oid in ho["orders"]["heldout_ids"]:
+        out.append(("unseen_order_id", "orders", "order_id", oid))
+    return out
+
+
+def generate_holdout(con: sqlite3.Connection, ho: dict, seed: int, selects_per_literal: int
+                     ) -> list[dict]:
+    """미등장 리터럴마다 SELECT 변형을 selects_per_literal 개 골라 SQL 을 만든다 (0 이하 = 전부).
+
+    측정 대상은 리터럴 복사 능력이라 SELECT 변형을 전부 쓸 필요는 없다. 기본 1개면
+    WHERE 자리당 SQL 1개가 되어 질문 생성 비용을 억제한다.
+    """
+    rng = random.Random(seed ^ 0x4854)  # 학습/분포 내 평가 셔플과 분리
+    rows: list[dict] = []
+    for tier, table, col, value in holdout_literals(ho):
+        variants = _select_variants(table)
+        if selects_per_literal > 0:
+            variants = rng.sample(variants, min(selects_per_literal, len(variants)))
+        for sel in variants:
+            sql = build_sql(table, sel, col, value)
+            rows.append({
+                "sql": sql, "table": table, "select": sel, "where_col": col,
+                "where_val": value, "is_id_condition": col in ID_COLUMNS,
+                "is_nonexistent": False, "n_rows": len(con.execute(sql).fetchall()),
+                "holdout_tier": tier,
+            })
+    return rows
+
+
+def build_holdout_eval(out_dir: str, seed: int, selects_per_literal: int) -> list[dict]:
+    paths = _paths(out_dir)
+    con = sqlite3.connect(paths["db"])
+    ho = json.load(open(paths["holdout"], encoding="utf-8"))
+    rows = generate_holdout(con, ho, seed, selects_per_literal)
+    con.close()
+    with open(paths["holdout_eval"], "w", encoding="utf-8") as f:
+        json.dump(rows, f, ensure_ascii=False, indent=2)
+    return rows
+
+
+def verify_holdout_eval(out_dir: str) -> list[str]:
+    """미등장 평가 SQL 검사: 실행 오류·0행 없음 / 리터럴이 실제 홀드아웃 값 /
+    학습·분포 내 평가 SQL 과 비중복 / SQL 중복 없음."""
+    paths = _paths(out_dir)
+    rows = json.load(open(paths["holdout_eval"], encoding="utf-8"))
+    bans = db_gen.load_bans(json.load(open(paths["holdout"], encoding="utf-8")))
+    seen_sqls = set()
+    for key in ("train", "eval"):
+        if os.path.exists(paths[key]):
+            seen_sqls |= {r["sql"] for r in json.load(open(paths[key], encoding="utf-8"))}
+
+    fails: list[str] = []
+    con = sqlite3.connect(paths["db"])
+    for row in rows:
+        try:
+            n = len(con.execute(row["sql"]).fetchall())
+        except sqlite3.Error as e:
+            fails.append(f"실행 오류: {row['sql']!r} ({e})")
+            continue
+        if n != row["n_rows"] or n == 0:
+            fails.append(f"n_rows 이상: {row['sql']!r} 저장값 {row['n_rows']}, 실제 {n}")
+        if row["where_val"] not in bans[row["table"]][row["where_col"]]:
+            fails.append(f"홀드아웃 값이 아님: {row['sql']!r}")
+        if row["sql"] in seen_sqls:
+            fails.append(f"학습/분포 내 평가 SQL 과 중복: {row['sql']!r}")
+    con.close()
+    if len({r["sql"] for r in rows}) != len(rows):
+        fails.append("미등장 평가 SQL 안에 중복 SQL 존재")
+    return fails
+
+
+def holdout_summary(rows: list[dict]) -> None:
+    counts: dict[tuple[str, str, str], int] = {}
+    for r in rows:
+        k = (r["holdout_tier"], r["table"], r["where_col"])
+        counts[k] = counts.get(k, 0) + 1
+    print(f"{'tier':<17}{'테이블':<11}{'WHERE 컬럼':<14}{'SQL':>6}")
+    print("-" * 50)
+    for (tier, table, col), n in sorted(counts.items()):
+        print(f"{tier:<17}{table:<11}{col:<14}{n:>6}")
+    print("-" * 50)
+    for tier in ("unseen_entity", "unseen_id", "unseen_order_id"):
+        print(f"{tier:<17}{sum(n for k, n in counts.items() if k[0] == tier):>31}")
+    print(f"{'합계':<17}{len(rows):>31}")
+
+
+# ---------------------------------------------------------------------------
 # 요약
 # ---------------------------------------------------------------------------
 
@@ -455,7 +569,7 @@ def summary(out_dir: str) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="1단계 SQL 생성기")
-    ap.add_argument("command", choices=["build", "verify", "test", "summary"])
+    ap.add_argument("command", choices=["build", "verify", "test", "summary", "holdout"])
     ap.add_argument("--preset", default="large", choices=list(db_gen.PRESETS))
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default="./data")
@@ -463,6 +577,8 @@ def main() -> int:
     ap.add_argument("--cap-id", type=int, default=40)
     ap.add_argument("--id-ratio-max", type=float, default=0.30)
     ap.add_argument("--train-ratio", type=float, default=0.80)
+    ap.add_argument("--selects-per-literal", type=int, default=1,
+                    help="holdout: 미등장 리터럴의 WHERE 자리마다 뽑을 SELECT 변형 수 (0 = 전부)")
     args = ap.parse_args()
 
     cfg = SqlGenConfig(
@@ -485,6 +601,14 @@ def main() -> int:
         fails = verify(args.out)
         print("검증 ", "통과" if not fails else "실패\n  - " + "\n  - ".join(fails))
         print(f"ID 조건 비중  {report['id_ratio']:.1%}")
+        return 1 if fails else 0
+
+    if args.command == "holdout":
+        rows = build_holdout_eval(args.out, args.seed, args.selects_per_literal)
+        print(f"생성  {os.path.join(args.out, 'sql_eval_holdout.json')} ({len(rows)}개)")
+        holdout_summary(rows)
+        fails = verify_holdout_eval(args.out)
+        print("검증 ", "통과" if not fails else "실패\n  - " + "\n  - ".join(fails))
         return 1 if fails else 0
 
     if args.command == "verify":

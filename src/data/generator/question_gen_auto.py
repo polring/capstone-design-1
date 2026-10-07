@@ -25,8 +25,8 @@ template_check)은 question_gen.py 걸 그대로 재사용한다 -- 검증 기�
 결과는 기본적으로 data_raw/auto_pilot/ 밑에 쌓인다(.gitignore로 커밋 안 되는 실험 영역 --
 data_raw/는 원래 "검증 전 원본 라운드"를 두는 자리라는 기존 관례를 따름). 결과를 정식
 학습 코퍼스로 채택하려면, 검토 후 data/pilot_<이름>_merged/pilot_train_pairs.json 같은
-곳으로 사람이 직접 옮긴다(이번 Qwen3-14B 파일럿에서 pilot_qwen3_merged/를 만든 것과 동일한
-방식) -- 이 스크립트가 자동으로 정식 코퍼스에 병합하지는 않는다.
+곳으로 사람이 직접 옮긴다(Qwen3-14B 파일럿분은 검토 후 data/pilot_merged/에 source 필드를
+붙여 합쳤다) -- 이 스크립트가 자동으로 정식 코퍼스에 병합하지는 않는다.
 """
 
 from __future__ import annotations
@@ -362,7 +362,7 @@ def main() -> int:
         f"수동확인 flag {summary['n_soft_flags']}건"
     )
     print(f"틀(skeleton) 재사용 비율: {summary['template_repeat_ratio']:.1%}")
-    print(f"결과: {summary['out_dir']}/pilot_train_pairs.json")
+    print(f"결과: {summary['out_dir']}/{qg.pairs_filename(summary['out_dir'])}")
     print(f"요약: {summary['out_dir']}/pipeline_summary.json")
     return 0
 

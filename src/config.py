@@ -29,7 +29,8 @@ SEQ_LEN = _preset["SEQ_LEN"]  # 최대 문맥 길이 (Context Length)
 NUM_HEADS = _preset["NUM_HEADS"]  # 멀티 헤드 어텐션의 헤드 개수
 HEAD_DIM = HIDDEN_DIM // NUM_HEADS  # 각 헤드의 차원 (모든 단계 64)
 NUM_LAYERS = _preset["NUM_LAYERS"]  # 디코더 블록 개수
-FFN_DIM = HIDDEN_DIM * 3
+# SwiGLU(행렬 3개)가 계획서의 GELU FFN(4d, 행렬 2개, 8d²)과 같은 파라미터 예산이 되는 크기
+FFN_DIM = round(HIDDEN_DIM * 8 / 3)
 
 # Training
 BATCH_SIZE = 32  # DataLoader 배치 크기

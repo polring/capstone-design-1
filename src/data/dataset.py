@@ -30,7 +30,7 @@ def load_train_pairs(data_dir: str | Path = DATA_DIR) -> list[Pair]:
 
 
 def load_eval_indist_pairs(data_dir: str | Path = DATA_DIR) -> list[Pair]:
-    return load_pairs(data_dir, "eval_indist*/pilot_train_pairs.json")
+    return load_pairs(data_dir, "eval_indist*/eval_pairs.json")
 
 
 def encode_pair(question: str, sql: str, merges: list[bpe.Merge]) -> list[int]:

@@ -13,15 +13,22 @@ capstone-design-1/
 ├── src/                                  # 핵심 소스코드 패키지
 │   ├── __init__.py
 │   ├── config.py                         # 모델/학습 하이퍼파라미터
+│   ├── train.py                          # 학습 루프 (runs/ 에 체크포인트·로그 저장)
+│   ├── evaluation.py                     # 체크포인트 평가 (EM, 실행 정확도, 계층별 집계)
+│   ├── predict.py                        # 질문 → SQL 생성·실행 (대화형)
 │   ├── models/                           # 트랜스포머 모델 아키텍처
 │   │   ├── __init__.py
-│   │   └── embedding.py                  # TokenEmbedding, RoPE
+│   │   ├── embedding.py                  # TokenEmbedding, RoPE
+│   │   ├── transformer.py                # RMSNorm, Attention, SwiGLU FFN, 디코더 블록
+│   │   └── model.py                      # 전체 모델 조립, greedy 생성
 │   ├── tokenizer/                        # 토크나이저 모듈
 │   │   ├── __init__.py
 │   │   └── bpe.py                        # 바이트 레벨 BPE 토크나이저
 │   └── data/                             # 데이터셋 및 데이터 생성 모듈
 │       ├── __init__.py
 │       ├── dataset.py                    # PyTorch Dataset & collate_fn
+│       ├── name_swap.py                  # 이름 교체 (가짜 이름 생성, 기본 학습에 사용)
+│       ├── clean_ambiguous.py            # 질문만으로 정답이 정해지지 않는 학습 쌍 제거
 │       └── generator/                    # SQL/질문 데이터 파이프라인
 │           ├── __init__.py
 │           ├── db_gen.py                 # SQLite DB 및 데이터 생성
@@ -32,24 +39,34 @@ capstone-design-1/
 │   ├── shop.db                           # 평가/학습용 SQLite DB
 │   ├── holdout.json                      # 미등장 평가용 엔티티
 │   ├── sql_train.json                    # 학습용 SQL 목록
-│   ├── sql_eval_indist.json              # 평가용 SQL 목록
-│   ├── pilot_merged/                     # 학습용 (질문, SQL) 페어 데이터
-│   ├── pilot_qwen3_merged/               # 학습용 페어 (Qwen3-14B 파일럿, v2로 생성)
-│   └── eval_indist_merged/               # 평가용 (질문, SQL) 페어 데이터
+│   ├── sql_eval_indist.json              # 분포 내 평가용 SQL 목록
+│   ├── sql_eval_holdout.json             # 미등장 값 평가용 SQL 목록
+│   ├── sql_gen_report.json               # SQL 구조별 할당량 보고서
+│   ├── pilot_merged/                     # 학습용 (질문, SQL) 페어 데이터 (source 필드로 출처 구분)
+│   ├── eval_indist_merged/               # 분포 내 평가용 (질문, SQL) 페어 데이터
+│   ├── eval_holdout_merged/              # 미등장 값 평가용 (질문, SQL) 페어 데이터
+│   └── eval_qwen_holdout_merged/         # 이전 미등장 값 평가셋 (Qwen3 생성, 비교용)
 ├── tests/                                # 전체 단위 테스트 (pytest)
 │   ├── conftest.py                       # pytest 환경 설정 (sys.path)
 │   ├── test_embedding.py                 # 임베딩 및 RoPE 검증
+│   ├── test_transformer.py               # 디코더 블록 검증
 │   ├── test_tokenizer.py                 # BPE 토크나이저 검증
 │   ├── test_dataset.py                   # PyTorch Dataset 검증
+│   ├── test_model.py                     # 모델 조립·causal·weight tying·greedy 생성 검증
+│   ├── test_train.py                     # SQL 단위 분할·loss 마스크·lr 스케줄 검증
+│   ├── test_evaluation.py                # 채점 규칙(EM·다중 정답·오답 분류)·배치 생성 검증
+│   ├── test_predict.py                   # 질문 → SQL 생성·실행 출력 검증
+│   ├── test_name_swap.py                 # 가짜 이름 생성·이름 교체 검증
+│   ├── test_clean_ambiguous.py           # 라벨 규칙(L2~L4) 위반 판정 검증
 │   ├── test_question_gen.py              # 질문 생성 검증 로직 검증
 │   └── test_question_gen_auto.py         # 자동화 파이프라인 JSON 복구 로직 검증
 ├── docs/                                 # 프로젝트 설계 및 규칙 문서
 │   ├── CONVENTION.md                     # 팀 협업 규칙 및 커밋 컨벤션
 │   ├── SETUP.md                          # 환경 설정 가이드
-│   ├── CLAUDE.md                         # 프로젝트 개요 및 제약사항
 │   ├── text-to-sql-llm-project-plan.md   # 전체 프로젝트 상세 설계서
-│   ├── text-to-sql-stage1-progress-report.md # 1단계 진행 보고서
-│   └── function-reference.md             # 함수별 레퍼런스
+│   └── text-to-sql-stage1-report.md      # 1단계 진행 보고서
+├── CLAUDE.md                             # Claude Code 작업 규칙
+├── pytest.ini                            # pytest 마커·옵션
 ├── requirements.txt                      # 프로젝트 통합 의존성
 └── README.md
 ```
@@ -77,3 +94,4 @@ pytest tests/ -v
 - GGUF Exporter와 독립 C 추론 CLI 실행 및 체크포인트 계약은 [docs/exporter-loader.md](docs/exporter-loader.md)를 참고하세요. 현재 검증은 더미 가중치 기준이며 학습 모델의 SQL 정확도 검증은 별도입니다.
 - 팀 협업 및 Git 커밋/PR 규칙은 [docs/CONVENTION.md](docs/CONVENTION.md)를 확인하세요.
 - 전체 데이터셋 구조 및 모델 아키텍처 계획은 [docs/text-to-sql-llm-project-plan.md](docs/text-to-sql-llm-project-plan.md)를 참고하세요.
+- 현재 진행 상황과 결과는 [docs/text-to-sql-stage1-report.md](docs/text-to-sql-stage1-report.md), 실행·재현 방법은 [docs/SETUP.md](docs/SETUP.md)에 있습니다.

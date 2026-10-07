@@ -23,7 +23,7 @@ SQL 정답은 이미 sql_gen.py 가 정했다. LLM은 그 SQL에 맞는 자연�
      data/pilot/responses/batch_XX.json 으로 저장)
 
     python src/data/generator/question_gen.py validate --out data/pilot
-        data/pilot/pilot_train_pairs.json        검증 통과한 (질문, SQL) 쌍
+        data/pilot/pilot_train_pairs.json        검증 통과한 (질문, SQL) 쌍 (폴더명이 eval* 이면 eval_pairs.json)
         data/pilot/validation_report.json        통과율 · 실패 사유 · 수동 확인용 flag
 """
 
@@ -107,6 +107,15 @@ Rules (all must hold for every question):
     "what price is the item priced 97.56?"). Instead phrase all 5 as an existence/confirmation check, e.g.
     "is there an item priced at 97.56?", "confirm the item priced 97.56 exists", "check if a customer with
     id 1653 exists", "does an order with id 5432 exist".
+11. if select is the row's name (name for customers, item_name for items) or order_id for orders, the question
+    must ask WHICH one / for its name (e.g. "which item costs 14.46?", "what's the name of the customer ..."),
+    not "show me / pull up / tell me about / look up the item ..." -- those wording mean select "*".
+12. if select is item_id on the items table or customer_id on the customers table, the question must explicitly
+    ask for the id (e.g. "what's the item id of ...", "id number for ..."). "which item ..." alone means the
+    item's name, not its id.
+13. if the table is orders and select is "*" or the same column as where_col, every question must mention
+    orders/purchases explicitly (e.g. "show me the orders for customer 1400", "is there an order for item
+    3581"). "customer 1400 details" would mean the customers table, not orders.
 
 Return ONLY a JSON array, no commentary, no markdown code fences, in exactly this shape:
 [
@@ -544,6 +553,12 @@ def _load_responses(out_dir: str) -> tuple[dict[int, list[str]], list[str]]:
     return responses, missing_files
 
 
+def pairs_filename(out_dir: str) -> str:
+    """검증 통과 쌍 파일명. 폴더 이름이 eval* 이면 평가용(eval_pairs.json), 아니면 학습용."""
+    name = os.path.basename(os.path.normpath(out_dir))
+    return "eval_pairs.json" if name.startswith("eval") else "pilot_train_pairs.json"
+
+
 def validate(out_dir: str, expected_questions: int = 5) -> dict:
     pilot_sql = _load_pilot_sql(out_dir)
     responses, missing_files = _load_responses(out_dir)
@@ -606,7 +621,7 @@ def validate(out_dir: str, expected_questions: int = 5) -> dict:
     }
 
     with open(
-        os.path.join(out_dir, "pilot_train_pairs.json"), "w", encoding="utf-8"
+        os.path.join(out_dir, pairs_filename(out_dir)), "w", encoding="utf-8"
     ) as f:
         json.dump(passed_pairs, f, ensure_ascii=False, indent=2)
     with open(
@@ -726,7 +741,7 @@ def load_all_merged_pairs(data_dir: str) -> list[dict]:
     pairs: list[dict] = []
     for pattern in (
         "pilot*/pilot_train_pairs.json",
-        "eval_indist*/pilot_train_pairs.json",
+        "eval_indist*/eval_pairs.json",
     ):
         for pf in sorted(glob.glob(os.path.join(data_dir, pattern))):
             with open(pf, encoding="utf-8") as f:
@@ -864,7 +879,7 @@ def main() -> int:
         f"실패 {report['n_failures']}건, 응답 파일 누락 {report['n_missing_response_files']}건, "
         f"수동확인 flag {report['n_soft_flags']}건"
     )
-    print(f"저장: {os.path.join(args.out, 'pilot_train_pairs.json')}")
+    print(f"저장: {os.path.join(args.out, pairs_filename(args.out))}")
     print(f"      {os.path.join(args.out, 'validation_report.json')}")
     return 0
 
