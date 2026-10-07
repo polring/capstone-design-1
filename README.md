@@ -91,6 +91,7 @@ pytest tests/ -v
 ---
 
 ## 📜 협업 규칙 및 문서
+- GGUF Exporter와 독립 C 추론 CLI 실행 및 체크포인트 계약은 [docs/exporter-loader.md](docs/exporter-loader.md)를 참고하세요. 현재 검증은 더미 가중치 기준이며 학습 모델의 SQL 정확도 검증은 별도입니다.
 - 팀 협업 및 Git 커밋/PR 규칙은 [docs/CONVENTION.md](docs/CONVENTION.md)를 확인하세요.
 - 전체 데이터셋 구조 및 모델 아키텍처 계획은 [docs/text-to-sql-llm-project-plan.md](docs/text-to-sql-llm-project-plan.md)를 참고하세요.
 - 현재 진행 상황과 결과는 [docs/text-to-sql-stage1-report.md](docs/text-to-sql-stage1-report.md), 실행·재현 방법은 [docs/SETUP.md](docs/SETUP.md)에 있습니다.

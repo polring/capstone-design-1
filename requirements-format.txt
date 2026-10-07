@@ -1,0 +1,5 @@
+# Optional development tools; not required for training or inference.
+# Pure Python Black also works when Windows blocks compiled extension modules.
+--no-binary=black
+black==26.10.0
+clang-format==23.1.2

@@ -39,7 +39,10 @@ import re
 # 1. SQL 샘플링 (sql_train.json 의 (table, where_col) 분포를 유지한 채 n개 축소)
 # ---------------------------------------------------------------------------
 
-def stratified_sample(entries: list[dict], n_total: int, seed: int) -> list[tuple[int, dict]]:
+
+def stratified_sample(
+    entries: list[dict], n_total: int, seed: int
+) -> list[tuple[int, dict]]:
     """(원본 인덱스, entry) 쌍을 (table, where_col) 조합 비율을 유지해 n_total개 추출."""
     rng = random.Random(seed)
     groups: dict[tuple[str, str], list[int]] = {}
@@ -130,6 +133,7 @@ def format_literal_for_prompt(where_val, coltype: str) -> str:
 
 def build_batch_prompt(batch: list[dict]) -> str:
     import sys
+
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import db_gen  # COLUMN_TYPES 대신 여기서 직접 판단하지 않고 sql_gen 재사용
     import sql_gen
@@ -172,9 +176,15 @@ EXAMPLE_QUESTIONS_BY_SLOT = [
 
 def small_model_rules_blurb(n_questions: int = 5) -> str:
     if n_questions > len(QUESTION_STYLE_SLOTS):
-        raise ValueError(f"n_questions={n_questions}는 정의된 말투 슬롯({len(QUESTION_STYLE_SLOTS)}개)보다 많음")
-    slots = "\n".join(f"{i}. {s}" for i, s in enumerate(QUESTION_STYLE_SLOTS[:n_questions], start=1))
-    example_lines = ",\n    ".join(f'"{q}"' for q in EXAMPLE_QUESTIONS_BY_SLOT[:n_questions])
+        raise ValueError(
+            f"n_questions={n_questions}는 정의된 말투 슬롯({len(QUESTION_STYLE_SLOTS)}개)보다 많음"
+        )
+    slots = "\n".join(
+        f"{i}. {s}" for i, s in enumerate(QUESTION_STYLE_SLOTS[:n_questions], start=1)
+    )
+    example_lines = ",\n    ".join(
+        f'"{q}"' for q in EXAMPLE_QUESTIONS_BY_SLOT[:n_questions]
+    )
     return f"""\
 For EACH sql below, write {n_questions} different english questions that a person could ask to get exactly
 that sql as the answer.
@@ -219,6 +229,7 @@ def build_small_model_batch_prompt(batch: list[dict], n_questions: int = 5) -> s
     """build_batch_prompt()와 같은 정보를 담되, 14B급 이하 모델을 겨냥해 규칙을 더 구체적으로 풀어
     쓰고, n_questions개 문장의 각 말투 슬롯을 명시적으로 지정하고, few-shot 예시 1개를 포함한 프롬프트."""
     import sys
+
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import sql_gen
 
@@ -234,8 +245,16 @@ def build_small_model_batch_prompt(batch: list[dict], n_questions: int = 5) -> s
     return "\n".join(lines)
 
 
-def _make_prompts_impl(out_dir: str, train_path: str, n: int, batch_size: int, seed: int,
-                        exclude_dirs: list[str] | None, prompt_builder, log_prefix: str = "") -> None:
+def _make_prompts_impl(
+    out_dir: str,
+    train_path: str,
+    n: int,
+    batch_size: int,
+    seed: int,
+    exclude_dirs: list[str] | None,
+    prompt_builder,
+    log_prefix: str = "",
+) -> None:
     with open(train_path, encoding="utf-8") as f:
         entries = json.load(f)
 
@@ -246,8 +265,10 @@ def _make_prompts_impl(out_dir: str, train_path: str, n: int, batch_size: int, s
                 already_used |= {v["sql"] for v in json.load(f).values()}
         before = len(entries)
         entries = [e for e in entries if e["sql"] not in already_used]
-        print(f"이전 {len(exclude_dirs)}개 라운드에서 쓴 SQL {before - len(entries)}개를 후보에서 제외 "
-              f"(남은 후보 {len(entries)}개)")
+        print(
+            f"이전 {len(exclude_dirs)}개 라운드에서 쓴 SQL {before - len(entries)}개를 후보에서 제외 "
+            f"(남은 후보 {len(entries)}개)"
+        )
 
     picked = stratified_sample(entries, n, seed)
     items = [{"id": idx, "entry": e} for idx, e in picked]
@@ -255,7 +276,7 @@ def _make_prompts_impl(out_dir: str, train_path: str, n: int, batch_size: int, s
     os.makedirs(os.path.join(out_dir, "prompts"), exist_ok=True)
     os.makedirs(os.path.join(out_dir, "responses"), exist_ok=True)
 
-    batches = [items[i:i + batch_size] for i in range(0, len(items), batch_size)]
+    batches = [items[i : i + batch_size] for i in range(0, len(items), batch_size)]
     for bi, batch in enumerate(batches, start=1):
         prompt = prompt_builder(batch)
         path = os.path.join(out_dir, "prompts", f"batch_{bi:02d}.txt")
@@ -266,19 +287,40 @@ def _make_prompts_impl(out_dir: str, train_path: str, n: int, batch_size: int, s
     with open(os.path.join(out_dir, "pilot_sql.json"), "w", encoding="utf-8") as f:
         json.dump(pilot_sql, f, ensure_ascii=False, indent=2)
 
-    print(f"{log_prefix}SQL {len(items)}개 -> {len(batches)}개 배치 (배치 크기 {batch_size})")
-    print(f"프롬프트: {os.path.join(out_dir, 'prompts')}/batch_01.txt ~ batch_{len(batches):02d}.txt")
-    print(f"응답을 저장할 위치: {os.path.join(out_dir, 'responses')}/batch_01.json ~ batch_{len(batches):02d}.json")
+    print(
+        f"{log_prefix}SQL {len(items)}개 -> {len(batches)}개 배치 (배치 크기 {batch_size})"
+    )
+    print(
+        f"프롬프트: {os.path.join(out_dir, 'prompts')}/batch_01.txt ~ batch_{len(batches):02d}.txt"
+    )
+    print(
+        f"응답을 저장할 위치: {os.path.join(out_dir, 'responses')}/batch_01.json ~ batch_{len(batches):02d}.json"
+    )
     print(f"메타데이터: {os.path.join(out_dir, 'pilot_sql.json')}")
 
 
-def make_prompts(out_dir: str, train_path: str, n: int, batch_size: int, seed: int,
-                  exclude_dirs: list[str] | None = None) -> None:
-    _make_prompts_impl(out_dir, train_path, n, batch_size, seed, exclude_dirs, build_batch_prompt)
+def make_prompts(
+    out_dir: str,
+    train_path: str,
+    n: int,
+    batch_size: int,
+    seed: int,
+    exclude_dirs: list[str] | None = None,
+) -> None:
+    _make_prompts_impl(
+        out_dir, train_path, n, batch_size, seed, exclude_dirs, build_batch_prompt
+    )
 
 
-def make_prompts_small_model(out_dir: str, train_path: str, n: int, batch_size: int, seed: int,
-                              exclude_dirs: list[str] | None = None, n_questions: int = 5) -> None:
+def make_prompts_small_model(
+    out_dir: str,
+    train_path: str,
+    n: int,
+    batch_size: int,
+    seed: int,
+    exclude_dirs: list[str] | None = None,
+    n_questions: int = 5,
+) -> None:
     """14B급 이하 약한 모델용. make_prompts()와의 차이:
     - 배치 크기를 작게(기본 8) 잡아 한 프롬프트가 다뤄야 할 SQL 개수를 줄인다 -- 배치가 커질수록
       표현이 "무난한 패턴"으로 수렴하는 문제가 약한 모델에서 더 빨리, 더 심하게 나타나기 때문이다.
@@ -287,9 +329,18 @@ def make_prompts_small_model(out_dir: str, train_path: str, n: int, batch_size: 
       8까지 가능).
     """
     import functools
+
     builder = functools.partial(build_small_model_batch_prompt, n_questions=n_questions)
-    _make_prompts_impl(out_dir, train_path, n, batch_size, seed, exclude_dirs, builder,
-                        log_prefix=f"[작은 모델용, {n_questions}문장] ")
+    _make_prompts_impl(
+        out_dir,
+        train_path,
+        n,
+        batch_size,
+        seed,
+        exclude_dirs,
+        builder,
+        log_prefix=f"[작은 모델용, {n_questions}문장] ",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -299,13 +350,41 @@ def make_prompts_small_model(out_dir: str, train_path: str, n: int, batch_size: 
 NUMBER_WORDS = {
     # "one"은 "is X one of our customers" 같은 일상 표현에 흔히 쓰여 오탐이 많아 제외.
     # 숫자 "1"을 진짜 단어로 쓴 경우는 별도 리터럴 포함 검사가 이미 걸러낸다.
-    "zero", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
-    "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen",
-    "nineteen", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety", "hundred",
+    "zero",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
+    "twelve",
+    "thirteen",
+    "fourteen",
+    "fifteen",
+    "sixteen",
+    "seventeen",
+    "eighteen",
+    "nineteen",
+    "twenty",
+    "thirty",
+    "forty",
+    "fifty",
+    "sixty",
+    "seventy",
+    "eighty",
+    "ninety",
+    "hundred",
 }
 
 KNOWN_SYNONYM_SWAPS = {
-    "computer": "laptop", "shoes": "sneakers", "sold out": "stock = 0", "sofa": "couch",
+    "computer": "laptop",
+    "shoes": "sneakers",
+    "sold out": "stock = 0",
+    "sofa": "couch",
 }
 
 
@@ -316,14 +395,20 @@ def _isolated_number_match(q: str, lit: str) -> bool:
     197.56 안에 파묻히거나 97.567 처럼 소수부가 더 이어지면 차단)."""
     for m in re.finditer(re.escape(lit), q):
         start, end = m.start(), m.end()
-        before_ok = not (start > 0 and (
-            q[start - 1].isdigit()
-            or (q[start - 1] == "." and start >= 2 and q[start - 2].isdigit())
-        ))
-        after_ok = not (end < len(q) and (
-            q[end].isdigit()
-            or (q[end] == "." and end + 1 < len(q) and q[end + 1].isdigit())
-        ))
+        before_ok = not (
+            start > 0
+            and (
+                q[start - 1].isdigit()
+                or (q[start - 1] == "." and start >= 2 and q[start - 2].isdigit())
+            )
+        )
+        after_ok = not (
+            end < len(q)
+            and (
+                q[end].isdigit()
+                or (q[end] == "." and end + 1 < len(q) and q[end + 1].isdigit())
+            )
+        )
         if before_ok and after_ok:
             return True
     return False
@@ -340,7 +425,9 @@ def literal_in_question(q: str, where_val, coltype: str) -> bool:
         if _isolated_number_match(q, full):
             return True
         stripped = full.rstrip("0").rstrip(".")
-        return bool(stripped and stripped != full and _isolated_number_match(q, stripped))
+        return bool(
+            stripped and stripped != full and _isolated_number_match(q, stripped)
+        )
     return _isolated_number_match(q, str(where_val))
 
 
@@ -350,8 +437,10 @@ def check_question(q: str, entry: dict) -> list[str]:
     if q != q.lower():
         fails.append("소문자 규칙 위반")
     import sys
+
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import sql_gen
+
     coltype = sql_gen.COLUMN_TYPES[(entry["table"], entry["where_col"])]
     if not literal_in_question(q, entry["where_val"], coltype):
         fails.append(f"리터럴 미포함 ({entry['where_val']!r})")
@@ -364,8 +453,13 @@ def check_question(q: str, entry: dict) -> list[str]:
     for banned, correct in KNOWN_SYNONYM_SWAPS.items():
         # \b 경계 없이 'in' 으로만 검사하면 "snowshoes" 안의 "shoes"처럼 단어 일부가
         # 우연히 겹치는 경우를 오탐한다 (실제 있었던 버그).
-        if re.search(rf"\b{re.escape(banned)}\b", q) and str(entry["where_val"]).lower() != banned:
-            fails.append(f"동의어/상위어 치환 의심 ('{banned}' 사용, 정답 리터럴은 '{correct}' 계열)")
+        if (
+            re.search(rf"\b{re.escape(banned)}\b", q)
+            and str(entry["where_val"]).lower() != banned
+        ):
+            fails.append(
+                f"동의어/상위어 치환 의심 ('{banned}' 사용, 정답 리터럴은 '{correct}' 계열)"
+            )
     return fails
 
 
@@ -381,7 +475,9 @@ def soft_flags(q: str, entry: dict) -> list[str]:
     if entry["select"] == entry["where_col"]:
         existence_markers = ("is there", "exist", "confirm", "verify", "check")
         if not any(m in q for m in existence_markers):
-            flags.append("select==where_col인데 존재확인/검증 형태가 아님 (동어반복형 의심, 규칙 10 위반)")
+            flags.append(
+                "select==where_col인데 존재확인/검증 형태가 아님 (동어반복형 의심, 규칙 10 위반)"
+            )
     return flags
 
 
@@ -438,7 +534,9 @@ def _load_responses(out_dir: str) -> tuple[dict[int, list[str]], list[str]]:
                 missing_files.append(f"{fname}: JSON 파싱 실패 ({e})")
                 continue
         if not isinstance(batch, list):
-            missing_files.append(f"{fname}: 응답이 JSON 배열이 아님 ({type(batch).__name__})")
+            missing_files.append(
+                f"{fname}: 응답이 JSON 배열이 아님 ({type(batch).__name__})"
+            )
             continue
         for item in batch:
             try:
@@ -448,7 +546,9 @@ def _load_responses(out_dir: str) -> tuple[dict[int, list[str]], list[str]]:
                 missing_files.append(f"{fname}: 항목 형식 오류 ({e}) - {item!r}")
                 continue
             if qid in responses:
-                missing_files.append(f"{fname}: id {qid} 중복 등장 (이전 응답을 덮어씀)")
+                missing_files.append(
+                    f"{fname}: id {qid} 중복 등장 (이전 응답을 덮어씀)"
+                )
             responses[qid] = qs
     return responses, missing_files
 
@@ -471,11 +571,24 @@ def validate(out_dir: str, expected_questions: int = 5) -> dict:
     for qid, entry in pilot_sql.items():
         qs = responses.get(qid)
         if qs is None:
-            failures.append({"id": qid, "sql": entry["sql"], "question": None, "reasons": ["응답 없음"]})
+            failures.append(
+                {
+                    "id": qid,
+                    "sql": entry["sql"],
+                    "question": None,
+                    "reasons": ["응답 없음"],
+                }
+            )
             continue
         if len(qs) != expected_questions:
-            failures.append({"id": qid, "sql": entry["sql"], "question": None,
-                              "reasons": [f"질문 {expected_questions}개가 아니라 {len(qs)}개"]})
+            failures.append(
+                {
+                    "id": qid,
+                    "sql": entry["sql"],
+                    "question": None,
+                    "reasons": [f"질문 {expected_questions}개가 아니라 {len(qs)}개"],
+                }
+            )
         dup_idx = find_intra_group_duplicates(qs)
         for i, q in enumerate(qs):
             total_q += 1
@@ -483,12 +596,16 @@ def validate(out_dir: str, expected_questions: int = 5) -> dict:
             if i in dup_idx:
                 fails = fails + ["같은 id 내 중복/사실상 동일 질문 (규칙6 위반)"]
             if fails:
-                failures.append({"id": qid, "sql": entry["sql"], "question": q, "reasons": fails})
+                failures.append(
+                    {"id": qid, "sql": entry["sql"], "question": q, "reasons": fails}
+                )
             else:
                 passed_pairs.append({"question": q, "sql": entry["sql"]})
                 sf = soft_flags(q, entry)
                 if sf:
-                    soft_flag_list.append({"id": qid, "sql": entry["sql"], "question": q, "flags": sf})
+                    soft_flag_list.append(
+                        {"id": qid, "sql": entry["sql"], "question": q, "flags": sf}
+                    )
 
     report = {
         "n_sql": len(pilot_sql),
@@ -503,9 +620,13 @@ def validate(out_dir: str, expected_questions: int = 5) -> dict:
         "soft_flags_sample": soft_flag_list[:30],
     }
 
-    with open(os.path.join(out_dir, pairs_filename(out_dir)), "w", encoding="utf-8") as f:
+    with open(
+        os.path.join(out_dir, pairs_filename(out_dir)), "w", encoding="utf-8"
+    ) as f:
         json.dump(passed_pairs, f, ensure_ascii=False, indent=2)
-    with open(os.path.join(out_dir, "validation_report.json"), "w", encoding="utf-8") as f:
+    with open(
+        os.path.join(out_dir, "validation_report.json"), "w", encoding="utf-8"
+    ) as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
     return report
 
@@ -518,12 +639,15 @@ def validate(out_dir: str, expected_questions: int = 5) -> dict:
 # 기계적으로 조합했는지는 별도로 확인해야 한다).
 # ---------------------------------------------------------------------------
 
+
 def skeletonize(q: str, entry: dict) -> str:
     """질문에서 리터럴 값을 <V>로 치환한 '틀'. 같은 (select, where_col) 조합에서
     이 틀이 다른 id에도 그대로 재사용되면 값만 바꿔 끼운 템플릿일 가능성이 크다."""
     import sys
+
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import sql_gen
+
     coltype = sql_gen.COLUMN_TYPES[(entry["table"], entry["where_col"])]
     where_val = entry["where_val"]
     if coltype == "text":
@@ -575,11 +699,17 @@ def template_check(out_dir: str, threshold: float = 0.3) -> dict:
         ratio = n_repeat / n_q if n_q else 0.0
         total_q += n_q
         total_repeat += n_repeat
-        shape_reports.append({
-            "select": shape[0], "where_col": shape[1], "n_ids": len(by_id),
-            "n_questions": n_q, "n_repeated_skeleton": n_repeat,
-            "repeat_ratio": round(ratio, 3), "example_skeletons": examples,
-        })
+        shape_reports.append(
+            {
+                "select": shape[0],
+                "where_col": shape[1],
+                "n_ids": len(by_id),
+                "n_questions": n_q,
+                "n_repeated_skeleton": n_repeat,
+                "repeat_ratio": round(ratio, 3),
+                "example_skeletons": examples,
+            }
+        )
 
     shape_reports.sort(key=lambda r: -r["repeat_ratio"])
     flagged = [r for r in shape_reports if r["repeat_ratio"] >= threshold]
@@ -591,7 +721,9 @@ def template_check(out_dir: str, threshold: float = 0.3) -> dict:
         "flagged_shapes": flagged,
         "all_shapes": shape_reports,
     }
-    with open(os.path.join(out_dir, "template_check_report.json"), "w", encoding="utf-8") as f:
+    with open(
+        os.path.join(out_dir, "template_check_report.json"), "w", encoding="utf-8"
+    ) as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
     return report
 
@@ -600,12 +732,17 @@ def template_check(out_dir: str, threshold: float = 0.3) -> dict:
 # 5. 전역 코퍼스 검사 (라운드를 넘나드는 충돌 탐지)
 # ---------------------------------------------------------------------------
 
+
 def load_all_merged_pairs(data_dir: str) -> list[dict]:
     """지금까지 merge된 모든 라운드(pilot*, eval_indist*)의 (질문, SQL) 쌍을 합쳐서 반환.
     dataset.py의 load_train_pairs/load_eval_indist_pairs와 같은 glob 규칙을 쓴다."""
     import glob
+
     pairs: list[dict] = []
-    for pattern in ("pilot*/pilot_train_pairs.json", "eval_indist*/eval_pairs.json"):
+    for pattern in (
+        "pilot*/pilot_train_pairs.json",
+        "eval_indist*/eval_pairs.json",
+    ):
         for pf in sorted(glob.glob(os.path.join(data_dir, pattern))):
             with open(pf, encoding="utf-8") as f:
                 pairs.extend(json.load(f))
@@ -628,34 +765,69 @@ def corpus_check(data_dir: str) -> dict:
 
 # ---------------------------------------------------------------------------
 
+
 def main() -> int:
-    ap = argparse.ArgumentParser(description="1단계 LLM 질문 생성 파이프라인 (수동 호출)")
-    ap.add_argument("command", choices=["make-prompts", "make-prompts-small", "validate",
-                                         "template-check", "corpus-check"])
+    ap = argparse.ArgumentParser(
+        description="1단계 LLM 질문 생성 파이프라인 (수동 호출)"
+    )
+    ap.add_argument(
+        "command",
+        choices=[
+            "make-prompts",
+            "make-prompts-small",
+            "validate",
+            "template-check",
+            "corpus-check",
+        ],
+    )
     ap.add_argument("--out", default="data/pilot")
     ap.add_argument("--train", default="data/sql_train.json")
     ap.add_argument("--n", type=int, default=200)
-    ap.add_argument("--batch-size", type=int, default=None,
-                     help="한 프롬프트에 담을 SQL 개수 (기본값: make-prompts=25, make-prompts-small=8)")
+    ap.add_argument(
+        "--batch-size",
+        type=int,
+        default=None,
+        help="한 프롬프트에 담을 SQL 개수 (기본값: make-prompts=25, make-prompts-small=8)",
+    )
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--exclude-dir", default=None,
-                     help="이 디렉터리들의 pilot_sql.json에 있는 SQL은 샘플링 후보에서 제외 (쉼표로 여러 개 지정 가능)")
-    ap.add_argument("--threshold", type=float, default=0.3,
-                     help="template-check: 이 비율 이상 틀이 재사용되면 그 (select,where_col) 조합을 flag")
-    ap.add_argument("--data-dir", default="data",
-                     help="corpus-check: pilot*/eval_indist* 병합 결과가 있는 상위 디렉터리")
-    ap.add_argument("--questions-per-sql", type=int, default=5,
-                     help="make-prompts-small: SQL 하나당 요구할 질문 개수 (기본 5, 최대 %d)"
-                          % len(QUESTION_STYLE_SLOTS))
-    ap.add_argument("--expected-questions", type=int, default=5,
-                     help="validate: 항목당 기대하는 질문 개수 (make-prompts-small을 --questions-per-sql로 "
-                          "다르게 만들었다면 여기도 맞춰줘야 함)")
+    ap.add_argument(
+        "--exclude-dir",
+        default=None,
+        help="이 디렉터리들의 pilot_sql.json에 있는 SQL은 샘플링 후보에서 제외 (쉼표로 여러 개 지정 가능)",
+    )
+    ap.add_argument(
+        "--threshold",
+        type=float,
+        default=0.3,
+        help="template-check: 이 비율 이상 틀이 재사용되면 그 (select,where_col) 조합을 flag",
+    )
+    ap.add_argument(
+        "--data-dir",
+        default="data",
+        help="corpus-check: pilot*/eval_indist* 병합 결과가 있는 상위 디렉터리",
+    )
+    ap.add_argument(
+        "--questions-per-sql",
+        type=int,
+        default=5,
+        help="make-prompts-small: SQL 하나당 요구할 질문 개수 (기본 5, 최대 %d)"
+        % len(QUESTION_STYLE_SLOTS),
+    )
+    ap.add_argument(
+        "--expected-questions",
+        type=int,
+        default=5,
+        help="validate: 항목당 기대하는 질문 개수 (make-prompts-small을 --questions-per-sql로 "
+        "다르게 만들었다면 여기도 맞춰줘야 함)",
+    )
     args = ap.parse_args()
 
     if args.command == "corpus-check":
         report = corpus_check(args.data_dir)
         print(f"전체 병합 쌍 {report['n_pairs_checked']}개 검사")
-        print(f"동일 질문이 서로 다른 SQL에 매핑된 충돌: {report['n_conflicting_questions']}건")
+        print(
+            f"동일 질문이 서로 다른 SQL에 매핑된 충돌: {report['n_conflicting_questions']}건"
+        )
         for c in report["conflicts"][:10]:
             print(f"  질문: {c['question']!r}")
             for s in c["conflicting_sqls"]:
@@ -672,26 +844,41 @@ def main() -> int:
     if args.command == "make-prompts-small":
         exclude_dirs = args.exclude_dir.split(",") if args.exclude_dir else None
         batch_size = args.batch_size if args.batch_size is not None else 8
-        make_prompts_small_model(args.out, args.train, args.n, batch_size, args.seed, exclude_dirs,
-                                  n_questions=args.questions_per_sql)
+        make_prompts_small_model(
+            args.out,
+            args.train,
+            args.n,
+            batch_size,
+            args.seed,
+            exclude_dirs,
+            n_questions=args.questions_per_sql,
+        )
         return 0
 
     if args.command == "template-check":
         report = template_check(args.out, args.threshold)
         print(f"전체 틀(skeleton) 재사용 비율: {report['overall_repeat_ratio']:.1%}")
-        print(f"확인한 (select,where_col) 조합 {report['n_shapes_checked']}개 중 "
-              f"{report['n_shapes_flagged']}개가 재사용 비율 {args.threshold:.0%} 이상")
+        print(
+            f"확인한 (select,where_col) 조합 {report['n_shapes_checked']}개 중 "
+            f"{report['n_shapes_flagged']}개가 재사용 비율 {args.threshold:.0%} 이상"
+        )
         for r in report["flagged_shapes"][:10]:
-            print(f"  [{r['select']:<10} / {r['where_col']:<12}] id {r['n_ids']:>3}개, "
-                  f"재사용 {r['repeat_ratio']:.0%}  예: {r['example_skeletons'][:1]}")
+            print(
+                f"  [{r['select']:<10} / {r['where_col']:<12}] id {r['n_ids']:>3}개, "
+                f"재사용 {r['repeat_ratio']:.0%}  예: {r['example_skeletons'][:1]}"
+            )
         print(f"저장: {os.path.join(args.out, 'template_check_report.json')}")
         return 0
 
     report = validate(args.out, expected_questions=args.expected_questions)
-    print(f"질문 {report['n_questions_seen']}개 중 {report['n_passed']}개 통과 "
-          f"(통과율 {report['pass_rate']:.1%}, 목표 90%)")
-    print(f"실패 {report['n_failures']}건, 응답 파일 누락 {report['n_missing_response_files']}건, "
-          f"수동확인 flag {report['n_soft_flags']}건")
+    print(
+        f"질문 {report['n_questions_seen']}개 중 {report['n_passed']}개 통과 "
+        f"(통과율 {report['pass_rate']:.1%}, 목표 90%)"
+    )
+    print(
+        f"실패 {report['n_failures']}건, 응답 파일 누락 {report['n_missing_response_files']}건, "
+        f"수동확인 flag {report['n_soft_flags']}건"
+    )
     print(f"저장: {os.path.join(args.out, pairs_filename(args.out))}")
     print(f"      {os.path.join(args.out, 'validation_report.json')}")
     return 0

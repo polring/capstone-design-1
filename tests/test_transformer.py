@@ -20,6 +20,7 @@ HIDDEN_DIM = 256
 # Unit Tests (단일 모듈 동작, 수학적 특성, Edge Case 검증)
 # ===========================================================================
 
+
 @pytest.mark.unit
 def test_rmsnorm_shape_and_scale():
     """RMSNorm 출력 규격 및 값 유효성 검증"""
@@ -39,10 +40,13 @@ def test_rmsnorm_mathematical_property():
     out = norm(x)
 
     # 마지막 차원(C) 기준 RMS 계산: sqrt(mean(x^2))
-    rms = torch.sqrt(torch.mean(out ** 2, dim=-1))
+    rms = torch.sqrt(torch.mean(out**2, dim=-1))
     torch.testing.assert_close(
-        rms, torch.ones_like(rms), atol=1e-4, rtol=1e-4,
-        msg="RMSNorm output does not properly normalize to unit RMS"
+        rms,
+        torch.ones_like(rms),
+        atol=1e-4,
+        rtol=1e-4,
+        msg="RMSNorm output does not properly normalize to unit RMS",
     )
 
 
@@ -61,21 +65,21 @@ def test_causal_masked_self_attention():
     """Self-Attention 출력 규격 및 Strict Causality(미래 토큰 참조 불가) 검증"""
     attn = CausalMaskedSelfAttention(dim=C, num_heads=NUM_HEADS)
     x = torch.randn(B, T, C)
-    
+
     out = attn(x)
     assert out.shape == (B, T, C), "Self-Attention output shape mismatch"
 
     # Causality Check: 미래 토큰(t > 2)을 수정해도 과거 출력(t <= 2)에 영향을 주지 않아야 함
     x_mod = x.clone()
     x_mod[:, 3:, :] += 10.0
-    
+
     out_orig = attn(x)
     out_mod = attn(x_mod)
 
     torch.testing.assert_close(
-        out_orig[:, :3, :], 
-        out_mod[:, :3, :], 
-        msg="Causal masking violated: future tokens leaked into the past"
+        out_orig[:, :3, :],
+        out_mod[:, :3, :],
+        msg="Causal masking violated: future tokens leaked into the past",
     )
 
 
@@ -104,26 +108,24 @@ def test_variable_sequence_length(seq_len):
 # Integration Tests (모듈 간 결합, Forward/Backward 파이프라인 검증)
 # ===========================================================================
 
+
 @pytest.mark.integration
 @pytest.mark.parametrize("use_swiglu", [True, False])
 def test_transformer_decoder_block_forward_and_backward(use_swiglu):
     """End-to-End Forward 및 Backward (Gradient전파) decoder block 전체 검증"""
-    block = TransformerDecoderBlock(
-        dim=C, num_heads=NUM_HEADS, hidden_dim=HIDDEN_DIM
-    )
+    block = TransformerDecoderBlock(dim=C, num_heads=NUM_HEADS, hidden_dim=HIDDEN_DIM)
     x = torch.randn(B, T, C, requires_grad=True)
     # 테스트용 freqs_cis 생성
     head_dim = C // NUM_HEADS
-    
-    #RoPE 주파수 계산
+
+    # RoPE 주파수 계산
     freqs = 1.0 / (10000.0 ** (torch.arange(0, head_dim, 2).float() / head_dim))
     t = torch.arange(T, dtype=torch.float32)
     freqs = torch.outer(t, freqs)
     freqs_cis = torch.polar(torch.ones_like(freqs), freqs).to(x.device)
-    
 
     # 1. Forward Pass
-    out = block(x,freqs_cis)
+    out = block(x, freqs_cis)
     assert out.shape == (B, T, C), "Decoder Block output shape mismatch"
 
     # 2. Loss & Backward Pass
@@ -138,4 +140,6 @@ def test_transformer_decoder_block_forward_and_backward(use_swiglu):
     for name, param in block.named_parameters():
         if param.requires_grad:
             assert param.grad is not None, f"Parameter {name} did not receive gradients"
-            assert not torch.isnan(param.grad).any(), f"NaN in gradient of parameter {name}"
+            assert not torch.isnan(
+                param.grad
+            ).any(), f"NaN in gradient of parameter {name}"
