@@ -18,9 +18,9 @@ from src.inference import (
         ({"dim": True}, "dimensions must be positive integers"),
         ({"layers": -1}, "dimensions must be positive integers"),
         ({"context": 1.5}, "dimensions must be positive integers"),
-        ({"vocab_size": 297}, "vocab >= 298"),
-        ({"dim": 15, "heads": 2}, "vocab >= 298"),
-        ({"dim": 12, "heads": 4}, "vocab >= 298"),
+        ({"vocab_size": 255}, "vocab >= 256"),
+        ({"dim": 15, "heads": 2}, "vocab >= 256"),
+        ({"dim": 12, "heads": 4}, "vocab >= 256"),
         ({"eps": 0}, "eps and theta must be finite and positive"),
         ({"theta": float("inf")}, "eps and theta must be finite and positive"),
         ({"eps": float("nan")}, "eps and theta must be finite and positive"),
@@ -32,7 +32,7 @@ def test_config_validation_preserves_rejection_messages(changes, message):
 
 
 def test_config_accepts_minimum_vocabulary_and_even_head_dimension():
-    config = ModelConfig(vocab_size=298, dim=8, heads=4)
+    config = ModelConfig(vocab_size=256, dim=8, heads=4)
     assert config._has_positive_integer_dimensions()
     assert config._has_compatible_attention_dimensions()
     assert config._has_valid_numeric_parameters()
@@ -87,4 +87,4 @@ def test_ordered_merge_checks_references_order_and_vocabulary(
     known = set(range(256)) | set(range(260, 298))
     if index == 1:
         known.add(298)
-    assert _is_valid_ordered_merge(merge, index, known, vocab_size) is expected
+    assert _is_valid_ordered_merge(merge, index, known, vocab_size, 298) is expected

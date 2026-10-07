@@ -24,14 +24,8 @@
 #define MAX_MERGE_ARRAY_ENTRIES 393216
 #define GGUF_VERSION 3
 #define GGUF_ALIGNMENT 32
-#define REQUIRED_METADATA_COUNT 13
+#define REQUIRED_METADATA_COUNT 19
 #define BYTE_TOKEN_COUNT 256
-#define SEED_TOKEN_START 260
-#define SEED_TOKEN_COUNT 38
-#define MERGE_TOKEN_START 298
-#define BOS_TOKEN_ID 257
-#define EOS_TOKEN_ID 258
-#define SEP_TOKEN_ID 259
 #define DEFAULT_MAX_NEW_TOKENS 32
 
 typedef enum {
@@ -50,6 +44,7 @@ typedef enum {
     METADATA_EPSILON = 1u << 5,
     METADATA_ROPE_THETA = 1u << 6,
     METADATA_FIRST_DIMENSION = 1u << 7,
+    METADATA_FIRST_TOKENIZER_ID = 1u << 13,
     METADATA_ALL_FIELDS = (1u << REQUIRED_METADATA_COUNT) - 1
 } MetadataField;
 
@@ -88,6 +83,12 @@ typedef struct {
 typedef struct {
     char **seed_tokens;
     size_t seed_count;
+    uint32_t pad_id;
+    uint32_t bos_id;
+    uint32_t eos_id;
+    uint32_t sep_id;
+    uint32_t seed_base;
+    uint32_t merge_base;
     BpeMerge *merges;
     size_t merge_count;
     unsigned char **token_bytes;
@@ -243,7 +244,7 @@ static int is_model_config_compatible(const ModelConfig *config, unsigned seen_f
     /* Check completeness first: missing heads must not cause division by zero.
      * Present dimensions have already been validated as positive. */
     return seen_fields == METADATA_ALL_FIELDS &&
-           config->vocab_size >= MERGE_TOKEN_START &&
+           config->vocab_size >= BYTE_TOKEN_COUNT &&
            config->embedding_dim % config->head_count == 0 &&
            (config->embedding_dim / config->head_count) % 2 == 0 &&
            config->layer_count <= MAX_LAYERS &&
@@ -268,7 +269,7 @@ static int has_valid_merge_references(const Model *model, BpeMerge merge,
                                       size_t merge_index) {
     /* Validate IDs before indexing token_bytes. A merge can only use already
      * reconstructed tokens, never itself or a future merge. */
-    return merge.merged_token_id == MERGE_TOKEN_START + merge_index &&
+    return merge.merged_token_id == model->tokenizer.merge_base + merge_index &&
            merge.merged_token_id < (uint32_t)model->config.vocab_size &&
            merge.left_token_id < merge.merged_token_id &&
            merge.right_token_id < merge.merged_token_id &&
@@ -318,7 +319,8 @@ static size_t read_gguf_header(BinaryReader *reader, Model *model) {
     }
     uint64_t tensor_count = read_uint64(reader);
     uint64_t metadata_count = read_uint64(reader);
-    if (tensor_count > MAX_TENSOR_COUNT || metadata_count != REQUIRED_METADATA_COUNT) {
+    if (tensor_count > MAX_TENSOR_COUNT ||
+        (metadata_count != REQUIRED_METADATA_COUNT && metadata_count != 13)) {
         fail("unsupported GGUF metadata contract");
     }
     model->tensor_count = (size_t)tensor_count;
@@ -351,8 +353,8 @@ static void read_seed_metadata(BinaryReader *reader, uint32_t type,
         fail("seeds must be string array");
     }
     uint64_t seed_count = read_uint64(reader);
-    if (seed_count != SEED_TOKEN_COUNT) {
-        fail("expected 38 team seed tokens");
+    if (seed_count > MAX_DIMENSION) {
+        fail("too many seed tokens");
     }
     tokenizer->seed_count = (size_t)seed_count;
     tokenizer->seed_tokens = allocate_array(tokenizer->seed_count, sizeof(char *));
@@ -361,6 +363,16 @@ static void read_seed_metadata(BinaryReader *reader, uint32_t type,
         tokenizer->seed_tokens[index] = seed;
         if (strlen(seed) < 2) {
             fail("invalid seed");
+        }
+        size_t length = strlen(seed);
+        if (isspace((unsigned char)seed[0]) ||
+            isspace((unsigned char)seed[length - 1])) {
+            fail("invalid seed whitespace");
+        }
+        for (size_t byte = 0; byte < length; byte++) {
+            if ((unsigned char)seed[byte] >= 128) {
+                fail("ASCII seed tokens required");
+            }
         }
         if (string_already_present(tokenizer->seed_tokens, index, seed)) {
             fail("duplicate seed");
@@ -430,6 +442,57 @@ static unsigned read_dimension_metadata(BinaryReader *reader, ModelConfig *confi
     return 0;
 }
 
+static unsigned read_tokenizer_id_metadata(BinaryReader *reader, Tokenizer *tokenizer,
+                                           const char *key, uint32_t type) {
+    const char *names[] = {"pad_id", "bos_id",    "eos_id",
+                           "sep_id", "seed_base", "merge_base"};
+    uint32_t *destinations[] = {&tokenizer->pad_id,    &tokenizer->bos_id,
+                                &tokenizer->eos_id,    &tokenizer->sep_id,
+                                &tokenizer->seed_base, &tokenizer->merge_base};
+    for (int index = 0; index < 6; index++) {
+        char metadata_name[64];
+        snprintf(metadata_name, sizeof(metadata_name), "capstone_sql.tokenizer.%s",
+                 names[index]);
+        if (!strcmp(key, metadata_name)) {
+            if (type != GGUF_UINT32) {
+                fail("expected uint32 tokenizer ID");
+            }
+            *destinations[index] = read_uint32(reader);
+            return METADATA_FIRST_TOKENIZER_ID << index;
+        }
+    }
+    fail("unsupported metadata key");
+    return 0;
+}
+
+static int has_valid_tokenizer_layout(const Tokenizer *tokenizer, int vocab_size) {
+    /* Validate ranges before building pieces or indexing the vocabulary.
+     * Byte IDs remain 0..255 by definition of this byte-level BPE contract. */
+    if (tokenizer->seed_base < BYTE_TOKEN_COUNT ||
+        tokenizer->merge_base < tokenizer->seed_base ||
+        tokenizer->merge_base > (uint32_t)vocab_size ||
+        tokenizer->seed_count > tokenizer->merge_base - tokenizer->seed_base ||
+        tokenizer->merge_count > (uint32_t)vocab_size - tokenizer->merge_base) {
+        return 0;
+    }
+    const uint32_t special_ids[] = {tokenizer->pad_id, tokenizer->bos_id,
+                                    tokenizer->eos_id, tokenizer->sep_id};
+    for (size_t index = 0; index < 4; index++) {
+        uint32_t id = special_ids[index];
+        if (id < BYTE_TOKEN_COUNT || id >= tokenizer->merge_base ||
+            (id >= tokenizer->seed_base &&
+             id - tokenizer->seed_base < tokenizer->seed_count)) {
+            return 0;
+        }
+        for (size_t previous = 0; previous < index; previous++) {
+            if (id == special_ids[previous]) {
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
+
 static unsigned read_metadata_entry(BinaryReader *reader, Model *model, const char *key,
                                     uint32_t type) {
     if (!strcmp(key, "general.architecture")) {
@@ -441,7 +504,9 @@ static unsigned read_metadata_entry(BinaryReader *reader, Model *model, const ch
         return METADATA_ALIGNMENT;
     }
     if (!strcmp(key, "capstone_sql.contract_version")) {
-        read_expected_uint32(reader, type, 1, "unsupported model contract version");
+        read_expected_uint32(
+            reader, type, 2,
+            "unsupported model contract version; re-export as version 2");
         return METADATA_CONTRACT_VERSION;
     }
     if (!strcmp(key, "capstone_sql.tokenizer.seeds")) {
@@ -459,6 +524,9 @@ static unsigned read_metadata_entry(BinaryReader *reader, Model *model, const ch
     if (!strcmp(key, "capstone_sql.theta")) {
         model->config.rope_theta = read_positive_float_metadata(reader, type);
         return METADATA_ROPE_THETA;
+    }
+    if (!strncmp(key, "capstone_sql.tokenizer.", 23)) {
+        return read_tokenizer_id_metadata(reader, &model->tokenizer, key, type);
     }
     return read_dimension_metadata(reader, &model->config, key, type);
 }
@@ -481,6 +549,9 @@ static void read_model_metadata(BinaryReader *reader, Model *model,
     }
     if (!is_model_config_compatible(&model->config, seen_fields)) {
         fail("incomplete or incompatible config");
+    }
+    if (!has_valid_tokenizer_layout(&model->tokenizer, model->config.vocab_size)) {
+        fail("invalid tokenizer layout");
     }
     /* Embedding, final norm, output head, and seven tensors per decoder block. */
     if (model->tensor_count != (size_t)(3 + 7 * model->config.layer_count)) {
@@ -591,7 +662,7 @@ static void build_byte_token_pieces(Tokenizer *tokenizer) {
 static void build_seed_token_pieces(Tokenizer *tokenizer) {
     for (size_t index = 0; index < tokenizer->seed_count; index++) {
         size_t byte_count = strlen(tokenizer->seed_tokens[index]);
-        size_t token_id = SEED_TOKEN_START + index;
+        size_t token_id = tokenizer->seed_base + index;
         tokenizer->token_bytes[token_id] = allocate_array(byte_count, 1);
         memcpy(tokenizer->token_bytes[token_id], tokenizer->seed_tokens[index],
                byte_count);
@@ -1000,6 +1071,20 @@ static size_t find_piece_end(const char *text, size_t text_length, size_t positi
     return end;
 }
 
+static int find_seed_for_complete_piece(const Tokenizer *tokenizer, const char *text,
+                                        size_t start, size_t end) {
+    /* Python also looks up SEED_TO_ID after regex splitting. Thus 'stock_' has
+     * a letter piece 'stock' mapped to a seed even though the seed regex's
+     * word-boundary alternative did not match the original text. */
+    for (size_t index = 0; index < tokenizer->seed_count; index++) {
+        const char *seed = tokenizer->seed_tokens[index];
+        if (strlen(seed) == end - start && !memcmp(text + start, seed, end - start)) {
+            return (int)index;
+        }
+    }
+    return -1;
+}
+
 static int matches_merge_pair(const int *piece_ids, int piece_count, int position,
                               BpeMerge merge) {
     return position + 1 < piece_count &&
@@ -1048,11 +1133,19 @@ static int encode_text(const Model *model, const char *text, int *token_ids,
                                            position, &seed_length);
         if (seed_index >= 0) {
             append_token_id(token_ids, &token_count, capacity,
-                            SEED_TOKEN_START + seed_index);
+                            model->tokenizer.seed_base + seed_index);
             position += seed_length;
             continue;
         }
         size_t end = find_piece_end(text, text_length, position);
+        seed_index =
+            find_seed_for_complete_piece(&model->tokenizer, text, position, end);
+        if (seed_index >= 0) {
+            append_token_id(token_ids, &token_count, capacity,
+                            (int)model->tokenizer.seed_base + seed_index);
+            position = end;
+            continue;
+        }
         int piece_count =
             encode_piece(&model->tokenizer, text, position, end, piece_ids);
         for (int index = 0; index < piece_count; index++) {
@@ -1163,11 +1256,11 @@ static int prepare_prompt_tokens(const Model *model, const char *text, int *toke
     char *question = normalize_question(text);
     int token_count = 0;
     int capacity = model->config.context_length;
-    token_ids[token_count++] = BOS_TOKEN_ID;
+    token_ids[token_count++] = (int)model->tokenizer.bos_id;
     /* Reserve the final SEP slot even when the question fills the context. */
     token_count += encode_text(model, question, token_ids + token_count,
                                capacity - token_count - 1);
-    append_token_id(token_ids, &token_count, capacity, SEP_TOKEN_ID);
+    append_token_id(token_ids, &token_count, capacity, (int)model->tokenizer.sep_id);
     free(question);
     return token_count;
 }
@@ -1181,7 +1274,7 @@ static int is_better_generation_candidate(const Model *model, const float *logit
 static int select_next_token(const Model *model, const float *logits) {
     /* Start at EOS and use strict >: ties prefer EOS, then the lowest token ID.
      * PAD/BOS/SEP and unused vocab IDs have no bytes and are not emitted. */
-    int next_token_id = EOS_TOKEN_ID;
+    int next_token_id = (int)model->tokenizer.eos_id;
     for (int candidate = 0; candidate < model->config.vocab_size; candidate++) {
         if (is_better_generation_candidate(model, logits, candidate, next_token_id)) {
             next_token_id = candidate;
@@ -1199,7 +1292,7 @@ static const char *generate_tokens(const Model *model, int *token_ids, int token
         float *logits = forward(model, token_ids, token_count);
         int next_token_id = select_next_token(model, logits);
         free(logits);
-        if (next_token_id == EOS_TOKEN_ID) {
+        if (next_token_id == (int)model->tokenizer.eos_id) {
             return "eos";
         }
         fwrite(model->tokenizer.token_bytes[next_token_id], 1,

@@ -11,6 +11,7 @@ from pathlib import Path
 import torch
 from src.inference import InferenceModel, ModelConfig, load_checkpoint
 from src.tokenizer import bpe
+from src.tokenizer.contract import TokenizerConfig
 
 
 def _string(value):
@@ -18,18 +19,22 @@ def _string(value):
     return struct.pack("<Q", len(raw)) + raw
 
 
-def _is_valid_ordered_merge(merge, index, known, vocab_size):
+def _is_valid_ordered_merge(merge, index, known, vocab_size, merge_base):
     """A merge must use existing tokens and the next available vocabulary ID."""
     (a, b), new = merge
-    return a in known and b in known and new == 298 + index and new < vocab_size
+    return a in known and b in known and new == merge_base + index and new < vocab_size
 
 
-def export_model(model, output, merges):
+def export_model(model, output, merges, tokenizer_config=None):
     config = model.config
-    known = set(range(256)) | set(range(260, 298))
+    tokenizer_config = tokenizer_config or TokenizerConfig.from_team_bpe()
+    tokenizer_config.validate(config.vocab_size)
+    known = tokenizer_config.known_token_ids()
     flat = []
     for index, merge in enumerate(merges):
-        if not _is_valid_ordered_merge(merge, index, known, config.vocab_size):
+        if not _is_valid_ordered_merge(
+            merge, index, known, config.vocab_size, tokenizer_config.merge_base
+        ):
             raise ValueError("invalid ordered tokenizer merges")
         (a, b), new = merge
         known.add(new)
@@ -37,7 +42,7 @@ def export_model(model, output, merges):
     metadata = [
         ("general.architecture", 8, _string("capstone_sql")),
         ("general.alignment", 4, struct.pack("<I", 32)),
-        ("capstone_sql.contract_version", 4, struct.pack("<I", 1)),
+        ("capstone_sql.contract_version", 4, struct.pack("<I", 2)),
     ]
     for name in ("vocab_size", "dim", "layers", "heads", "ffn_dim", "context"):
         metadata.append(
@@ -51,8 +56,8 @@ def export_model(model, output, merges):
         (
             "capstone_sql.tokenizer.seeds",
             9,
-            struct.pack("<IQ", 8, len(bpe.SEED_TOKENS))
-            + b"".join(map(_string, bpe.SEED_TOKENS)),
+            struct.pack("<IQ", 8, len(tokenizer_config.seeds))
+            + b"".join(map(_string, tokenizer_config.seeds)),
         ),
         (
             "capstone_sql.tokenizer.merges",
@@ -60,6 +65,14 @@ def export_model(model, output, merges):
             struct.pack("<IQ", 4, len(flat)) + struct.pack(f"<{len(flat)}I", *flat),
         ),
     ]
+    for name in ("pad_id", "bos_id", "eos_id", "sep_id", "seed_base", "merge_base"):
+        metadata.append(
+            (
+                "capstone_sql.tokenizer." + name,
+                4,
+                struct.pack("<I", getattr(tokenizer_config, name)),
+            )
+        )
     expected = InferenceModel(config).state_dict()
     state = model.state_dict()
     if state.keys() != expected.keys():
@@ -99,6 +112,9 @@ def main():
     parser.add_argument(
         "--merges", help="team bpe_merges.json; required for checkpoints"
     )
+    parser.add_argument(
+        "--tokenizer-config", help="JSON token layout matching the training tokenizer"
+    )
     args = parser.parse_args()
     if args.dummy:
         torch.manual_seed(17)
@@ -111,7 +127,12 @@ def main():
             parser.error("--checkpoint requires --merges")
         model = load_checkpoint(args.checkpoint)
         merges = bpe.load_merges(args.merges)
-    export_model(model, args.output, merges)
+    tokenizer_config = (
+        TokenizerConfig.load(args.tokenizer_config)
+        if args.tokenizer_config
+        else TokenizerConfig.from_team_bpe()
+    )
+    export_model(model, args.output, merges, tokenizer_config)
     print(f"saved {args.output}; architecture=capstone_sql; dummy={args.dummy}")
 
 

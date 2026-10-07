@@ -216,7 +216,7 @@ def test_checkpoint_contract(fixture_model, tmp_path):
     "field, value, message",
     [
         ("heads", 0, b"invalid dimension"),
-        ("vocab_size", 297, b"incomplete or incompatible config"),
+        ("vocab_size", 255, b"incomplete or incompatible config"),
         ("dim", 15, b"incomplete or incompatible config"),
         ("heads", 16, b"incomplete or incompatible config"),
         ("layers", 257, b"incomplete or incompatible config"),
@@ -294,7 +294,8 @@ def test_c_rejects_invalid_mode_argument_counts(engine, fixture_model, args):
 
 
 @pytest.mark.parametrize(
-    "text", ["", " ", "\t\n", "stock stock", "stock_ stockholm", "aaaaaa"]
+    "text",
+    ["", " ", "\t\n", "stock stock", "stock_ stockholm", "1stock", "_stock", "aaaaaa"],
 )
 def test_encode_handler_preserves_piece_boundaries(engine, fixture_model, text):
     _, path, merges = fixture_model

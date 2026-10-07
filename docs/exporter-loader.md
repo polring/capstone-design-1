@@ -62,15 +62,45 @@ Python writer에는 GGUF 라이브러리가 필요하지 않고 C에는 외부 �
 | 설정 | 메타데이터 |
 | --- | --- |
 | 구조 | `general.architecture = capstone_sql` |
-| 계약 버전 | `capstone_sql.contract_version = 1` |
+| 계약 버전 | `capstone_sql.contract_version = 2` |
 | 단어장/차원/층/헤드/FFN/문맥 | `capstone_sql.vocab_size/dim/layers/heads/ffn_dim/context` |
 | RMSNorm/RoPE | `capstone_sql.eps/theta` |
 | seed 토큰 | `capstone_sql.tokenizer.seeds`: string array |
 | 순서 있는 BPE 병합 | `capstone_sql.tokenizer.merges`: uint32 array `[a,b,new_id,...]` |
+| 특수 토큰 ID | `capstone_sql.tokenizer.pad_id/bos_id/eos_id/sep_id`: uint32 |
+| seed/병합 시작 ID | `capstone_sql.tokenizer.seed_base/merge_base`: uint32 |
 
-계약 버전 1은 이 13개 메타데이터 항목을 사용한다. 임의의 GGUF를 받는
+계약 버전 2는 이 19개 메타데이터 항목을 사용한다. seed 개수는 배열 길이에서
+읽고 특수 토큰 및 seed/병합 시작 ID는 파일에서 읽는다. 기존 계약 버전 1은
+명시적으로 거절하므로 원래 체크포인트와 병합 파일을 새 exporter로 다시 내보낸다.
+임의의 GGUF를 받는
 범용 엔진이 아니며 다른 구조, F16/양자화, 다른 메타데이터 계약은 거절한다.
 `capstone_sql`은 사용자 정의 구조이므로 llama.cpp에서 자동 실행되지 않는다.
+
+### 토크나이저 설정 내보내기
+
+기본값은 현재 `src/tokenizer/bpe.py`의 seed 목록과 특수 토큰 순서에서 가져온다.
+다른 학습 토크나이저를 연결할 때는 `--tokenizer-config tokenizer-config.json`을
+추가한다. 파일은 아래 형식이며 **가중치를 학습할 때의 실제 토큰 대응**과 일치해야 한다.
+ID를 임의로 바꾸는 것만으로 기존 가중치가 새 토크나이저에 맞춰지는 것은 아니다.
+
+```json
+{
+  "seeds": ["SELECT", "WHERE", "AND", "OR"],
+  "pad_id": 256,
+  "bos_id": 257,
+  "eos_id": 258,
+  "sep_id": 259,
+  "seed_base": 260,
+  "merge_base": 264
+}
+```
+
+위는 형식 예시일 뿐 1단계 기존 모델의 설정이 아니다. 실제 병합 파일의 새 ID는
+`merge_base`부터 순서대로 증가해야 한다. 바이트 ID 0~255는 byte-level BPE 정의상
+고정이며, 특수 ID 중복·바이트/seed/병합 범위 충돌·vocab 초과는 양쪽에서 거절한다.
+seed가 38개일 필요는 없다. 현재 영어 ASCII 전처리와 질문 소문자화·BOS/SEP 프롬프트
+방식은 그대로이므로 SentencePiece 또는 공개 Llama 모델 지원이 추가된 것은 아니다.
 
 텐서 이름은 Python state_dict 그대로다. 텐서 데이터는 PyTorch의
 `[out,in]` row-major이며 GGUF 차원 설명만 fastest-first 순서로 뒤집는다.
@@ -134,7 +164,7 @@ GGUF 설정/전체 가중치 로드
 → greedy 선택 → EOS=258 또는 최대 길이까지 반복 → 토큰 바이트 출력
 ```
 
-PAD=256, BOS=257, SEP=259, 병합 미정의 ID는 생성 후보에서 제외하고
+파일에서 읽은 PAD/BOS/SEP ID와 병합 미정의 ID는 생성 후보에서 제외하고
 EOS와 실제 복원 가능한 토큰만 고른다. 동점은 EOS 우선, 그 외 낮은 ID 우선이다.
 입력은 1단계 영어 범위에 맞춰 ASCII만 지원하며 비ASCII는 명시적으로 거절한다.
 숫자는 한 글자씩, seed는 단어 경계를 확인하고, 알파벳 조각에는 순서대로
@@ -169,3 +199,14 @@ CPU PyTorch 2.14.1, GCC, GGUFReader 0.19.0으로 실행했다.
 ```powershell
 python -m pytest tests/ -q
 ```
+
+2026-10-07 계약 v2 검증: 전체 **191개 테스트 통과**. 이번 실행에서는 C 실행 파일이
+정상 시작되어 이전에 차단됐던 회귀 테스트도 수행했다. seed 개수 0/2/45, 변경된
+특수 토큰 ID와 seed/merge 시작 ID, EOS 종료, 잘못된 ID 범위·충돌·병합 참조,
+계약 v1 거절을 검증했다. C11/GCC `-O2 -Wall -Wextra -Werror -pedantic` 빌드와
+Black/clang-format 검사도 통과했다.
+
+전체 실행 중 기존 `stock_` 토큰화 불일치를 발견해 수정했다. Python은 regex로
+분할한 조각도 seed 목록에서 다시 조회하므로 C도 동일하게 처리한다. `stock_`,
+`_stock`, `1stock` 회귀 테스트를 포함했다. 이 결과는 더미 가중치 및 팀 BPE 계약
+검증이며 공개 사전학습 모델을 실행한 결과는 아니다.

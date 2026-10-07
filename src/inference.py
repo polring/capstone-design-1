@@ -24,7 +24,7 @@ class ModelConfig:
             raise ValueError("dimensions must be positive integers")
         if not self._has_compatible_attention_dimensions():
             raise ValueError(
-                "vocab >= 298; dim divisible by heads; even head dimension required"
+                "vocab >= 256; dim divisible by heads; even head dimension required"
             )
         if not self._has_valid_numeric_parameters():
             raise ValueError("eps and theta must be finite and positive")
@@ -45,7 +45,7 @@ class ModelConfig:
     def _has_compatible_attention_dimensions(self):
         """Called after dimensions are validated, so the head count is positive."""
         return (
-            self.vocab_size >= 298
+            self.vocab_size >= 256
             and self.dim % self.heads == 0
             and (self.dim // self.heads) % 2 == 0
         )
