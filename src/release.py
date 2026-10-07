@@ -6,7 +6,7 @@ release.py — 학습 체크포인트를 배포용 모델 폴더(config.MODEL_DI
     python -m src.release --ckpt runs/stage1/ffn683_swap40/best.pt            # → models/stage<N>/
     python -m src.release --ckpt runs/stage1/ffn683_swap40/best.pt --no-eval  # 평가 생략 (model_info 에 eval 없음)
 
-산출물 (이 폴더 하나로 추론할 수 있다 — predict 의 기본 모델, C 추론 엔진 exporter 의 입력):
+산출물 (이 폴더 하나로 추론할 수 있다 — run.py 의 기본 모델, C 추론 엔진 exporter 의 입력):
     model.pt        {"format_version", "stage", "model_cfg", "model"(state_dict)}. 옵티마이저 상태·학습 인자·
                     로컬 경로는 넣지 않는다. torch.load(..., weights_only=True) 로 읽힌다.
     tokenizer.json  이 모델이 학습에 쓴 토크나이저 (특수·seed 토큰 + 병합 규칙). data/stage<N>/tokenizer/ 의
@@ -55,7 +55,7 @@ def release(ckpt_path: str | Path, out_dir: str | Path = config.MODEL_DIR, run_e
     tok = bpe.Tokenizer.load(tokenizer_path or tokenizer_path_for(ckpt_path, ckpt))
     model_cfg = dict(ckpt["model_cfg"])
     if tok.vocab_size > model_cfg["vocab_size"]:
-        raise ValueError(f"토크나이저 vocab {tok.vocab_size} 가 모델 vocab {model_cfg['vocab_size']} 보다 큼 — 짝이 맞지 않음")
+        raise ValueError(f"토크나이저 vocab {tok.vocab_size} 가 모델 vocab {model_cfg['vocab_size']} 보다 큼 - 짝이 맞지 않음")
     stage = ckpt.get("stage", config.STAGE)
 
     out = Path(out_dir)

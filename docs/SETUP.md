@@ -61,6 +61,7 @@ DB, SQL, 질문 쌍, 토크나이저, 배포 모델이 모두 커밋되어 있�
 python -m pytest tests/ -v                                   # 단위 테스트
 python -m src.run --input "what city does ashley live in?"   # 배포 모델로 질문 → SQL → DB 실행 결과
 python -m src.run --evaluation                               # 배포 모델로 평가셋 전부 채점
+python -m src.demo all                                       # 예시 하나로 파이프라인 각 단계의 입력 → 출력 보기 (9절)
 python -m src.train --overfit 100                            # 과적합 테스트 (GPU, 약 40초)
 python -m src.train                                          # 본 학습 + 평가 (GPU, 약 10분)
 ```
@@ -148,7 +149,7 @@ python -m src.data.stage1.question_gen_auto --model qwen3:14b --n 128 --batch-si
 
 ```
 python -m src.tokenizer.bpe    # seed_tokens.json + 학습 쌍 → data/stage1/tokenizer/tokenizer.json, round-trip·미등장 이름 토큰 수 출력
-python -m src.data.dataset     # 전체 쌍 토큰화 길이 통계, round-trip, collate_fn/loss_mask 확인
+python -m src.demo dataset     # 전체 쌍 토큰화 길이 통계, collate_fn/loss_mask 확인 (9절)
 ```
 
 - 코퍼스와 seed 목록이 같으면 `tokenizer.json`은 항상 같은 파일로 나온다.
@@ -196,7 +197,8 @@ python -m src.release --ckpt runs/stage1/ffn683_swap40/best.pt    # → models/s
 
 ## 8. 추론·평가 (`run.py`)
 
-추론과 평가는 `python -m src.run` 하나로 한다. 모델 로딩·채점 함수는 `src/evaluation.py`(학습·배포와 같은 함수)에 있다.
+추론과 평가는 `python -m src.run` 하나로 한다. 모델 불러오기·생성은 `src/inference/`, 채점·평가셋 관리는
+`src/evaluation/`에 있고 학습·배포와 같은 함수를 쓴다.
 학습 없이도 커밋된 배포 모델(`models/stage<N>/model.pt`)로 바로 실행된다.
 
 ### 입력과 모드에 따른 동작
@@ -251,12 +253,75 @@ python -m src.run --build-sql indist --sql data/stage1/sql/eval_indist.json   # 
 - 결과 파일은 기본으로 `runs/` 아래(커밋 안 함)에 저장된다. `models/`는 커밋 폴더라 결과를 쓰지 않는다.
 - `--stage 2`처럼 아직 모델이 없는 단계를 주면 안내 후 종료한다.
 
-## 9. 재현 확인 기준
+## 9. 단계별 입출력 보기 (`demo.py`)
+
+파이프라인의 각 단계가 무엇을 받아 무엇을 내놓는지 직접 보여 준다. 확인·시연용이라 파일을 쓰지 않는다.
+질문을 SQL로 바꿔 쓰거나 평가하는 것은 `run.py`(8절)다.
+
+### 하위 명령
+
+`--text`(질문)와 `--sql`을 주면 그 예시를 보여 주고, 주지 않으면 오른쪽 기준으로 예시를 고른다.
+
+| 하위 명령 | 입력 → 출력 | `--text` / `--sql`을 주면 | 주지 않으면 |
+| --- | --- | --- | --- |
+| `db` | DB 테이블 구조와 행 | `--sql`이 읽는 테이블과 WHERE 조건에 맞는 행 | 테이블마다 앞쪽 `--n`행, 미등장 값 |
+| `sql` | (테이블, SELECT, WHERE 컬럼, 값) → SQL → 실행 결과 | `--sql`을 SQL 파일(학습·분포 내·미등장 값)에서 찾은 생성 정보와 분할 | `--sql-file`에서 무작위 `--n`개 |
+| `questions` | SQL → LLM이 쓴 질문들 → 검증 결과 | `--sql`의 질문 전부 (학습·평가 쌍에서 찾고 출처 표시) | 질문이 있는 SQL 무작위 `--n`개 |
+| `clean` | (질문, SQL) → 라벨 규칙 판정 | 그 쌍의 SELECT 모호 여부와 통과/제거 | 학습 쌍 전체의 제거 대상 수, SELECT 모호 문항 무작위 `--n`개 |
+| `name-swap` | (질문, SQL) → 가짜 이름으로 바꾼 쌍 | 그 쌍을 바꾼 결과 | 학습 쌍 전체에 `--ratio`로 적용한 통계와 예시 `--n`개 |
+| `tokenizer` | 텍스트 → 사전 분할(seed 표시) → 토큰 ID·종류 → 디코딩 | 질문(과 SQL)을 토큰화 | 기본 질문 `what city does ashley live in?` |
+| `dataset` | (질문, SQL) → `<bos> 질문 <sep> SQL <eos>` ID, 위치별 input → target·loss 여부, 전체 길이 통계 | 그 쌍 | 기본 질문과 `SELECT city FROM customers WHERE name = 'ashley'` |
+| `embedding` | 토큰 ID → 임베딩, RoPE 회전 | 그 질문 | 기본 질문 |
+| `block` | 임베딩 → 디코더 블록 전체. `--layer` 블록은 RMSNorm → q·k·v → RoPE → attention(많이 보는 토큰) → residual → SwiGLU를 직접 계산하고 블록 `forward`와 일치 확인 | 그 질문 | 기본 질문, 블록 0 |
+| `model` | 마지막 블록 출력 → 최종 RMSNorm → 출력층 → logits, `<sep>` 다음 토큰 확률, 정답의 teacher forcing loss | 그 질문(과 정답 SQL의 loss) | 기본 질문, loss 생략 |
+| `generate` | greedy 생성을 한 토큰씩 (스텝마다 고른 토큰·확률, 2위 후보) → 생성 SQL → DB 실행 | 그 질문(과 정답 비교) | 기본 질문 |
+| `score` | (질문, 정답 SQL, 생성 SQL) → 평가셋 문항 하나의 채점 기록: EM, 다중 정답, 실행 정확도, 라벨 불일치, 틀린 부분, 집계 위치 | 그 쌍. 생성 SQL은 `--pred`, 없으면 모델이 생성 | 기본 질문과 기본 SQL |
+| `all` | 아래 흐름 전체 | `--sql`과 `--text`로 진행 | 기본 SQL과, 그 SQL에 LLM이 쓴 첫 질문 |
+
+### `all`: 예시 하나를 끝까지 따라가기
+
+각 단계의 결과가 다음 단계의 입력이 된다.
+
+```
+--sql ─→ db (이 SQL이 읽는 행)
+     ─→ sql (생성 정보·분할) ─→ questions (이 SQL의 LLM 질문들)
+                                   │ 첫 질문 (또는 --text)
+                                   ▼
+        clean (라벨 판정) · name-swap (학습용 이름 교체) · dataset (학습 입력 ID·loss_mask)
+                                   │
+        tokenizer ─→ <bos> 질문 <sep> ─→ embedding ─→ 임베딩 ─→ block ─→ 마지막 블록 출력
+                                   ─→ model (출력층 → logits, 한 번에 계산한 결과와 일치 확인, 정답 loss)
+                                   ─→ generate (생성 SQL → DB 실행) ─→ score (정답과 채점)
+```
+
+### 예시
+
+```
+python -m src.demo all                                                          # 기본 SQL 하나를 끝까지
+python -m src.demo all --sql "SELECT * FROM customers WHERE name = 'harriet'"   # 미등장 개체 SQL
+python -m src.demo questions --sql "SELECT stock FROM items WHERE item_name = 'adapter'"
+python -m src.demo tokenizer --text "how many mouse units are left in stock?"
+python -m src.demo block --text "is there a customer named harriet?" --layer 3
+python -m src.demo generate --text "what is the price of the laptop?" --model runs/stage1/ffn683_swap40/best.pt
+python -m src.demo name-swap --n 5                                              # 학습 쌍 전체에 적용한 통계
+python -m src.demo score --text "do we have a customer named harriet" --sql "SELECT * FROM customers WHERE name = 'harriet'" --pred "SELECT name FROM customers WHERE name = 'harriet'"
+```
+
+- 공통 인자: `--n`(예시 수), `--seed`(무작위 예시 고르기). 읽는 파일은 하위 명령마다 `--db`, `--holdout`,
+  `--sql-file`, `--pairs`, `--train-files`, `--eval-dir`, `--wordlist`, `--tokenizer`, `--model`, `--pred`로 바꾼다(생략하면
+  config 기본값). 하위 명령별 인자는 `python -m src.demo <하위 명령> --help`, 예시 기준 요약은 `python -m src.demo --help`.
+- 모델을 쓰는 단계는 배포 모델(`models/stage<N>/model.pt`)과 그 토크나이저를 CPU에서 쓴다.
+- 출력의 `※` 줄은 그 단계가 무엇을 하는지와 나온 값을 어떻게 읽는지 설명한다. 값에 따라 설명이 달라진다(예: `generate`는
+  2위 후보 확률이 1% 이상인 토큰을 "헷갈림"으로 표시, `score`는 틀린 부분과 다중 정답·실행 정확도의 의미).
+  `--quiet`를 주면 설명 없이 값만 출력한다(오답을 여러 개 비교할 때).
+
+## 10. 재현 확인 기준
 
 | 명령 / 파일 | 기대 결과 |
 | --- | --- |
 | `python -m src.tokenizer.bpe` | 병합 726/726, round-trip 실패 0건, 미등장 이름 평균 분할 토큰 ≈ 3.52, `tokenizer.json`이 커밋된 파일과 같음 |
-| `python -m src.data.dataset` | 시퀀스 길이 22~64(평균 38.3), 컨텍스트 128 초과 0건, `loss_mask` 검증 통과 |
+| `python -m src.demo dataset` | 시퀀스 길이 22~64(평균 38.3), 컨텍스트 128 초과 0건 |
+| `python -m src.demo block` | 마지막 줄 "블록 forward 결과와 같음: True" |
 | `python -m pytest tests/ -v` | 전체 통과 |
 | `python -m src.train --overfit 100` | EM 100% 도달 |
 | `python -m src.train` (seed 0) | 파라미터 4,985,600, 최고 검증 EM 24 epoch 0.990, 분포 내 EM ≈ 0.967, 미등장 값 EM ≈ 0.907 |
@@ -264,7 +329,7 @@ python -m src.run --build-sql indist --sql data/stage1/sql/eval_indist.json   # 
 | `python -m src.run --evaluation` | `models/stage1/model_info.json`의 평가 결과와 같음 (분포 내 0.967, 미등장 값 0.907) |
 | `data/stage1/sql/gen_report.json` | 구조별 할당량이 층화 샘플링 방침(계획서 5-3)대로, ID 조건 비중 30% 이하 |
 
-## 10. 커밋 대상
+## 11. 커밋 대상
 
 - **커밋**: `src/`, `tests/`, `docs/`, `CLAUDE.md`, `README.md`, `requirements.txt`, `data/stage<N>/`
   (DB, SQL, 학습 쌍, 평가셋, seed 토큰, 토크나이저), `data/wordnet/`, `models/stage<N>/`(단계별 최종 배포 모델 하나).

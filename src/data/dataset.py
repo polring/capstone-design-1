@@ -5,7 +5,7 @@ from pathlib import Path
 import torch
 from torch.utils.data import Dataset
 
-from src.config import SEQ_LEN, BATCH_SIZE, TRAIN_DIR, EVAL_DIR, PAIRS_FILE, TOKENIZER_PATH
+from src.config import TRAIN_DIR, EVAL_DIR, PAIRS_FILE
 from src.tokenizer import bpe
 
 BOS_ID = bpe.SPECIAL_BASE + bpe.SPECIAL_TOKENS.index("<bos>")
@@ -81,54 +81,3 @@ def collate_fn(batch: list[Example]) -> dict[str, torch.Tensor]:
     target_ids = padded[:, 1:]
     loss_mask = loss_mask_full[:, 1:]  # shift to align with target_ids
     return {"input_ids": input_ids, "target_ids": target_ids, "loss_mask": loss_mask}
-
-if __name__ == "__main__":
-    tok = bpe.Tokenizer.load(TOKENIZER_PATH)
-
-    train_pairs = load_train_pairs()
-    eval_pairs = load_eval_pairs("indist")
-    print(f"train pairs: {len(train_pairs)}, eval_indist pairs: {len(eval_pairs)}")
-
-    train_examples = tokenize_pairs(train_pairs, tok)
-    eval_examples = tokenize_pairs(eval_pairs, tok)
-
-    lengths = [len(e["ids"]) for e in train_examples + eval_examples]
-    lengths.sort()
-    n = len(lengths)
-    print(f"sequence length (<bos> question <sep> sql <eos>): "
-          f"min={lengths[0]} max={lengths[-1]} mean={sum(lengths) / n:.1f} "
-          f"p50={lengths[n // 2]} p99={lengths[int(n * 0.99)]}")
-
-    context_len = SEQ_LEN
-    over = sum(1 for L in lengths if L > context_len)
-    print(f"sequences exceeding context length {context_len}: {over} / {n} ({over / n:.2%})")
-
-    bad = 0
-    for p, ex in zip(train_pairs[:5] + eval_pairs[:5], train_examples[:5] + eval_examples[:5]):
-        ids = ex["ids"]
-        restored_q = tok.decode(ids[1:ids.index(SEP_ID)])
-        restored_s = tok.decode(ids[ex["sql_start"]:-1])
-        if restored_q != p["question"] or restored_s != p["sql"]:
-            bad += 1
-            print(f"MISMATCH: {p!r} -> q={restored_q!r} s={restored_s!r}")
-        else:
-            print(f"ids[:12]={ids[:12]}... len={len(ids)}  ok: {p['question']!r} | {p['sql']!r}")
-    print(f"sample round-trip failures: {bad} / 10")
-
-    print()
-    sample = train_examples[:8]
-    batch = collate_fn(sample)
-    print(f"collate_fn batch shapes: input_ids={tuple(batch['input_ids'].shape)} "
-          f"target_ids={tuple(batch['target_ids'].shape)} loss_mask={tuple(batch['loss_mask'].shape)}")
-
-    ok = all(
-        batch["loss_mask"][i].sum().item() == len(sample[i]["ids"]) - sample[i]["sql_start"]
-        for i in range(len(sample))
-    )
-    print(f"loss_mask true-count matches expected SQL+<eos> length for every row: {ok}")
-
-    from torch.utils.data import DataLoader
-    loader = DataLoader(TextToSQLDataset(train_examples), batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_fn)
-    real_batch = next(iter(loader))
-    print(f"DataLoader batch (bs={BATCH_SIZE}, shuffled): input_ids={tuple(real_batch['input_ids'].shape)} "
-          f"(max length in this random batch, vs. fixed context {context_len})")

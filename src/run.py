@@ -90,7 +90,7 @@ def answer(question: str, model, tok: bpe.Tokenizer, amp_dtype, con, rules=None)
         print(f"  {e}")
         return
     if sql is None:
-        print("  SQL: (디코딩 불가 — 깨진 바이트나 토크나이저에 없는 토큰 생성)")
+        print("  SQL: (디코딩 불가 - 깨진 바이트나 토크나이저에 없는 토큰 생성)")
         return
     note = "" if rules.parse_sql(sql) else f"  [{rules.STAGE}단계 SQL 형식 아님]"
     print(f"  SQL: {sql}{note}")
