@@ -25,7 +25,9 @@ from pathlib import Path
 import torch
 
 from src import config
-from src.evaluation import evaluate_set, list_sets, load_model, load_rules, tokenizer_path_for
+from src.evaluation.eval_sets import list_sets
+from src.evaluation.scoring import evaluate_set, load_rules
+from src.inference.loading import load_model, tokenizer_path_for
 from src.tokenizer import bpe
 
 FORMAT_VERSION = 1
@@ -48,7 +50,7 @@ def release(ckpt_path: str | Path, out_dir: str | Path = config.MODEL_DIR, run_e
             eval_dir: str | Path = config.EVAL_DIR, db_path: str | Path = config.DB_PATH,
             tokenizer_path: str | Path | None = None) -> dict:
     """체크포인트와 그 토크나이저를 out_dir 에 저장하고 모델 정보(model_info.json 내용)를 반환한다.
-    tokenizer_path 를 주지 않으면 체크포인트가 학습에 쓴 토크나이저를 찾는다 (evaluation.tokenizer_path_for)."""
+    tokenizer_path 를 주지 않으면 체크포인트가 학습에 쓴 토크나이저를 찾는다 (inference.loading.tokenizer_path_for)."""
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
     tok = bpe.Tokenizer.load(tokenizer_path or tokenizer_path_for(ckpt_path, ckpt))
     model_cfg = dict(ckpt["model_cfg"])

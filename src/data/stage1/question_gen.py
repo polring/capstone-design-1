@@ -27,7 +27,7 @@ SQL 정답은 이미 sql_gen.py 가 정했다. LLM은 그 SQL에 맞는 자연�
         <out>/validation_report.json        통과율 · 실패 사유 · 수동 확인용 flag
 
     라운드는 data_raw/ 에서 검증하고, 직접 읽어 확인한 뒤 학습용은 data/stage1/train/ 에 파일로,
-    평가용은 data/stage1/eval/<이름>/pairs.json 으로 옮긴다 (평가셋은 python -m src.evaluation --build-sql 로 sql.json 생성).
+    평가용은 data/stage1/eval/<이름>/pairs.json 으로 옮긴다 (평가셋은 python -m src.run --build-sql 로 sql.json 생성).
 """
 
 from __future__ import annotations

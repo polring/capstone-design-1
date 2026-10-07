@@ -26,7 +26,7 @@ run.py — 추론·평가 통합 명령 (이슈 #26)
                 배포 모델이면 runs/stage<N>/release_eval/ 의 eval_<set>.json, 추론은 runs/stage<N>/predictions/<이름>.json
     --tokenizer, --db, --eval-dir  읽을 파일 바꾸기 (기본: 모델 폴더의 tokenizer.json, 단계의 shop.db, 단계의 eval/)
 
-- 모델·채점 함수는 src/evaluation.py (train.py, release.py 와 같은 함수).
+- 모델 불러오기·생성은 src/inference/, 채점·평가셋은 src/evaluation/ (train.py, release.py 와 같은 함수).
 - 질문은 학습 데이터처럼 소문자로 바꿔 넣는다. 생성은 greedy 이며 제약 디코더는 없다.
 """
 
@@ -42,9 +42,10 @@ import torch
 
 from src import config
 from src.data.dataset import BOS_ID, EOS_ID, SEP_ID
-from src.evaluation import (default_out_dir, describe_checkpoint, evaluate_pairs, list_sets, load_eval_set,
-                            load_model, load_rules, predict_questions, print_report, safe_decode,
-                            tokenizer_path_for, write_sql_meta)
+from src.evaluation.eval_sets import default_out_dir, list_sets, load_eval_set, write_sql_meta
+from src.evaluation.scoring import evaluate_pairs, load_rules, print_report
+from src.inference.generate import predict_questions, safe_decode
+from src.inference.loading import describe_checkpoint, load_model, tokenizer_path_for
 from src.tokenizer import bpe
 
 MAX_ROWS = 20

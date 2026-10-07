@@ -17,7 +17,7 @@ train.py — 1단계 Text-to-SQL 모델 학습 루프 (계획서 3-3 1단계 6�
 - 검증셋: 학습 쌍(--train-files, 기본 config.TRAIN_DIR/*.json)에서 SQL 단위로 val_ratio 만큼 떼어 낸다. 같은 SQL 의 질문 5개가
   train/val 에 나뉘어 들어가면 val 점수가 암기 점수가 되기 때문이다. eval_indist 는 조기 종료·
   체크포인트 선택에 쓰지 않고, 학습이 끝난 뒤 최종 측정에만 한 번 쓴다 (미등장 값 평가셋도 함께).
-- 최종 측정은 src/evaluation.py 와 같은 방식이다. 저장된 체크포인트만 다시 평가할 때는 그쪽을 쓴다.
+- 최종 측정은 src/evaluation/scoring.py 의 evaluate_set 이다 (run.py --evaluation 과 같은 함수). 저장된 체크포인트만 다시 평가할 때는 그쪽을 쓴다.
 - 주 지표는 greedy 생성 결과의 Exact Match (계획서 3-4). teacher-forced 토큰 정확도는 보조 지표.
 - 산출물: runs/stage<N>/<run-name>/ 에 best.pt, metrics.json, eval_<set>.json, TensorBoard 로그.
 """
@@ -39,7 +39,8 @@ from torch.utils.tensorboard import SummaryWriter
 from src import config
 from src.data.dataset import PAD_ID, TextToSQLDataset, collate_fn, load_train_pairs, tokenize_pairs
 from src.data.stage1.name_swap import NameSwapper, load_english_words
-from src.evaluation import evaluate_set, greedy_exact_match, list_sets, print_report
+from src.evaluation.eval_sets import list_sets
+from src.evaluation.scoring import evaluate_set, greedy_exact_match, print_report
 from src.models.model import TextToSQLModel
 from src.tokenizer import bpe
 

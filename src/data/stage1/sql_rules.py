@@ -1,7 +1,7 @@
 """
 sql_rules.py — 1단계 SQL 형식 규칙 (SELECT 컬럼 하나 또는 *, FROM 테이블 하나, WHERE 등호 하나)
 
-evaluation.py 가 평가 단계(config.STAGE 또는 체크포인트의 stage)에 맞는 src.data.stage<N>.sql_rules 를 불러
+evaluation/scoring.py 가 평가 단계(config.STAGE 또는 체크포인트의 stage)에 맞는 src.data.stage<N>.sql_rules 를 불러
 단계마다 다른 채점 규칙을 적용한다. 단계마다 같은 이름으로 아래를 제공한다:
 
     parse_sql(sql) -> dict | None              이 단계 문법으로 분해 (아니면 None)

@@ -6,7 +6,7 @@ import torch
 from src import config
 from src import release as rl
 from src.data.dataset import PAD_ID
-from src.evaluation import load_model
+from src.inference.loading import load_model
 from src.models.model import TextToSQLModel
 from src.tokenizer import bpe
 
