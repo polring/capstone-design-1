@@ -11,6 +11,8 @@ from src.exporter import export_model
 from src.inference import InferenceModel, ModelConfig, load_checkpoint
 from src.tokenizer import bpe
 
+pytestmark = pytest.mark.integration
+
 ROOT = Path(__file__).resolve().parents[1]
 
 

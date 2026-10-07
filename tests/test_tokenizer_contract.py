@@ -77,6 +77,7 @@ def custom_model(tmp_path):
     return model, path, layout, merges
 
 
+@pytest.mark.integration
 def test_export_serializes_tokenizer_layout(custom_model):
     _, path, layout, _ = custom_model
     fields = read_metadata(path)
@@ -89,6 +90,7 @@ def test_export_serializes_tokenizer_layout(custom_model):
     assert fields["capstone_sql.tokenizer.merges"] == [104, 105, layout.merge_base]
 
 
+@pytest.mark.unit
 def test_tokenizer_config_json_roundtrip(tmp_path):
     path = tmp_path / "tokenizer.json"
     path.write_text(json.dumps(asdict(custom_layout())), encoding="utf-8")
@@ -96,6 +98,7 @@ def test_tokenizer_config_json_roundtrip(tmp_path):
 
 
 @pytest.mark.parametrize("seed_count", [0, 2, 45])
+@pytest.mark.integration
 def test_export_accepts_variable_seed_count(tmp_path, seed_count):
     layout = custom_layout(seed_count)
     model = InferenceModel(ModelConfig(vocab_size=320, dim=8, heads=1, layers=1))
@@ -120,6 +123,7 @@ def test_export_accepts_variable_seed_count(tmp_path, seed_count):
         {"seeds": ("nul\0seed",)},
     ],
 )
+@pytest.mark.integration
 def test_export_rejects_invalid_layout_before_writing(custom_model, tmp_path, changes):
     model, _, layout, _ = custom_model
     path = tmp_path / "invalid.gguf"
@@ -128,6 +132,7 @@ def test_export_rejects_invalid_layout_before_writing(custom_model, tmp_path, ch
     assert not path.exists()
 
 
+@pytest.mark.integration
 def test_export_rejects_merge_using_special_token(custom_model, tmp_path):
     model, _, layout, _ = custom_model
     with pytest.raises(ValueError, match="merges"):
@@ -140,6 +145,7 @@ def test_export_rejects_merge_using_special_token(custom_model, tmp_path):
 
 
 @pytest.mark.parametrize("seed_count", [0, 2, 45])
+@pytest.mark.integration
 def test_c_uses_variable_seed_count(engine, tmp_path, seed_count):
     layout = custom_layout(seed_count)
     model = InferenceModel(ModelConfig(vocab_size=320, dim=8, heads=1, layers=1))
@@ -152,12 +158,14 @@ def test_c_uses_variable_seed_count(engine, tmp_path, seed_count):
     )
 
 
+@pytest.mark.integration
 def test_c_encodes_custom_seed_and_merge_ids(engine, custom_model):
     _, path, layout, _ = custom_model
     actual = list(map(int, run(engine, path, "--encode", "seed0 hi").stdout.split()))
     assert actual == [layout.seed_base, 32, layout.merge_base]
 
 
+@pytest.mark.integration
 def test_c_generation_uses_custom_special_ids(engine, custom_model):
     model, path, layout, _ = custom_model
     ids = [layout.bos_id, layout.merge_base, layout.sep_id]
@@ -196,6 +204,7 @@ def test_c_generation_uses_custom_special_ids(engine, custom_model):
         ("seed_base", 400),
     ],
 )
+@pytest.mark.integration
 def test_c_rejects_corrupted_tokenizer_layout(
     engine, custom_model, tmp_path, field, value
 ):
@@ -209,6 +218,7 @@ def test_c_rejects_corrupted_tokenizer_layout(
     assert result.returncode != 0 and b"invalid tokenizer layout" in result.stderr
 
 
+@pytest.mark.integration
 def test_c_explicitly_rejects_contract_v1(engine, custom_model, tmp_path):
     _, path, _, _ = custom_model
     raw = bytearray(path.read_bytes())

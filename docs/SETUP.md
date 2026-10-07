@@ -40,12 +40,43 @@ DB, SQL, 검증된 질문 쌍은 커밋되어 있으므로 다시 만들 필요�
 ```
 python -m src.tokenizer.bpe      # bpe_merges.json 생성 (항상 같은 결과)
 python -m src.data.dataset       # Dataset 자체 테스트 (파일 저장 없음)
-python -m pytest tests/ -v       # 단위 테스트
+python -m pytest tests/ -v       # 전체 테스트 (unit + integration)
 python -m src.train --overfit 100    # 과적합 테스트 (약 40초)
 python -m src.train                  # 본 학습 + 평가 (이름 교체 40% 기본 적용, 약 10분)
 ```
 
 데이터를 처음부터 다시 만들거나 새로 추가할 때만 4~6절을 따른다.
+
+### 테스트 분류와 선택 실행
+
+모든 테스트에는 `unit` / `integration` 중 **정확히 하나**를 지정한다.
+
+- `unit`: 단일 모듈·함수의 독립 검증. 외부 프로세스 실행이나 컴파일은 하지 않는다.
+  한 모듈의 파일 읽기·저장 함수 검증을 위한 `tmp_path` 사용은 허용한다.
+- `integration`: 여러 모듈의 연동, 모델의 Forward/Backward 파이프라인,
+  C 엔진 빌드·subprocess 실행, exporter와 loader의 파일 왕복 등을 검증한다.
+
+파일 전체가 같은 분류면 import 다음에 `pytestmark = pytest.mark.unit` 또는
+`pytestmark = pytest.mark.integration`을 넣는다. 혼합 파일은 각 테스트 함수나 클래스에
+`@pytest.mark.unit` / `@pytest.mark.integration`을 붙인다. 파일에 unit을 붙인 상태에서
+함수에 integration을 붙이면 덮어쓰기가 아니라 이중 분류가 되므로 허용하지 않는다.
+
+```sh
+python -m pytest tests/ -m unit
+python -m pytest tests/ -m integration
+python -m pytest tests/ --collect-only -m "not unit and not integration"
+```
+
+마지막 명령은 선택된 테스트가 0개여야 한다. 이때 pytest 종료 코드는 5
+(`NO_TESTS_COLLECTED`)이므로 이 진단 명령 자체를 성공 코드 0을 요구하는 CI 작업으로 쓰지 않는다.
+
+`tests/conftest.py`가 `-m` 필터 적용 **이전**에 누락·이중 분류를 검사하며,
+`--strict-markers`가 미등록 마커·오타를 오류로 처리한다. 따라서 unit만 실행하는 CI에서도
+수집 대상에 있는 마커 누락 테스트는 조용히 제외되지 않고 실패한다. 다만 명령에서 제외한
+디렉터리는 수집하지 않으므로 전체 정책을 검사하려면 `tests/` 전체를 대상으로 실행한다.
+
+수집 정책의 회귀 테스트는 `tests/test_marker_policy.py`에 있으며, 별도의 임시 pytest
+프로세스를 실행하므로 integration으로 분류한다.
 
 ## 4. DB·SQL 생성
 

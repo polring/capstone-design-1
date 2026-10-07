@@ -10,6 +10,8 @@ from src.inference import (
     _is_input_shape_within_context,
 )
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.mark.parametrize(
     "changes, message",

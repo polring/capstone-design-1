@@ -143,7 +143,7 @@ def test_safe_decode():
     assert ev.safe_decode([VOCAB + 500], ID_TO_BYTES) is None
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_split_example_roundtrip():
     """토큰화된 예시에서 (질문, 정답 SQL) 을 그대로 복원하는지 검증"""
     pair = {"question": "what city is ashley in?", "sql": "SELECT city FROM customers WHERE name = 'ashley'"}

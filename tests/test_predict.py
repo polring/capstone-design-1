@@ -45,7 +45,7 @@ def con():
 # predict
 # ===========================================================================
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_predict_builds_lowercased_prompt_and_decodes():
     """질문을 소문자·strip 해서 <bos> question <sep> 프롬프트로 넣고, 생성 결과를 SQL 문자열로 복원"""
     sql = "SELECT city FROM customers WHERE name = 'ashley'"
@@ -54,7 +54,7 @@ def test_predict_builds_lowercased_prompt_and_decodes():
     assert prompts[0] == [BOS_ID] + bpe.encode("what city is ashley in?", []) + [SEP_ID]
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_predict_rejects_too_long_question():
     """프롬프트가 max_seq_len 이상이면 ValueError"""
     model, _ = scripted_model("x")
@@ -62,7 +62,7 @@ def test_predict_rejects_too_long_question():
         pr.predict(model, "a" * MAX_LEN, [], ID_TO_BYTES, None)
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_predict_returns_none_on_broken_bytes():
     """깨진 UTF-8 을 생성하면 None"""
     model, _ = scripted_model([0xFF])
@@ -97,7 +97,7 @@ def test_run_sql_reports_error(con, capsys):
     assert "실행 오류" in capsys.readouterr().out
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_answer_flags_non_stage1_sql(capsys):
     """1단계 형식이 아닌 SQL 은 표시를 붙이고, con=None 이면 실행하지 않음"""
     model, _ = scripted_model("SELECT city FROM customers")
@@ -107,7 +107,7 @@ def test_answer_flags_non_stage1_sql(capsys):
     assert "결과" not in out
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_answer_executes_stage1_sql(con, capsys):
     """1단계 SQL 이면 표시 없이 출력하고 실행 결과까지 보여줌"""
     model, _ = scripted_model("SELECT city FROM customers WHERE name = 'henry'")
@@ -116,7 +116,7 @@ def test_answer_executes_stage1_sql(con, capsys):
     assert "형식 아님" not in out and "결과 1행" in out and "rome" in out
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 def test_answer_handles_undecodable_output(capsys):
     """디코딩 불가 출력은 안내 메시지"""
     model, _ = scripted_model([0xFF])

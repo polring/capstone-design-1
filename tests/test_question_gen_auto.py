@@ -1,10 +1,14 @@
 import sys
 import os
 
+import pytest
+
 # 프로젝트 루트 디렉터리 경로 추가
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.data.generator import question_gen_auto as qga
+
+pytestmark = pytest.mark.unit
 
 
 def test_extract_json_array_valid_input():
