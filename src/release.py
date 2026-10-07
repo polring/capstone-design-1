@@ -45,10 +45,12 @@ def _repo_relative(path: str | Path) -> str:
 
 
 def release(ckpt_path: str | Path, out_dir: str | Path = config.MODEL_DIR, run_eval: bool = True,
-            eval_dir: str | Path = config.EVAL_DIR) -> dict:
-    """체크포인트와 그 토크나이저를 out_dir 에 저장하고 모델 정보(model_info.json 내용)를 반환한다."""
+            eval_dir: str | Path = config.EVAL_DIR, db_path: str | Path = config.DB_PATH,
+            tokenizer_path: str | Path | None = None) -> dict:
+    """체크포인트와 그 토크나이저를 out_dir 에 저장하고 모델 정보(model_info.json 내용)를 반환한다.
+    tokenizer_path 를 주지 않으면 체크포인트가 학습에 쓴 토크나이저를 찾는다 (evaluation.tokenizer_path_for)."""
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
-    tok = bpe.Tokenizer.load(tokenizer_path_for(ckpt_path, ckpt))
+    tok = bpe.Tokenizer.load(tokenizer_path or tokenizer_path_for(ckpt_path, ckpt))
     model_cfg = dict(ckpt["model_cfg"])
     if tok.vocab_size > model_cfg["vocab_size"]:
         raise ValueError(f"토크나이저 vocab {tok.vocab_size} 가 모델 vocab {model_cfg['vocab_size']} 보다 큼 — 짝이 맞지 않음")
@@ -87,7 +89,7 @@ def release(ckpt_path: str | Path, out_dir: str | Path = config.MODEL_DIR, run_e
         rules = load_rules(stage)
         info["eval"] = {}
         for name in list_sets(eval_dir):
-            r = evaluate_set(model, name, released_tok, device, amp_dtype, eval_dir=eval_dir, rules=rules)
+            r = evaluate_set(model, name, released_tok, device, amp_dtype, eval_dir=eval_dir, db_path=db_path, rules=rules)
             info["eval"][name] = {"overall": r["overall"], "by_tier": r["by_tier"], "error_parts": r["error_parts"]}
 
     with open(out / "model_info.json", "w", encoding="utf-8") as f:
@@ -98,12 +100,15 @@ def release(ckpt_path: str | Path, out_dir: str | Path = config.MODEL_DIR, run_e
 def main() -> int:
     ap = argparse.ArgumentParser(description="학습 체크포인트 → 배포용 모델 폴더")
     ap.add_argument("--ckpt", required=True, help="train.py 가 저장한 best.pt")
+    ap.add_argument("--tokenizer", default=None, help="토크나이저 (기본: 체크포인트 폴더의 tokenizer.json, 없으면 체크포인트에 적힌 경로)")
+    ap.add_argument("--db", default=str(config.DB_PATH), help=f"평가의 실행 정확도용 DB (기본 {config.DB_PATH})")
     ap.add_argument("--out", default=str(config.MODEL_DIR), help=f"배포 폴더 (기본 {config.MODEL_DIR})")
     ap.add_argument("--eval-dir", default=str(config.EVAL_DIR), help=f"평가셋 상위 폴더 (기본 {config.EVAL_DIR})")
     ap.add_argument("--no-eval", action="store_true", help="내보낸 모델 평가를 생략")
     args = ap.parse_args()
 
-    m = release(args.ckpt, args.out, run_eval=not args.no_eval, eval_dir=args.eval_dir)
+    m = release(args.ckpt, args.out, run_eval=not args.no_eval, eval_dir=args.eval_dir, db_path=args.db,
+                tokenizer_path=args.tokenizer)
     print(f"{args.out}/ ← {m['source_checkpoint']} (stage {m['stage']}, epoch {m['best_epoch']}, val EM {m['val_em']:.4f})")
     print(f"  model.pt, tokenizer.json (vocab {m['tokenizer']['vocab_size']}), model_info.json")
     for name, e in m.get("eval", {}).items():

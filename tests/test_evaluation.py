@@ -294,3 +294,16 @@ def test_default_out_dir_stays_under_runs():
     assert ev.default_out_dir(run_ckpt) == run_ckpt.parent
     assert ev.default_out_dir(config.MODEL_PATH) == config.RELEASE_EVAL_DIR
     assert ev.default_out_dir("runs/stage1_old_run/best.pt") == ev.Path("runs/stage1_old_run")
+
+
+def test_label_mismatch_follows_label_rules():
+    """규칙 일치 EM 의 제외 판정: 라벨 규칙(L2~L4)과 다른 정답만 True"""
+    rules = ev.load_rules(1)
+    # L3: ID 를 요구하지 않는데 자기 ID 를 SELECT
+    assert rules.label_mismatch("what item costs 135.87?", "SELECT item_id FROM items WHERE price = 135.87")
+    assert not rules.label_mismatch("what is the item id of the thing that costs 135.87?",
+                                    "SELECT item_id FROM items WHERE price = 135.87")
+    # L4: 주문 단서 없이 orders
+    assert rules.label_mismatch("run down everything tied to item 3839 for me",
+                                "SELECT * FROM orders WHERE item_id = 3839")
+    assert not rules.label_mismatch("which item costs 135.87?", "SELECT item_name FROM items WHERE price = 135.87")

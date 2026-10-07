@@ -10,6 +10,9 @@
 
     python -m src.data.stage1.clean_ambiguous            # dry-run: 제거 대상 수와 예시만 출력
     python -m src.data.stage1.clean_ambiguous --apply    # 학습 쌍 파일에서 제거, 제거 목록을 data_raw/stage<N>/ 에 누적 저장
+    python -m src.data.stage1.clean_ambiguous --train-files a.json --removed-out r.json --apply   # 파일 지정
+
+--train-files 를 생략하면 학습 폴더(config.TRAIN_DIR)의 *.json 전부를 대상으로 하고, 파일마다 따로 고쳐 쓴다.
 """
 
 from __future__ import annotations
@@ -23,7 +26,6 @@ from pathlib import Path
 from src import config
 from src.data.stage1.sql_rules import ID_COL, parse_sql, select_ambiguous
 
-TRAIN_FILE = config.TRAIN_DIR / "pairs.json"
 REMOVED_FILE = config.RAW_DIR / "clean_ambiguous_removed.json"
 
 REASONS = {"select": "L2 SELECT 모호", "id": "L3 ID/이름", "table": "L4 테이블 모호"}
@@ -75,33 +77,43 @@ def drop_reason(pair: dict) -> str | None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="라벨 규칙과 어긋나는 학습 쌍 제거")
+    ap.add_argument("--train-files", nargs="+", default=None,
+                    help=f"검사·정제할 학습 쌍 파일들 (기본: {config.TRAIN_DIR}/*.json)")
+    ap.add_argument("--removed-out", default=str(REMOVED_FILE), help=f"제거 목록 누적 저장 위치 (기본 {REMOVED_FILE})")
     ap.add_argument("--apply", action="store_true", help="실제로 학습 파일을 고쳐 쓴다")
     args = ap.parse_args()
 
-    pairs = json.loads(TRAIN_FILE.read_text(encoding="utf-8"))
-    keep, removed = [], []
-    for p in pairs:
-        reason = drop_reason(p)
-        if reason:
-            removed.append({**p, "reason": reason})
-        else:
-            keep.append(p)
+    files = [Path(f) for f in args.train_files] if args.train_files else sorted(config.TRAIN_DIR.glob("*.json"))
+    removed_out = Path(args.removed_out)
+    all_removed = []
+    for train_file in files:
+        pairs = json.loads(train_file.read_text(encoding="utf-8"))
+        keep, removed = [], []
+        for p in pairs:
+            reason = drop_reason(p)
+            if reason:
+                removed.append({**p, "reason": reason})
+            else:
+                keep.append(p)
 
-    counts = Counter(r["reason"] for r in removed)
-    detail = ", ".join(f"{label} {counts[key]}" for key, label in REASONS.items())
-    print(f"학습 쌍 {len(pairs)}개 중 제거 {len(removed)}개 ({detail}) -> {len(keep)}개")
-    for key in REASONS:
-        for r in [r for r in removed if r["reason"] == key][:5]:
-            print(f"  [{key}] {r['question']}  ->  {r['sql']}")
+        counts = Counter(r["reason"] for r in removed)
+        detail = ", ".join(f"{label} {counts[key]}" for key, label in REASONS.items())
+        print(f"{train_file}: 학습 쌍 {len(pairs)}개 중 제거 {len(removed)}개 ({detail}) -> {len(keep)}개")
+        for key in REASONS:
+            for r in [r for r in removed if r["reason"] == key][:5]:
+                print(f"  [{key}] {r['question']}  ->  {r['sql']}")
+        if args.apply and removed:
+            # 원본 형식 유지: indent 2, CRLF, 끝 줄바꿈 없음
+            train_file.write_text(json.dumps(keep, ensure_ascii=False, indent=2), encoding="utf-8", newline="\r\n")
+            print(f"  저장: {train_file}")
+        all_removed += removed
 
-    if args.apply and removed:
-        # 원본 형식 유지: indent 2, CRLF, 끝 줄바꿈 없음
-        TRAIN_FILE.write_text(json.dumps(keep, ensure_ascii=False, indent=2), encoding="utf-8", newline="\r\n")
+    if args.apply and all_removed:
         # 규칙을 추가해 다시 돌려도 이전 제거 목록이 남도록 누적한다
-        prev = json.loads(REMOVED_FILE.read_text(encoding="utf-8")) if REMOVED_FILE.exists() else []
-        REMOVED_FILE.parent.mkdir(parents=True, exist_ok=True)
-        REMOVED_FILE.write_text(json.dumps(prev + removed, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        print(f"저장: {TRAIN_FILE}, 제거 목록(누적 {len(prev) + len(removed)}개): {REMOVED_FILE}")
+        prev = json.loads(removed_out.read_text(encoding="utf-8")) if removed_out.exists() else []
+        removed_out.parent.mkdir(parents=True, exist_ok=True)
+        removed_out.write_text(json.dumps(prev + all_removed, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(f"제거 목록(누적 {len(prev) + len(all_removed)}개): {removed_out}")
     elif not args.apply:
         print("dry-run: --apply 를 주면 학습 파일을 고쳐 쓴다")
     return 0

@@ -23,9 +23,17 @@ def load_pairs(data_dir: str | Path, glob: str) -> list[Pair]:
             pairs.extend(json.load(f))
     return pairs
 
-def load_train_pairs(train_dir: str | Path = TRAIN_DIR) -> list[Pair]:
-    """학습 폴더 안의 *.json 전부. 이 폴더에 넣은 파일은 학습 데이터와 BPE 코퍼스가 된다."""
-    return load_pairs(train_dir, "*.json")
+def train_files(files: list[str | Path] | None = None, train_dir: str | Path = TRAIN_DIR) -> list[Path]:
+    """학습 쌍 파일 목록. files 를 주면 그 파일들, 아니면 학습 폴더 안의 *.json 전부 (BPE 코퍼스와 같은 규칙)."""
+    return [Path(f) for f in files] if files else sorted(Path(train_dir).glob("*.json"))
+
+def load_train_pairs(files: list[str | Path] | None = None, train_dir: str | Path = TRAIN_DIR) -> list[Pair]:
+    """train_files() 의 파일들을 순서대로 합친다."""
+    pairs: list[Pair] = []
+    for pf in train_files(files, train_dir):
+        with open(pf, encoding="utf-8") as f:
+            pairs.extend(json.load(f))
+    return pairs
 
 def load_eval_pairs(name: str, eval_dir: str | Path = EVAL_DIR) -> list[Pair]:
     """평가셋 <eval_dir>/<name>/pairs.json"""

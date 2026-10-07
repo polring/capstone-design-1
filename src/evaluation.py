@@ -1,34 +1,28 @@
 """
-evaluation.py — 학습된 체크포인트를 평가셋으로 평가한다 (계획서 3-4)
+evaluation.py — 모델 로딩, 배치 생성, 채점·집계 라이브러리 (계획서 3-4)
 
-저장소 루트에서 실행한다.
+직접 실행하지 않는다. 명령행은 src/run.py (추론·평가), 학습 중 검증과 학습 후 평가는 train.py,
+배포 모델 평가는 release.py 가 이 파일의 함수를 쓴다.
 
-    python -m src.evaluation --ckpt runs/stage1/ffn683_swap40/best.pt               # 평가셋 전부
-    python -m src.evaluation --ckpt runs/stage1/ffn683_swap40/best.pt --sets holdout
-    python -m src.evaluation --list                                                  # 평가셋 목록
-    python -m src.evaluation --build-sql indist --sql data/stage1/sql/eval_indist.json   # 평가셋의 sql.json 생성
-
-- 평가셋 하나 = config.EVAL_DIR 아래 폴더 하나: pairs.json (질문, SQL) + sql.json (그 SQL 들의 메타데이터).
-  sql.json 은 손으로 만들지 않고 sql_gen 출력에서 pairs.json 에 쓰인 SQL 만 뽑아 만든다(--build-sql).
-  폴더 하나로 완결되므로 새 평가셋은 폴더만 추가하면 된다.
-
+- 평가셋 하나 = 평가 폴더(config.EVAL_DIR) 아래 폴더 하나: pairs.json (질문, SQL) + sql.json (그 SQL 들의 메타데이터).
+  sql.json 은 손으로 만들지 않고 sql_gen 출력에서 pairs.json 에 쓰인 SQL 만 뽑아 만든다(write_sql_meta).
+  폴더 하나로 완결되므로 새 평가셋은 폴더만 추가하면 된다. 메타데이터 없는 임의의 쌍 목록도 evaluate_pairs 로 채점한다.
 - 주 지표 Exact Match(EM): greedy 생성 SQL 이 정답 SQL 문자열과 완전히 같은 비율.
 - 보조 지표 실행 정확도: shop.db 에서 두 SQL 의 실행 결과가 같은 비율. 행 수가 적은 DB 라 틀린 SQL 도
   우연히 같은 결과를 낼 수 있으므로(예: 0행) 보조로만 본다.
 - 계층(분포 내 / 미등장 개체 / 미등장 ID / 미등장 주문 ID)·WHERE 컬럼별로 나눠 집계하고, EM 에는 95%
   신뢰구간(Wilson)을 붙인다. 틀린 사례는 어느 부분(테이블·WHERE 컬럼·SELECT·리터럴)이 틀렸는지 분류한다.
-- 결과: eval_<set>.json (요약 + 틀린 사례 전체). runs/ 안의 체크포인트면 그 실행 폴더, 배포 모델이면
-  config.RELEASE_EVAL_DIR (--out-dir 로 변경).
 - 다중 정답 EM(multi): 질문만으로 정답이 하나로 정해지지 않는 문항은 다른 답도 정답으로 본다. 기존 EM 과
   별도로 보고한다.
-- 단계마다 다른 규칙(SQL 분해, 오답 부분 분류, 다중 정답 판정)은 src/data/stage<N>/sql_rules.py 에 있고,
-  체크포인트에 저장된 stage(없으면 config.STAGE, --stage 로 변경)로 고른다. 이 파일에는 단계 공통 부분만 둔다.
+- 규칙 일치 EM(rule_consistent): 정답 라벨이 라벨 규칙(계획서 4-5)과 다른 문항을 뺀 EM. 평가셋은 정제하지 않아
+  이런 문항에서는 규칙대로 답한 모델이 오답 처리된다. 판정은 단계 규칙의 label_mismatch(질문, 정답)로 하며
+  모델 출력은 보지 않는다. 기존 EM 과 함께 보고한다.
+- 단계마다 다른 규칙(SQL 분해, 오답 부분 분류, 다중 정답 판정)은 src/data/stage<N>/sql_rules.py 에 있고
+  load_rules(stage) 로 고른다. 이 파일에는 단계 공통 부분만 둔다.
 - 제약 디코더는 아직 없으므로 지금 수치는 계획서의 "제약 디코더 미적용" 수치(게이트 판정용)다.
 """
-
 from __future__ import annotations
 
-import argparse
 import importlib
 import json
 import math
@@ -39,7 +33,7 @@ from pathlib import Path
 import torch
 
 from src import config
-from src.data.dataset import EOS_ID, PAD_ID, tokenize_pairs
+from src.data.dataset import BOS_ID, EOS_ID, PAD_ID, SEP_ID, tokenize_pairs
 from src.models.model import TextToSQLModel
 from src.tokenizer import bpe
 
@@ -83,6 +77,22 @@ def generate_batch(model, examples: list[dict], device, amp_dtype,
                 outputs[i] = [t for t in gen if t != PAD_ID]
     model.train(was_training)
     return outputs
+
+
+def predict_questions(model, questions: list[str], tok: bpe.Tokenizer, device, amp_dtype,
+                      batch_size: int = 512) -> list[str | None]:
+    """정답 없는 질문 목록을 배치로 SQL 로 바꾼다. 질문은 학습 데이터처럼 소문자로 바꿔 넣는다.
+    프롬프트가 모델 최대 길이를 넘거나 디코딩할 수 없는 출력이면 None."""
+    examples, idx = [], []
+    for i, q in enumerate(questions):
+        ids = [BOS_ID] + tok.encode(q.strip().lower()) + [SEP_ID]
+        if len(ids) < model.max_seq_len:
+            examples.append({"ids": ids, "sql_start": len(ids)})
+            idx.append(i)
+    preds: list[str | None] = [None] * len(questions)
+    for i, out in zip(idx, generate_batch(model, examples, device, amp_dtype, batch_size)):
+        preds[i] = safe_decode(out, tok)
+    return preds
 
 
 def safe_decode(ids: list[int], tok: bpe.Tokenizer) -> str | None:
@@ -210,25 +220,40 @@ def load_eval_set(name: str, eval_dir: str | Path = config.EVAL_DIR) -> tuple[li
 
 def evaluate_set(model, name: str, tok: bpe.Tokenizer, device, amp_dtype,
                  eval_dir: str | Path = config.EVAL_DIR, db_path: str | Path = config.DB_PATH,
-                 rules=None) -> dict:
-    """평가셋 하나(<eval_dir>/<name>/)를 평가해 요약(전체·계층별·WHERE 컬럼별·오류 유형)과 틀린 사례 전체를 반환한다.
+                 rules=None, batch_size: int = 512) -> dict:
+    """평가셋 하나(<eval_dir>/<name>/)를 평가한다 (evaluate_pairs 참고)."""
+    pairs, meta = load_eval_set(name, eval_dir)
+    return evaluate_pairs(model, pairs, tok, device, amp_dtype, name, meta, db_path, rules, batch_size)
+
+
+def evaluate_pairs(model, pairs: list[dict], tok: bpe.Tokenizer, device, amp_dtype, name: str,
+                   meta: dict[str, dict] | None = None, db_path: str | Path = config.DB_PATH,
+                   rules=None, batch_size: int = 512) -> dict:
+    """(질문, 정답 SQL) 쌍을 평가해 요약(전체·계층별·WHERE 컬럼별·오류 유형)과 틀린 사례 전체를 반환한다.
+    meta: SQL → 메타데이터(table, where_col, holdout_tier). 없으면(임의의 쌍 파일) 계층은 name 하나로 묶고
+    테이블·WHERE 컬럼은 단계 규칙으로 SQL 에서 뽑는다.
     rules: 단계별 SQL 규칙 모듈 (기본: config.STAGE 의 load_rules())."""
     rules = rules or load_rules()
-    pairs, meta = load_eval_set(name, eval_dir)
+    label_mismatch = getattr(rules, "label_mismatch", lambda q, s: False)
+    meta = meta or {}
     examples = tokenize_pairs(pairs, tok)
-    preds = generate_batch(model, examples, device, amp_dtype)
+    preds = generate_batch(model, examples, device, amp_dtype, batch_size)
 
     con = sqlite3.connect(db_path)
     records = []
     for p, ex, pred_ids in zip(pairs, examples, preds):
         pred = safe_decode(pred_ids, tok)
-        m = meta[p["sql"]]
+        m = meta.get(p["sql"])
+        if m is None:
+            g = rules.parse_sql(p["sql"]) or {}
+            m = {"table": g.get("table"), "where_col": g.get("where_col")}
         em = pred == p["sql"]
         gold_res = execute(con, p["sql"])
         records.append({
             "question": p["question"], "gold": p["sql"], "pred": pred, "em": em,
             "em_multi": rules.multi_match(p["question"], p["sql"], pred),
             "select_ambiguous": rules.select_ambiguous(p["question"], p["sql"]),
+            "label_mismatch": label_mismatch(p["question"], p["sql"]),
             "exec_match": em or (gold_res is not None and execute(con, pred) == gold_res),
             "tier": m.get("holdout_tier", name), "table": m.get("table"), "where_col": m.get("where_col"),
             "error_parts": [] if em else rules.error_parts(p["sql"], pred),
@@ -245,6 +270,8 @@ def evaluate_set(model, name: str, tok: bpe.Tokenizer, device, amp_dtype,
     error_counts = Counter(part for r in failures for part in r["error_parts"])
     return {
         "set": name, "multi_note": rules.MULTI_NOTE, "overall": summarize(records),
+        "rule_consistent": summarize([r for r in records if not r["label_mismatch"]]),
+        "n_label_mismatch": sum(r["label_mismatch"] for r in records),
         "by_tier": group_by(lambda r: r["tier"]),
         "by_where_col": group_by(lambda r: f"{r['table']}.{r['where_col']}"),
         "error_parts": dict(error_counts.most_common()),
@@ -260,6 +287,8 @@ def print_report(result: dict) -> None:
                 f"multi {s['em_multi']:6.1%}  exec {s['exec_acc']:6.1%}")
     print(f"== {result['set']}")
     print(line("전체", result["overall"]))
+    if result.get("n_label_mismatch"):
+        print(line("규칙 일치 문항만", result["rule_consistent"]) + f"  (라벨 불일치 {result['n_label_mismatch']}개 제외)")
     if len(result["by_tier"]) > 1:
         print(" 계층별")
         for g, s in result["by_tier"].items():
@@ -272,7 +301,7 @@ def print_report(result: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# main
+# 모델 불러오기
 # ---------------------------------------------------------------------------
 
 def load_model(ckpt_path: str | Path, device) -> tuple[TextToSQLModel, dict]:
@@ -285,13 +314,13 @@ def load_model(ckpt_path: str | Path, device) -> tuple[TextToSQLModel, dict]:
     return model, ckpt
 
 
-def default_out_dir(ckpt_path: str | Path) -> Path:
+def default_out_dir(ckpt_path: str | Path, release_eval_dir: str | Path = config.RELEASE_EVAL_DIR) -> Path:
     """평가 결과(eval_<set>.json) 기본 위치. 출력은 항상 runs/ 아래(커밋 안 함)에 둔다:
-    runs/ 안의 학습 체크포인트면 그 실행 폴더, 그 밖(배포 모델 등)이면 config.RELEASE_EVAL_DIR."""
+    runs/ 안의 학습 체크포인트면 그 실행 폴더, 그 밖(배포 모델 등)이면 release_eval_dir."""
     runs_root = config.RUNS_DIR.parent.resolve()
     if runs_root in Path(ckpt_path).resolve().parents:
         return Path(ckpt_path).parent
-    return config.RELEASE_EVAL_DIR
+    return Path(release_eval_dir)
 
 
 def describe_checkpoint(ckpt: dict) -> str:
@@ -310,62 +339,3 @@ def tokenizer_path_for(ckpt_path: str | Path, ckpt: dict) -> Path:
         if (folder / name).exists():
             return folder / name
     return Path(ckpt.get("tokenizer_path") or ckpt.get("merges_path") or config.TOKENIZER_PATH)
-
-
-def main() -> int:
-    ap = argparse.ArgumentParser(description="체크포인트 평가 / 평가셋 관리")
-    ap.add_argument("--ckpt", help="평가할 체크포인트 (train.py 가 저장한 best.pt)")
-    ap.add_argument("--sets", nargs="+", default=None, help="평가셋 이름 (--eval-dir 아래 폴더, 기본: 전부)")
-    ap.add_argument("--eval-dir", default=str(config.EVAL_DIR), help=f"평가셋 상위 폴더 (기본 {config.EVAL_DIR})")
-    ap.add_argument("--out-dir", default=None, help=f"eval_<set>.json 저장 위치 (기본: runs/ 안의 체크포인트면 그 폴더, 아니면 {config.RELEASE_EVAL_DIR})")
-    ap.add_argument("--show", type=int, default=10, help="평가셋마다 출력할 틀린 사례 수")
-    ap.add_argument("--no-amp", action="store_true", help="bf16 autocast 끄기")
-    ap.add_argument("--stage", type=int, default=None,
-                    help="채점 규칙 단계 (src/data/stage<N>/sql_rules.py, 기본: 체크포인트의 stage, 없으면 config.STAGE)")
-    ap.add_argument("--list", action="store_true", help="평가셋 목록과 쌍·SQL 수를 출력하고 끝낸다")
-    ap.add_argument("--build-sql", metavar="NAME", help="평가셋 NAME 의 sql.json 을 --sql 파일에서 만들고 끝낸다")
-    ap.add_argument("--sql", help="--build-sql 용 sql_gen 출력 파일 (예: data/stage1/sql/eval_indist.json)")
-    args = ap.parse_args()
-
-    if args.list:
-        for name in list_sets(args.eval_dir):
-            pairs, meta = load_eval_set(name, args.eval_dir)
-            print(f"{name:<16} 쌍 {len(pairs):>6}  SQL {len(meta):>5}")
-        return 0
-    if args.build_sql:
-        if not args.sql:
-            ap.error("--build-sql 에는 --sql 이 필요하다")
-        print(f"{write_sql_meta(args.build_sql, args.sql, args.eval_dir)} 생성")
-        return 0
-    if not args.ckpt:
-        ap.error("--ckpt 가 필요하다 (평가셋 관리만 하려면 --list / --build-sql)")
-    available = list_sets(args.eval_dir)
-    sets = args.sets or available
-    unknown = sorted(set(sets) - set(available))
-    if unknown:
-        ap.error(f"{args.eval_dir} 에 없는 평가셋: {unknown} (있는 것: {available})")
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    amp_dtype = torch.bfloat16 if device.type == "cuda" and not args.no_amp else None
-    model, ckpt = load_model(args.ckpt, device)
-    tok = bpe.Tokenizer.load(tokenizer_path_for(args.ckpt, ckpt))
-    stage = args.stage or ckpt.get("stage", config.STAGE)
-    rules = load_rules(stage)
-    out_dir = Path(args.out_dir or default_out_dir(args.ckpt))
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    print(f"checkpoint {args.ckpt} ({describe_checkpoint(ckpt)}, params {model.num_params():,}, 채점 규칙 {stage}단계)")
-    for name in sets:
-        result = evaluate_set(model, name, tok, device, amp_dtype, eval_dir=args.eval_dir, rules=rules)
-        print_report(result)
-        for f in result["failures"][:args.show]:
-            print(f"    Q: {f['question']}\n       gold: {f['gold']}\n       pred: {f['pred']}  "
-                  f"({'+'.join(f['error_parts'])})")
-        with open(out_dir / f"eval_{name}.json", "w", encoding="utf-8") as fp:
-            json.dump(result, fp, ensure_ascii=False, indent=2)
-        print(f"  → {out_dir / f'eval_{name}.json'}")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

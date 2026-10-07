@@ -116,7 +116,9 @@ def test_load_train_pairs_reads_json_files_in_train_dir(tmp_path):
     with open(tmp_path / "sub" / "c.json", "w", encoding="utf-8") as f:
         json.dump([{"question": "q3", "sql": "s3"}], f)
 
-    assert [p["question"] for p in ds.load_train_pairs(tmp_path)] == ["q1", "q2"]
+    assert [p["question"] for p in ds.load_train_pairs(train_dir=tmp_path)] == ["q1", "q2"]
+    # 파일을 직접 주면 그 파일만, 준 순서대로 읽는다
+    assert [p["question"] for p in ds.load_train_pairs([tmp_path / "sub" / "c.json", tmp_path / "a.json"])] == ["q3", "q1"]
 
 
 # load_pairs가 glob에 매칭되는 파일이 하나도 없을 때 예외 없이 빈 리스트를 반환하는지 검증

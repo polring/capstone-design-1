@@ -1,6 +1,7 @@
 # config.py — 모델 구조, 학습 설정, 데이터·모델 저장 경로
 # 표준 라이브러리만 쓴다 (torch 없이 도는 질문 생성 스크립트도 import 한다)
 
+from dataclasses import dataclass
 from pathlib import Path
 
 # 현재 학습 단계 — 단계를 바꿀 때는 이 값만 수정한다 (모델 구조와 아래 경로가 함께 바뀐다)
@@ -28,27 +29,72 @@ FFN_DIM = round(HIDDEN_DIM * 8 / 3)  # SwiGLU(행렬 3개)가 계획서의 GELU 
 BATCH_SIZE = 32       # DataLoader 배치 크기
 
 # Paths (저장소 루트 기준 상대 경로). 역할은 폴더 위치로 정한다:
-# TRAIN_DIR 안의 *.json 은 전부 학습 데이터·BPE 코퍼스, EVAL_DIR 아래 폴더 하나가 평가셋 하나다.
-DATA_DIR = Path("data") / f"stage{STAGE}"          # 이 단계의 커밋되는 데이터
-DB_DIR = DATA_DIR / "db"
-DB_PATH = DB_DIR / "shop.db"                       # SQLite DB
-HOLDOUT_PATH = DB_DIR / "holdout.json"             # 미등장 평가용 엔티티 (학습 SQL 에 절대 나오면 안 됨)
-SQL_DIR = DATA_DIR / "sql"                         # sql_gen 출력
+# train/ 안의 *.json 은 전부 학습 데이터·BPE 코퍼스, eval/ 아래 폴더 하나가 평가셋 하나다.
+PAIRS_FILE = "pairs.json"                          # 평가셋 폴더의 (질문, SQL) 쌍 파일 이름
+EVAL_SQL_FILE = "sql.json"                         # 평가셋 폴더의 SQL 메타데이터 파일 이름
+
+
+@dataclass(frozen=True)
+class StagePaths:
+    """단계 하나의 데이터·모델 경로. 아래 모듈 상수는 현재 STAGE 의 값이고,
+    다른 단계의 경로가 필요하면(예: run.py --stage 2) stage_paths(N) 을 쓴다."""
+    stage: int
+
+    @property
+    def data_dir(self) -> Path: return Path("data") / f"stage{self.stage}"        # 이 단계의 커밋되는 데이터
+    @property
+    def db_dir(self) -> Path: return self.data_dir / "db"
+    @property
+    def db_path(self) -> Path: return self.db_dir / "shop.db"                     # SQLite DB
+    @property
+    def holdout_path(self) -> Path: return self.db_dir / "holdout.json"           # 미등장 평가용 엔티티 (학습 SQL 에 절대 나오면 안 됨)
+    @property
+    def sql_dir(self) -> Path: return self.data_dir / "sql"                       # sql_gen 출력
+    @property
+    def train_dir(self) -> Path: return self.data_dir / "train"                   # 학습 (질문, SQL) 쌍
+    @property
+    def eval_dir(self) -> Path: return self.data_dir / "eval"                     # 평가셋: <이름>/pairs.json + sql.json
+    @property
+    def seed_tokens_path(self) -> Path: return self.data_dir / "tokenizer" / "seed_tokens.json"  # BPE seed 토큰 (입력, 사람이 편집)
+    @property
+    def tokenizer_path(self) -> Path: return self.data_dir / "tokenizer" / "tokenizer.json"      # BPE 학습 결과
+    @property
+    def model_dir(self) -> Path: return Path("models") / f"stage{self.stage}"     # 배포용 최종 모델 (커밋)
+    @property
+    def model_path(self) -> Path: return self.model_dir / "model.pt"              # 같은 폴더에 tokenizer.json, model_info.json
+    @property
+    def raw_dir(self) -> Path: return Path("data_raw") / f"stage{self.stage}"     # 검증 전 라운드·중간 산출물 (커밋 안 함)
+    @property
+    def runs_dir(self) -> Path: return Path("runs") / f"stage{self.stage}"        # 학습 실행 결과 (커밋 안 함)
+    @property
+    def release_eval_dir(self) -> Path: return self.runs_dir / "release_eval"     # 배포 모델 평가 결과 (커밋 안 함)
+    @property
+    def predictions_dir(self) -> Path: return self.runs_dir / "predictions"       # run.py --test 배치 추론 결과 (커밋 안 함)
+
+
+def stage_paths(stage: int = STAGE) -> StagePaths:
+    return StagePaths(stage)
+
+
+_paths = stage_paths(STAGE)
+DATA_DIR = _paths.data_dir
+DB_DIR = _paths.db_dir
+DB_PATH = _paths.db_path
+HOLDOUT_PATH = _paths.holdout_path
+SQL_DIR = _paths.sql_dir
 SQL_TRAIN_PATH = SQL_DIR / "train.json"            # 학습용 SQL
 SQL_EVAL_INDIST_PATH = SQL_DIR / "eval_indist.json"    # 분포 내 평가용 SQL
 SQL_EVAL_HOLDOUT_PATH = SQL_DIR / "eval_holdout.json"  # 미등장 값 평가용 SQL (tier 포함)
 SQL_REPORT_PATH = SQL_DIR / "gen_report.json"      # SQL 구조별 할당량 보고서
-TRAIN_DIR = DATA_DIR / "train"                     # 학습 (질문, SQL) 쌍
-EVAL_DIR = DATA_DIR / "eval"                       # 평가셋: <이름>/pairs.json + sql.json
-PAIRS_FILE = "pairs.json"                          # 평가셋 폴더의 (질문, SQL) 쌍 파일 이름
-EVAL_SQL_FILE = "sql.json"                         # 평가셋 폴더의 SQL 메타데이터 파일 이름
-SEED_TOKENS_PATH = DATA_DIR / "tokenizer" / "seed_tokens.json"  # BPE seed 토큰 목록 (입력, 사람이 편집)
-TOKENIZER_PATH = DATA_DIR / "tokenizer" / "tokenizer.json"      # BPE 학습 결과 (특수·seed 토큰 + 병합 규칙)
-
-MODEL_DIR = Path("models") / f"stage{STAGE}"       # 이 단계의 배포용 최종 모델 (커밋)
-MODEL_PATH = MODEL_DIR / "model.pt"                # 배포 모델 가중치 (같은 폴더에 tokenizer.json, model_info.json)
-RAW_DIR = Path("data_raw") / f"stage{STAGE}"       # 검증 전 라운드·중간 산출물 (커밋 안 함)
-RUNS_DIR = Path("runs") / f"stage{STAGE}"          # 학습 실행 결과 (커밋 안 함)
-RELEASE_EVAL_DIR = RUNS_DIR / "release_eval"       # 배포 모델(MODEL_DIR)을 평가한 결과 (커밋 안 함)
+TRAIN_DIR = _paths.train_dir
+EVAL_DIR = _paths.eval_dir
+SEED_TOKENS_PATH = _paths.seed_tokens_path
+TOKENIZER_PATH = _paths.tokenizer_path
+MODEL_DIR = _paths.model_dir
+MODEL_PATH = _paths.model_path
+RAW_DIR = _paths.raw_dir
+RUNS_DIR = _paths.runs_dir
+RELEASE_EVAL_DIR = _paths.release_eval_dir
+PREDICTIONS_DIR = _paths.predictions_dir
 
 WORDLIST_PATH = Path("data") / "wordnet" / "english_words.txt"  # 이름 교체용 영단어 (WordNet 3.0 표제어, 단계 공통)

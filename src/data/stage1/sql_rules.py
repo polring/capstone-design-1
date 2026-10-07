@@ -8,6 +8,7 @@ evaluation.py 가 평가 단계(config.STAGE 또는 체크포인트의 stage)에
     error_parts(gold, pred) -> list[str]       오답에서 틀린 부분 이름 목록
     select_ambiguous(question, gold) -> bool   질문만으로 정답이 하나로 정해지지 않아 다중 정답을 인정하는 문항인가
     multi_match(question, gold, pred) -> bool  다중 정답 EM 기준으로 맞았는가
+    label_mismatch(question, gold) -> bool     정답 라벨이 라벨 규칙(계획서 4-5)과 다른 문항인가 (규칙 일치 EM 에서 제외)
     STAGE, MULTI_NOTE                          단계 번호, 리포트에 쓰는 다중 정답 설명
 
 clean_ambiguous.py(라벨 규칙 정제)도 같은 규칙을 쓴다.
@@ -80,3 +81,13 @@ def multi_match(question: str, gold: str, pred: str | None) -> bool:
     g, p = parse_sql(gold), parse_sql(pred)
     return (p is not None and p["select"] in ("*", ID_COL[g["table"]])
             and all(g[k] == p[k] for k in ("table", "where_col", "literal")))
+
+
+def label_mismatch(question: str, gold: str) -> bool:
+    """정답 라벨이 라벨 규칙(L2~L4)과 다르면 True. 학습 데이터 정제(clean_ambiguous)와 같은 판정이다.
+
+    평가셋은 이전 실행과 비교하려고 정제하지 않았으므로, 이런 문항에서는 규칙대로 답한 모델이 오답 처리된다.
+    규칙 일치 EM(em_rule)은 이 문항을 빼고 계산한다. 판정은 질문과 정답 SQL 만 보고 모델 출력은 보지 않는다.
+    평가 오답을 보고 규칙을 고치지 않는다 (고치면 학습 데이터 정제부터 다시 하고 그 결과를 평가에 적용한다)."""
+    from src.data.stage1.clean_ambiguous import drop_reason  # clean_ambiguous 가 이 모듈을 import 하므로 지연 import
+    return drop_reason({"question": question, "sql": gold}) is not None

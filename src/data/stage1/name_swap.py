@@ -105,10 +105,10 @@ class NameSwapper:
     """가짜 이름 생성기와 금지 단어 목록을 한 번 만들어 두고, swap() 을 부를 때마다 새로 바꾼 학습 쌍을 만든다.
     고정 파일(build)과 학습 중 epoch 마다 다시 바꾸기(train.py --name-swap-ratio)가 같은 로직을 쓴다."""
 
-    def __init__(self, pairs: list[dict], english: set[str]):
+    def __init__(self, pairs: list[dict], english: set[str], holdout_path: str | Path = config.HOLDOUT_PATH):
         # 가짜 이름이 피해야 할 단어: DB·holdout 의 모든 이름, 이름 풀, 학습 질문에 나오는 모든 단어
         banned = {w for pool in NAME_POOLS.values() for w in pool}
-        holdout = json.load(open(config.HOLDOUT_PATH, encoding="utf-8"))
+        holdout = json.load(open(holdout_path, encoding="utf-8"))
         banned |= {r["name"] for r in holdout["customers"]["heldout_rows"]}
         banned |= {r["item_name"] for r in holdout["items"]["heldout_rows"]}
         for p in pairs:
@@ -158,15 +158,18 @@ class NameSwapper:
         return out, dict(stats)
 
 
-def build(pairs: list[dict], ratio: float, seed: int, english: set[str]) -> tuple[list[dict], dict]:
+def build(pairs: list[dict], ratio: float, seed: int, english: set[str],
+          holdout_path: str | Path = config.HOLDOUT_PATH) -> tuple[list[dict], dict]:
     """고정 파일용: 전체 학습 쌍을 한 번 바꾼다."""
-    return NameSwapper(pairs, english).swap(pairs, ratio, random.Random(seed))
+    return NameSwapper(pairs, english, holdout_path).swap(pairs, ratio, random.Random(seed))
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="이름 교체 실험용 학습 데이터 생성")
     ap.add_argument("--ratio", type=float, default=0.4, help="이름 조건 쌍 중 가짜 이름으로 바꿀 비율")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--train-files", nargs="+", default=None, help=f"바꿀 학습 쌍 파일들 (기본: {config.TRAIN_DIR}/*.json)")
+    ap.add_argument("--holdout", default=str(config.HOLDOUT_PATH), help=f"가짜 이름이 피할 미등장 값 (기본 {config.HOLDOUT_PATH})")
     ap.add_argument("--wordlist", default=str(config.WORDLIST_PATH),
                     help="영단어 목록 (WordNet zip 또는 한 줄에 한 단어인 텍스트 파일)")
     ap.add_argument("--out", default=None, help=f"기본: {config.RAW_DIR}/name_swap_<비율%%>/train_pairs.json")
@@ -175,7 +178,8 @@ def main() -> int:
     out_path = Path(args.out or config.RAW_DIR / f"name_swap_{round(args.ratio * 100)}" / "train_pairs.json")
     assert config.TRAIN_DIR.resolve() not in out_path.resolve().parents, \
         f"{config.TRAIN_DIR} 아래에 두면 학습 데이터와 BPE 코퍼스에 자동으로 섞인다"
-    pairs, stats = build(load_train_pairs(), args.ratio, args.seed, load_english_words(args.wordlist))
+    pairs, stats = build(load_train_pairs(args.train_files), args.ratio, args.seed, load_english_words(args.wordlist),
+                         args.holdout)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(pairs, f, ensure_ascii=False, indent=2)

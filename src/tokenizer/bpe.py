@@ -13,10 +13,12 @@ seed 토큰 목록은 단계마다 달라서 파일로 관리한다 (config.SEED
 기존 모델이 그대로 동작한다. 이 파일 하나로 Python 과 C 추론 엔진이 같은 토큰화를 재현한다.
 
     python -m src.tokenizer.bpe          # seed 파일 + 학습 쌍 → tokenizer.json, round-trip·미등장 이름 토큰 수 확인
+    python -m src.tokenizer.bpe --train-files a.json b.json --seeds s.json --out t.json   # 입력·출력 바꾸기
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 from collections import Counter
@@ -212,10 +214,11 @@ class Tokenizer:
 # 코퍼스
 # ---------------------------------------------------------------------------
 
-def load_corpus(train_dir: str | Path = TRAIN_DIR) -> list[str]:
-    """BPE 코퍼스 = 학습 폴더의 (질문, SQL) 전부 (dataset.load_train_pairs 와 같은 파일)."""
+def load_corpus(files: list[str | Path] | None = None, train_dir: str | Path = TRAIN_DIR) -> list[str]:
+    """BPE 코퍼스 = 학습 쌍의 (질문, SQL) 전부. files 를 주면 그 파일들, 아니면 학습 폴더의 *.json
+    (dataset.load_train_pairs 와 같은 규칙. bpe 는 torch 없이 돌아야 해서 따로 둔다)."""
     corpus: list[str] = []
-    for pf in sorted(Path(train_dir).glob("*.json")):
+    for pf in [Path(f) for f in files] if files else sorted(Path(train_dir).glob("*.json")):
         with open(pf, encoding="utf-8") as f:
             pairs = json.load(f)
         for row in pairs:
@@ -224,15 +227,23 @@ def load_corpus(train_dir: str | Path = TRAIN_DIR) -> list[str]:
     return corpus
 
 
-if __name__ == "__main__":
-    corpus = load_corpus()
+def main() -> int:
+    ap = argparse.ArgumentParser(description="BPE 토크나이저 학습")
+    ap.add_argument("--train-files", nargs="+", default=None, help=f"코퍼스 학습 쌍 파일 (기본: {TRAIN_DIR}/*.json)")
+    ap.add_argument("--seeds", default=str(SEED_TOKENS_PATH), help=f"seed 토큰 파일 (기본 {SEED_TOKENS_PATH})")
+    ap.add_argument("--vocab-size", type=int, default=VOCAB_SIZE, help=f"목표 vocab 크기 (기본 {VOCAB_SIZE})")
+    ap.add_argument("--out", default=str(TOKENIZER_PATH), help=f"저장 위치 (기본 {TOKENIZER_PATH})")
+    ap.add_argument("--holdout", default=str(HOLDOUT_PATH), help=f"미등장 이름 토큰 수 확인용 (기본 {HOLDOUT_PATH})")
+    args = ap.parse_args()
+
+    corpus = load_corpus(args.train_files)
     print(f"코퍼스 크기: {len(corpus)}")
 
-    seeds = load_seed_tokens()
-    tok = Tokenizer.train(corpus, seeds)
-    print(f"seed 토큰 {len(seeds)}개, 학습된 병합 수: {len(tok.merges)} / {VOCAB_SIZE - tok.merge_base}")
-    tok.save(TOKENIZER_PATH)
-    print(f"저장: {TOKENIZER_PATH}")
+    seeds = load_seed_tokens(args.seeds)
+    tok = Tokenizer.train(corpus, seeds, args.vocab_size)
+    print(f"seed 토큰 {len(seeds)}개, 학습된 병합 수: {len(tok.merges)} / {args.vocab_size - tok.merge_base}")
+    tok.save(args.out)
+    print(f"저장: {args.out}")
 
     bad = 0
     for text in corpus:
@@ -243,7 +254,7 @@ if __name__ == "__main__":
                 print(f"ROUNDTRIP FAIL: {text!r} -> {restored!r}")
     print(f"round-trip 실패: {bad} / {len(corpus)}")
 
-    holdout_path = Path(HOLDOUT_PATH)
+    holdout_path = Path(args.holdout)
     if holdout_path.exists():
         with open(holdout_path, encoding="utf-8") as f:
             holdout = json.load(f)
@@ -251,3 +262,8 @@ if __name__ == "__main__":
         names += [r["item_name"] for r in holdout["items"]["heldout_rows"]]
         counts = [len(tok.encode(n)) for n in names]
         print(f"미등장 이름 {len(names)}개 평균 토큰 수: {sum(counts) / len(counts):.2f}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

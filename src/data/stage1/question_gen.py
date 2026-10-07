@@ -587,11 +587,15 @@ def template_check(out_dir: str, threshold: float = 0.3) -> dict:
 # 5. 전역 코퍼스 검사 (라운드를 넘나드는 충돌 탐지)
 # ---------------------------------------------------------------------------
 
-def load_all_merged_pairs(data_dir: str) -> list[dict]:
-    """병합된 학습 쌍(<data_dir>/train/*.json)과 분포 내 평가 쌍(<data_dir>/eval/indist/pairs.json)을 합쳐서 반환.
-    dataset.py 의 load_train_pairs / load_eval_pairs("indist") 와 같은 파일이다."""
-    files = sorted(Path(data_dir, config.TRAIN_DIR.name).glob("*.json"))
-    files.append(Path(data_dir, config.EVAL_DIR.name, "indist", config.PAIRS_FILE))
+DEFAULT_CORPUS_EVAL_FILES = [config.EVAL_DIR / "indist" / config.PAIRS_FILE]
+
+
+def load_all_merged_pairs(train_files: list[str | Path] | None = None,
+                          eval_files: list[str | Path] | None = None) -> list[dict]:
+    """병합된 학습 쌍과 평가 쌍을 합쳐서 반환. 기본: 학습 폴더의 *.json + 분포 내 평가셋 pairs.json
+    (dataset.py 의 load_train_pairs / load_eval_pairs("indist") 와 같은 파일)."""
+    files = [Path(f) for f in train_files] if train_files else sorted(config.TRAIN_DIR.glob("*.json"))
+    files += [Path(f) for f in (eval_files or DEFAULT_CORPUS_EVAL_FILES)]
     pairs: list[dict] = []
     for pf in files:
         if pf.is_file():
@@ -600,8 +604,9 @@ def load_all_merged_pairs(data_dir: str) -> list[dict]:
     return pairs
 
 
-def corpus_check(data_dir: str, out_path: str | Path = config.RAW_DIR / "corpus_check_report.json") -> dict:
-    pairs = load_all_merged_pairs(data_dir)
+def corpus_check(train_files: list[str | Path] | None = None, eval_files: list[str | Path] | None = None,
+                 out_path: str | Path = config.RAW_DIR / "corpus_check_report.json") -> dict:
+    pairs = load_all_merged_pairs(train_files, eval_files)
     conflicts = find_cross_sql_question_conflicts(pairs)
     report = {
         "n_pairs_checked": len(pairs),
@@ -630,8 +635,12 @@ def main() -> int:
                      help="이 디렉터리들의 pilot_sql.json에 있는 SQL은 샘플링 후보에서 제외 (쉼표로 여러 개 지정 가능)")
     ap.add_argument("--threshold", type=float, default=0.3,
                      help="template-check: 이 비율 이상 틀이 재사용되면 그 (select,where_col) 조합을 flag")
-    ap.add_argument("--data-dir", default=str(config.DATA_DIR),
-                     help=f"corpus-check: train/, eval/indist/ 가 있는 단계 데이터 폴더 (기본 {config.DATA_DIR})")
+    ap.add_argument("--train-files", nargs="+", default=None,
+                     help=f"corpus-check: 학습 쌍 파일들 (기본: {config.TRAIN_DIR}/*.json)")
+    ap.add_argument("--eval-files", nargs="+", default=None,
+                     help=f"corpus-check: 함께 검사할 평가 쌍 파일들 (기본: {DEFAULT_CORPUS_EVAL_FILES[0]})")
+    ap.add_argument("--report", default=str(config.RAW_DIR / "corpus_check_report.json"),
+                     help="corpus-check: 리포트 저장 위치")
     ap.add_argument("--questions-per-sql", type=int, default=5,
                      help="make-prompts-small: SQL 하나당 요구할 질문 개수 (기본 5, 최대 %d)"
                           % len(QUESTION_STYLE_SLOTS))
@@ -641,14 +650,14 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.command == "corpus-check":
-        report = corpus_check(args.data_dir)
+        report = corpus_check(args.train_files, args.eval_files, args.report)
         print(f"전체 병합 쌍 {report['n_pairs_checked']}개 검사")
         print(f"동일 질문이 서로 다른 SQL에 매핑된 충돌: {report['n_conflicting_questions']}건")
         for c in report["conflicts"][:10]:
             print(f"  질문: {c['question']!r}")
             for s in c["conflicting_sqls"]:
                 print(f"    -> {s}")
-        print(f"저장: {config.RAW_DIR / 'corpus_check_report.json'}")
+        print(f"저장: {args.report}")
         return 0
 
     if args.command == "make-prompts":
