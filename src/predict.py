@@ -7,8 +7,8 @@ predict.py — 학습된 체크포인트로 질문을 SQL 로 바꾸고 shop.db 
     python -m src.predict -q "what city does ashley live in?"
     python -m src.predict --ckpt runs/stage1/ffn683/best.pt --no-exec
 
-- 기본 체크포인트는 `python -m src.train` 기본 설정이 저장하는 곳(runs/stage<N>/ffn<D>_swap40/best.pt,
-  1단계는 runs/stage1/ffn683_swap40/best.pt)이다.
+- 기본 모델은 저장소에 커밋된 배포 모델(models/stage<N>/model.pt)이라 학습 없이 바로 실행된다.
+  직접 학습한 체크포인트는 --ckpt runs/stage<N>/<run>/best.pt 로 지정한다.
 - 질문은 학습 데이터처럼 소문자로 바꿔 넣는다. 생성은 greedy 이며 제약 디코더는 없다.
 - 1단계 범위(단일 테이블, SELECT 컬럼 하나 또는 *, WHERE 등호 하나) 밖의 질문에도 무언가를 출력하지만
   의미는 없다.
@@ -25,11 +25,10 @@ import torch
 
 from src import config
 from src.data.dataset import BOS_ID, EOS_ID, SEP_ID
-from src.evaluation import load_model, load_rules, safe_decode, tokenizer_path_for
+from src.evaluation import describe_checkpoint, load_model, load_rules, safe_decode, tokenizer_path_for
 from src.tokenizer import bpe
 
-# train.py 기본 실행(이름 교체 40%)의 실행 이름과 같은 규칙
-DEFAULT_CKPT = str(config.RUNS_DIR / f"ffn{config.FFN_DIM}_swap40" / "best.pt")
+DEFAULT_CKPT = str(config.MODEL_PATH)  # 커밋된 배포 모델 (src/release.py 로 만든다)
 MAX_ROWS = 20
 
 
@@ -86,7 +85,7 @@ def main() -> int:
 
     if not Path(args.ckpt).exists():
         print(f"체크포인트가 없습니다: {args.ckpt}\n"
-              "runs/ 는 커밋되지 않으므로 직접 학습해야 합니다 (docs/SETUP.md 7절).", file=sys.stderr)
+              "배포 모델은 python -m src.release --ckpt <best.pt> 로 만든다.", file=sys.stderr)
         return 1
     device = torch.device("cuda" if torch.cuda.is_available() and not args.cpu else "cpu")
     amp_dtype = torch.bfloat16 if device.type == "cuda" else None  # evaluation.py 와 같은 수치 조건
@@ -99,8 +98,7 @@ def main() -> int:
     rules = load_rules(ckpt.get("stage", config.STAGE))
     con = None if args.no_exec else sqlite3.connect(f"file:{config.DB_PATH}?mode=ro", uri=True)
 
-    print(f"checkpoint {args.ckpt} (epoch {ckpt.get('epoch')}, val EM {ckpt.get('val_em', 0):.4f}, "
-          f"{device.type})")
+    print(f"checkpoint {args.ckpt} ({describe_checkpoint(ckpt)}, {device.type})")
     if args.question:
         for q in args.question:
             print(f"Q: {q}")

@@ -17,7 +17,8 @@ evaluation.py — 학습된 체크포인트를 평가셋으로 평가한다 (계
   우연히 같은 결과를 낼 수 있으므로(예: 0행) 보조로만 본다.
 - 계층(분포 내 / 미등장 개체 / 미등장 ID / 미등장 주문 ID)·WHERE 컬럼별로 나눠 집계하고, EM 에는 95%
   신뢰구간(Wilson)을 붙인다. 틀린 사례는 어느 부분(테이블·WHERE 컬럼·SELECT·리터럴)이 틀렸는지 분류한다.
-- 결과: 체크포인트 폴더에 eval_<set>.json (요약 + 틀린 사례 전체).
+- 결과: eval_<set>.json (요약 + 틀린 사례 전체). runs/ 안의 체크포인트면 그 실행 폴더, 배포 모델이면
+  config.RELEASE_EVAL_DIR (--out-dir 로 변경).
 - 다중 정답 EM(multi): 질문만으로 정답이 하나로 정해지지 않는 문항은 다른 답도 정답으로 본다. 기존 EM 과
   별도로 보고한다.
 - 단계마다 다른 규칙(SQL 분해, 오답 부분 분류, 다중 정답 판정)은 src/data/stage<N>/sql_rules.py 에 있고,
@@ -275,11 +276,29 @@ def print_report(result: dict) -> None:
 # ---------------------------------------------------------------------------
 
 def load_model(ckpt_path: str | Path, device) -> tuple[TextToSQLModel, dict]:
-    ckpt = torch.load(ckpt_path, map_location=device)
+    """학습 체크포인트(best.pt)와 배포 모델(model.pt) 모두 읽는다. 둘 다 텐서와 기본 자료형만 담고 있어
+    weights_only=True 로 읽는다 (pickle 로 임의 코드가 실행되지 않게)."""
+    ckpt = torch.load(ckpt_path, map_location=device, weights_only=True)
     model = TextToSQLModel(**ckpt["model_cfg"]).to(device)
     model.load_state_dict(ckpt["model"])
     model.eval()
     return model, ckpt
+
+
+def default_out_dir(ckpt_path: str | Path) -> Path:
+    """평가 결과(eval_<set>.json) 기본 위치. 출력은 항상 runs/ 아래(커밋 안 함)에 둔다:
+    runs/ 안의 학습 체크포인트면 그 실행 폴더, 그 밖(배포 모델 등)이면 config.RELEASE_EVAL_DIR."""
+    runs_root = config.RUNS_DIR.parent.resolve()
+    if runs_root in Path(ckpt_path).resolve().parents:
+        return Path(ckpt_path).parent
+    return config.RELEASE_EVAL_DIR
+
+
+def describe_checkpoint(ckpt: dict) -> str:
+    """출력용 요약: 학습 체크포인트면 epoch·검증 EM, 배포 모델(model.pt)이면 단계."""
+    if "epoch" in ckpt:
+        return f"epoch {ckpt['epoch']}, val EM {ckpt.get('val_em', 0):.4f}"
+    return f"배포 모델, stage {ckpt.get('stage')}"
 
 
 def tokenizer_path_for(ckpt_path: str | Path, ckpt: dict) -> Path:
@@ -298,7 +317,7 @@ def main() -> int:
     ap.add_argument("--ckpt", help="평가할 체크포인트 (train.py 가 저장한 best.pt)")
     ap.add_argument("--sets", nargs="+", default=None, help="평가셋 이름 (--eval-dir 아래 폴더, 기본: 전부)")
     ap.add_argument("--eval-dir", default=str(config.EVAL_DIR), help=f"평가셋 상위 폴더 (기본 {config.EVAL_DIR})")
-    ap.add_argument("--out-dir", default=None, help="eval_<set>.json 저장 위치 (기본: 체크포인트 폴더)")
+    ap.add_argument("--out-dir", default=None, help=f"eval_<set>.json 저장 위치 (기본: runs/ 안의 체크포인트면 그 폴더, 아니면 {config.RELEASE_EVAL_DIR})")
     ap.add_argument("--show", type=int, default=10, help="평가셋마다 출력할 틀린 사례 수")
     ap.add_argument("--no-amp", action="store_true", help="bf16 autocast 끄기")
     ap.add_argument("--stage", type=int, default=None,
@@ -332,11 +351,10 @@ def main() -> int:
     tok = bpe.Tokenizer.load(tokenizer_path_for(args.ckpt, ckpt))
     stage = args.stage or ckpt.get("stage", config.STAGE)
     rules = load_rules(stage)
-    out_dir = Path(args.out_dir or Path(args.ckpt).parent)
+    out_dir = Path(args.out_dir or default_out_dir(args.ckpt))
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"checkpoint {args.ckpt} (epoch {ckpt.get('epoch')}, val EM {ckpt.get('val_em', 0):.4f}, "
-          f"params {model.num_params():,}, 채점 규칙 {stage}단계)")
+    print(f"checkpoint {args.ckpt} ({describe_checkpoint(ckpt)}, params {model.num_params():,}, 채점 규칙 {stage}단계)")
     for name in sets:
         result = evaluate_set(model, name, tok, device, amp_dtype, eval_dir=args.eval_dir, rules=rules)
         print_report(result)

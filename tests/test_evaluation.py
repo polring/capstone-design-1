@@ -285,3 +285,12 @@ def test_load_rules_provides_stage_interface():
     assert rules.STAGE == config.STAGE
     for name in ("parse_sql", "error_parts", "select_ambiguous", "multi_match", "MULTI_NOTE"):
         assert hasattr(rules, name), name
+
+
+@pytest.mark.unit
+def test_default_out_dir_stays_under_runs():
+    """평가 결과는 커밋 폴더(models/)에 쓰지 않는다: runs/ 안 체크포인트는 그 폴더, 그 밖은 RELEASE_EVAL_DIR"""
+    run_ckpt = config.RUNS_DIR / "some_run" / "best.pt"
+    assert ev.default_out_dir(run_ckpt) == run_ckpt.parent
+    assert ev.default_out_dir(config.MODEL_PATH) == config.RELEASE_EVAL_DIR
+    assert ev.default_out_dir("runs/stage1_old_run/best.pt") == ev.Path("runs/stage1_old_run")

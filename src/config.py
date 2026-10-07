@@ -46,7 +46,9 @@ SEED_TOKENS_PATH = DATA_DIR / "tokenizer" / "seed_tokens.json"  # BPE seed 토�
 TOKENIZER_PATH = DATA_DIR / "tokenizer" / "tokenizer.json"      # BPE 학습 결과 (특수·seed 토큰 + 병합 규칙)
 
 MODEL_DIR = Path("models") / f"stage{STAGE}"       # 이 단계의 배포용 최종 모델 (커밋)
+MODEL_PATH = MODEL_DIR / "model.pt"                # 배포 모델 가중치 (같은 폴더에 tokenizer.json, model_info.json)
 RAW_DIR = Path("data_raw") / f"stage{STAGE}"       # 검증 전 라운드·중간 산출물 (커밋 안 함)
 RUNS_DIR = Path("runs") / f"stage{STAGE}"          # 학습 실행 결과 (커밋 안 함)
+RELEASE_EVAL_DIR = RUNS_DIR / "release_eval"       # 배포 모델(MODEL_DIR)을 평가한 결과 (커밋 안 함)
 
 WORDLIST_PATH = Path("data") / "wordnet" / "english_words.txt"  # 이름 교체용 영단어 (WordNet 3.0 표제어, 단계 공통)
