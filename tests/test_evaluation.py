@@ -5,12 +5,13 @@ from collections import Counter
 import pytest
 import torch
 
+from src import config
 from src import evaluation as ev
 from src.data.dataset import EOS_ID, PAD_ID, tokenize_pairs
 from src.models.model import TextToSQLModel
 from src.tokenizer import bpe
 
-ID_TO_BYTES = bpe.id_to_bytes_from_merges([])
+TOK = bpe.Tokenizer(bpe.load_seed_tokens())  # 병합 없이 seed + 바이트 단위
 VOCAB = 300
 
 
@@ -18,81 +19,6 @@ def tiny_model(max_seq_len: int = 48) -> TextToSQLModel:
     torch.manual_seed(0)
     return TextToSQLModel(vocab_size=VOCAB, dim=32, num_layers=1, num_heads=2, ffn_dim=64,
                           max_seq_len=max_seq_len, padding_idx=PAD_ID)
-
-
-# ===========================================================================
-# parse_sql / error_parts
-# ===========================================================================
-
-@pytest.mark.unit
-def test_parse_sql_stage1():
-    """1단계 SQL 을 select / table / where_col / literal 로 분해하는지 검증"""
-    assert ev.parse_sql("SELECT city FROM customers WHERE name = 'ashley'") == {
-        "select": "city", "table": "customers", "where_col": "name", "literal": "'ashley'"}
-    assert ev.parse_sql("SELECT * FROM items WHERE price = 14.46")["select"] == "*"
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize("sql", [None, "", "SELECT city FROM customers", "DROP TABLE items"])
-def test_parse_sql_rejects_non_stage1(sql):
-    """1단계 문법이 아니거나 None 이면 None"""
-    assert ev.parse_sql(sql) is None
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize("pred, expected", [
-    ("SELECT city FROM customers WHERE name = 'ashley'", []),
-    ("SELECT city FROM customers WHERE name = 'ashly'", ["literal"]),
-    ("SELECT * FROM customers WHERE name = 'ashley'", ["select"]),
-    ("SELECT city FROM orders WHERE customer_id = 'ashley'", ["table", "where_col"]),
-    (None, ["malformed"]),
-    ("SELECT city FROM", ["malformed"]),
-])
-def test_error_parts(pred, expected):
-    """정답과 다른 부분(table / where_col / select / literal)을 정확히 분류하는지 검증"""
-    assert ev.error_parts("SELECT city FROM customers WHERE name = 'ashley'", pred) == expected
-
-
-# ===========================================================================
-# select_ambiguous / multi_match (다중 정답 EM)
-# ===========================================================================
-
-@pytest.mark.unit
-@pytest.mark.parametrize("question, gold, expected", [
-    # 개체를 묻지만 이름인지 행 전체인지 단서가 없음
-    ("which customer lives in paris?", "SELECT * FROM customers WHERE city = 'paris'", True),
-    # "all" → 행 전체 단서
-    ("show all details of customers in paris", "SELECT * FROM customers WHERE city = 'paris'", False),
-    # "name" → 식별 컬럼 단서
-    ("what's the name of the customer in paris?", "SELECT name FROM customers WHERE city = 'paris'", False),
-    # SELECT 가 * / 식별 컬럼이 아니면 대상 아님
-    ("what city is ashley in?", "SELECT city FROM customers WHERE name = 'ashley'", False),
-    # 존재 확인형 (SELECT == WHERE 컬럼) 은 제외
-    ("is there a customer named ashley?", "SELECT name FROM customers WHERE name = 'ashley'", False),
-    # WHERE 조건 표현("named ashley")은 SELECT 단서로 보지 않음
-    ("pull up the customer named ashley", "SELECT * FROM customers WHERE name = 'ashley'", True),
-    # orders: "item id 3155" 는 WHERE 조건 표현이라 ID 단서가 아님
-    ("orders for item id 3155", "SELECT * FROM orders WHERE item_id = 3155", True),
-    ("order numbers for item 3155", "SELECT order_id FROM orders WHERE item_id = 3155", False),
-    ("anything", "not sql", False),
-])
-def test_select_ambiguous(question, gold, expected):
-    """SELECT * ↔ 식별 컬럼 모호 문항 판정 규칙 검증"""
-    assert ev.select_ambiguous(question, gold) is expected
-
-
-@pytest.mark.unit
-def test_multi_match():
-    """모호 문항에서는 SELECT 만 * ↔ 식별 컬럼으로 다른 예측도 정답, 그 외는 오답"""
-    q, gold = "which customer lives in paris?", "SELECT * FROM customers WHERE city = 'paris'"
-    assert ev.multi_match(q, gold, gold)
-    assert ev.multi_match(q, gold, "SELECT name FROM customers WHERE city = 'paris'")
-    assert not ev.multi_match(q, gold, "SELECT city FROM customers WHERE city = 'paris'")
-    assert not ev.multi_match(q, gold, "SELECT name FROM customers WHERE city = 'rome'")
-    assert not ev.multi_match(q, gold, None)
-    # 단서가 있는 문항은 완전 일치만 정답
-    q2 = "show all details of customers in paris"
-    assert not ev.multi_match(q2, gold, "SELECT name FROM customers WHERE city = 'paris'")
 
 
 # ===========================================================================
@@ -138,17 +64,17 @@ def test_summarize():
 @pytest.mark.unit
 def test_safe_decode():
     """정상 바이트는 복원, 깨진 UTF-8 이나 vocab 밖 ID 는 None"""
-    assert ev.safe_decode(bpe.encode("SELECT x", []), ID_TO_BYTES) == "SELECT x"
-    assert ev.safe_decode([0xFF], ID_TO_BYTES) is None
-    assert ev.safe_decode([VOCAB + 500], ID_TO_BYTES) is None
+    assert ev.safe_decode(TOK.encode("SELECT x"), TOK) == "SELECT x"
+    assert ev.safe_decode([0xFF], TOK) is None
+    assert ev.safe_decode([VOCAB + 500], TOK) is None
 
 
 @pytest.mark.unit
 def test_split_example_roundtrip():
     """토큰화된 예시에서 (질문, 정답 SQL) 을 그대로 복원하는지 검증"""
     pair = {"question": "what city is ashley in?", "sql": "SELECT city FROM customers WHERE name = 'ashley'"}
-    ex = tokenize_pairs([pair], [])[0]
-    assert ev.split_example(ex, ID_TO_BYTES) == (pair["question"], pair["sql"])
+    ex = tokenize_pairs([pair], TOK)[0]
+    assert ev.split_example(ex, TOK) == (pair["question"], pair["sql"])
 
 
 # ===========================================================================
@@ -173,7 +99,7 @@ def test_generate_batch_groups_by_prompt_length_and_keeps_order():
     """프롬프트 길이가 다른 예시를 섞어도 입력 순서대로, <eos> 전까지만 반환하는지 검증"""
     pairs = [{"question": "a", "sql": "x"}, {"question": "bbb", "sql": "x"}, {"question": "cc", "sql": "x"},
              {"question": "dd", "sql": "x"}]
-    examples = tokenize_pairs(pairs, [])
+    examples = tokenize_pairs(pairs, TOK)
     first = {ex["ids"][1]: ex["sql_start"] for ex in examples}
     scripts = {ord("a"): [65], ord("b"): [66, 66, 66], ord("c"): [67, 67], ord("d"): []}
     model = tiny_model()
@@ -188,7 +114,7 @@ def test_generate_batch_groups_by_prompt_length_and_keeps_order():
 def test_generate_batch_matches_single_generate():
     """실제 모델에서 배치 생성 결과가 예시별 model.generate 결과와 같아야 함 (오른쪽 패딩 + 길이별 묶음)"""
     pairs = [{"question": q, "sql": "x"} for q in ("hi", "hello there", "yo", "abc", "hello world")]
-    examples = tokenize_pairs(pairs, [])
+    examples = tokenize_pairs(pairs, TOK)
     model = tiny_model().eval()
     batch = ev.generate_batch(model, examples, torch.device("cpu"), None, max_new_tokens=8)
     for ex, got in zip(examples, batch):
@@ -200,8 +126,8 @@ def test_generate_batch_matches_single_generate():
 # ===========================================================================
 
 @pytest.fixture
-def eval_data(tmp_path, monkeypatch):
-    """임시 data 폴더: eval_indist_x/eval_pairs.json + sql_eval_indist.json + shop.db"""
+def eval_data(tmp_path):
+    """임시 평가 폴더: indist/pairs.json + indist/sql.json, 그리고 shop.db"""
     db = tmp_path / "shop.db"
     con = sqlite3.connect(db)
     con.execute("CREATE TABLE customers (customer_id INTEGER, name TEXT, city TEXT, membership TEXT)")
@@ -209,39 +135,39 @@ def eval_data(tmp_path, monkeypatch):
                     [(1001, "ashley", "paris", "gold"), (1002, "henry", "rome", "basic")])
     con.commit()
     con.close()
-    monkeypatch.setattr(ev, "DB_PATH", db)
 
     pairs = [
         {"question": "what city is ashley in?", "sql": "SELECT city FROM customers WHERE name = 'ashley'"},
         {"question": "which customer lives in rome?", "sql": "SELECT * FROM customers WHERE city = 'rome'"},
     ]
-    (tmp_path / "eval_indist_x").mkdir()
-    (tmp_path / "eval_indist_x" / "eval_pairs.json").write_text(json.dumps(pairs), encoding="utf-8")
+    (tmp_path / "indist").mkdir()
+    (tmp_path / "indist" / "pairs.json").write_text(json.dumps(pairs), encoding="utf-8")
     meta = [{"sql": p["sql"], "table": "customers", "where_col": c} for p, c in zip(pairs, ("name", "city"))]
-    (tmp_path / "sql_eval_indist.json").write_text(json.dumps(meta), encoding="utf-8")
-    return tmp_path, pairs
+    (tmp_path / "indist" / "sql.json").write_text(json.dumps(meta), encoding="utf-8")
+    return tmp_path, pairs, db
 
 
 @pytest.mark.integration
 def test_evaluate_set_scores_scripted_predictions(eval_data):
     """정답 1개 + 다중 정답 1개를 내는 모델로 EM / multi / exec 집계와 오답 분류를 검증"""
-    data_dir, pairs = eval_data
+    eval_dir, pairs, db = eval_data
     preds = {pairs[0]["question"]: pairs[0]["sql"],
              pairs[1]["question"]: "SELECT name FROM customers WHERE city = 'rome'"}
-    examples = tokenize_pairs(pairs, [])
+    examples = tokenize_pairs(pairs, TOK)
     model = tiny_model(max_seq_len=128)
 
     def forward(idx):
         logits = torch.zeros(idx.size(0), idx.size(1), VOCAB)
         for b in range(idx.size(0)):
             ex = next(e for e in examples if e["ids"][:e["sql_start"]] == idx[b, :e["sql_start"]].tolist())
-            question, _ = ev.split_example(ex, ID_TO_BYTES)
-            target = bpe.encode(preds[question], []) + [EOS_ID]
+            question, _ = ev.split_example(ex, TOK)
+            target = TOK.encode(preds[question]) + [EOS_ID]
             logits[b, -1, target[idx.size(1) - ex["sql_start"]]] = 1.0
         return logits
     model.forward = forward
 
-    result = ev.evaluate_set(model, "indist", [], ID_TO_BYTES, torch.device("cpu"), None, data_dir=data_dir)
+    result = ev.evaluate_set(model, "indist", TOK, torch.device("cpu"), None,
+                             eval_dir=eval_dir, db_path=db)
     o = result["overall"]
     assert o["n"] == 2 and o["em"] == 0.5 and o["em_multi"] == 1.0
     assert o["exec_acc"] == 0.5  # SELECT name 과 SELECT * 은 결과가 다르다
@@ -255,26 +181,19 @@ def test_evaluate_set_scores_scripted_predictions(eval_data):
 def test_evaluate_set_missing_pairs_raises(tmp_path):
     """평가 쌍 파일이 없으면 FileNotFoundError"""
     with pytest.raises(FileNotFoundError):
-        ev.evaluate_set(tiny_model(), "indist", [], ID_TO_BYTES, torch.device("cpu"), None, data_dir=tmp_path)
+        ev.evaluate_set(tiny_model(), "indist", TOK, torch.device("cpu"), None, eval_dir=tmp_path)
 
 
 @pytest.mark.unit
-def test_eval_set_globs_never_match_training_folders():
-    """평가셋 glob 이 pilot* 학습 폴더를 가리키지 않고, holdout 과 holdout_qwen 이 서로 섞이지 않아야 함"""
-    globs = {name: g for name, (g, _) in ev.EVAL_SETS.items()}
-    assert all(not g.startswith("pilot") and g.endswith("/eval_pairs.json") for g in globs.values())
-    import fnmatch
-    assert not fnmatch.fnmatch("eval_qwen_holdout_merged/eval_pairs.json", globs["holdout"])
-    assert not fnmatch.fnmatch("eval_holdout_merged/eval_pairs.json", globs["holdout_qwen"])
-
-
-@pytest.mark.unit
-def test_merges_path_prefers_run_copy(tmp_path):
-    """체크포인트 폴더에 bpe_merges.json 사본이 있으면 그것을, 없으면 ckpt 의 merges_path 를 쓴다"""
+def test_tokenizer_path_prefers_run_copy(tmp_path):
+    """체크포인트 폴더의 tokenizer.json > 예전 bpe_merges.json > ckpt 에 적힌 경로 순으로 쓴다"""
     ckpt_path = tmp_path / "best.pt"
-    assert ev.merges_path_for(ckpt_path, {"merges_path": "x.json"}) == ev.Path("x.json")
+    assert ev.tokenizer_path_for(ckpt_path, {"tokenizer_path": "x.json"}) == ev.Path("x.json")
+    assert ev.tokenizer_path_for(ckpt_path, {"merges_path": "old.json"}) == ev.Path("old.json")
     (tmp_path / "bpe_merges.json").write_text("[]", encoding="utf-8")
-    assert ev.merges_path_for(ckpt_path, {"merges_path": "x.json"}) == tmp_path / "bpe_merges.json"
+    assert ev.tokenizer_path_for(ckpt_path, {}) == tmp_path / "bpe_merges.json"
+    (tmp_path / "tokenizer.json").write_text("{}", encoding="utf-8")
+    assert ev.tokenizer_path_for(ckpt_path, {}) == tmp_path / "tokenizer.json"
 
 
 @pytest.mark.integration
@@ -288,3 +207,81 @@ def test_load_model_roundtrip(tmp_path):
     idx = torch.randint(0, 256, (1, 8))
     assert not loaded.training
     assert torch.allclose(model(idx), loaded(idx))
+
+
+# ===========================================================================
+# 평가셋 폴더 (pairs.json + sql.json)
+# ===========================================================================
+
+def _write(path, obj):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(obj), encoding="utf-8")
+
+
+PAIRS = [{"question": "q1", "sql": "S1"}, {"question": "q2", "sql": "S1"}, {"question": "q3", "sql": "S2"}]
+SQL_ROWS = [{"sql": "S0", "table": "t"}, {"sql": "S2", "table": "t"}, {"sql": "S1", "table": "t"}]
+
+
+@pytest.mark.unit
+def test_list_sets_only_folders_with_pairs(tmp_path):
+    """pairs.json 이 있는 하위 폴더만 평가셋으로 잡는다"""
+    _write(tmp_path / "b" / "pairs.json", PAIRS)
+    _write(tmp_path / "a" / "pairs.json", PAIRS)
+    (tmp_path / "empty").mkdir()
+    assert ev.list_sets(tmp_path) == ["a", "b"]
+    assert ev.list_sets(tmp_path / "missing") == []
+
+
+@pytest.mark.unit
+def test_write_sql_meta_keeps_used_sql_in_source_order(tmp_path):
+    """sql.json 은 쌍에 쓰인 SQL 만, 원래 SQL 파일 순서대로 담는다"""
+    _write(tmp_path / "x" / "pairs.json", PAIRS)
+    _write(tmp_path / "sql.json", SQL_ROWS)
+    ev.write_sql_meta("x", tmp_path / "sql.json", tmp_path)
+    pairs, meta = ev.load_eval_set("x", tmp_path)
+    assert pairs == PAIRS
+    assert list(meta) == ["S2", "S1"]
+
+
+@pytest.mark.unit
+def test_build_sql_meta_missing_sql_raises(tmp_path):
+    """쌍의 SQL 이 SQL 파일에 없으면 오류"""
+    _write(tmp_path / "pairs.json", PAIRS)
+    _write(tmp_path / "sql.json", SQL_ROWS[:2])
+    with pytest.raises(ValueError):
+        ev.build_sql_meta(tmp_path / "pairs.json", tmp_path / "sql.json")
+
+
+@pytest.mark.unit
+def test_load_eval_set_stale_sql_meta_raises(tmp_path):
+    """sql.json 을 만든 뒤 pairs.json 에 새 SQL 이 들어오면 불러올 때 오류"""
+    _write(tmp_path / "x" / "pairs.json", PAIRS)
+    _write(tmp_path / "x" / "sql.json", SQL_ROWS[2:])
+    with pytest.raises(ValueError):
+        ev.load_eval_set("x", tmp_path)
+
+
+@pytest.mark.unit
+def test_committed_eval_sets_are_consistent():
+    """저장소의 평가셋 폴더마다 sql.json 이 pairs.json 의 SQL 을 모두 담고 있어야 함"""
+    names = ev.list_sets()
+    assert {"indist", "holdout"} <= set(names)
+    for name in names:
+        pairs, meta = ev.load_eval_set(name)
+        assert len(meta) == len({p["sql"] for p in pairs})
+
+
+@pytest.mark.unit
+def test_eval_sets_outside_train_dir():
+    """평가셋 폴더는 학습 폴더(= 학습 데이터·BPE 코퍼스) 밖에 있어야 함"""
+    train = config.TRAIN_DIR.resolve()
+    assert train not in config.EVAL_DIR.resolve().parents and train != config.EVAL_DIR.resolve()
+
+
+@pytest.mark.unit
+def test_load_rules_provides_stage_interface():
+    """현재 단계의 SQL 규칙 모듈이 evaluation·predict 가 쓰는 이름을 모두 제공해야 함"""
+    rules = ev.load_rules(config.STAGE)
+    assert rules.STAGE == config.STAGE
+    for name in ("parse_sql", "error_parts", "select_ambiguous", "multi_match", "MULTI_NOTE"):
+        assert hasattr(rules, name), name

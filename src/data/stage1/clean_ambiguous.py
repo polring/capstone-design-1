@@ -2,14 +2,14 @@
 
 질문만으로 정답 SQL 이 하나로 정해지도록, 규칙과 다른 라벨이 붙은 쌍을 지운다. 규칙의 근거와 예시는
 계획서 4-5 에 있고, 여기서는 그중 코드로 판정하는 세 가지를 적용한다.
-  L2 SELECT `*` / 식별 컬럼 — 단서가 없으면(`evaluation.select_ambiguous`) `select_label` 순서로 정한다
+  L2 SELECT `*` / 식별 컬럼 — 단서가 없으면(`sql_rules.select_ambiguous`) `select_label` 순서로 정한다
   L3 ID / 이름 — 상품·고객 자신의 ID(item_id, customer_id)는 질문이 ID 를 요구할 때만 SELECT 한다
   L4 테이블 — customers/items 로도 성립하는 orders SQL 은 질문에 주문 단서가 있을 때만 쓴다
 
 평가셋은 이전 실행과 비교할 수 있도록 건드리지 않는다.
 
-    python -m src.data.clean_ambiguous            # dry-run: 제거 대상 수와 예시만 출력
-    python -m src.data.clean_ambiguous --apply    # pilot_merged 에서 제거, 제거 목록을 data_raw/ 에 누적 저장
+    python -m src.data.stage1.clean_ambiguous            # dry-run: 제거 대상 수와 예시만 출력
+    python -m src.data.stage1.clean_ambiguous --apply    # 학습 쌍 파일에서 제거, 제거 목록을 data_raw/stage<N>/ 에 누적 저장
 """
 
 from __future__ import annotations
@@ -20,10 +20,11 @@ import re
 from collections import Counter
 from pathlib import Path
 
-from src.evaluation import ID_COL, parse_sql, select_ambiguous
+from src import config
+from src.data.stage1.sql_rules import ID_COL, parse_sql, select_ambiguous
 
-TRAIN_FILE = Path("data/pilot_merged/pilot_train_pairs.json")
-REMOVED_FILE = Path("data_raw/clean_ambiguous_removed.json")
+TRAIN_FILE = config.TRAIN_DIR / "pairs.json"
+REMOVED_FILE = config.RAW_DIR / "clean_ambiguous_removed.json"
 
 REASONS = {"select": "L2 SELECT 모호", "id": "L3 ID/이름", "table": "L4 테이블 모호"}
 

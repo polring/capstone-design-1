@@ -5,7 +5,7 @@ from pathlib import Path
 import torch
 from torch.utils.data import Dataset
 
-from src.config import SEQ_LEN, BATCH_SIZE, DATA_DIR, BPE_MERGES_PATH
+from src.config import SEQ_LEN, BATCH_SIZE, TRAIN_DIR, EVAL_DIR, PAIRS_FILE, TOKENIZER_PATH
 from src.tokenizer import bpe
 
 BOS_ID = bpe.SPECIAL_BASE + bpe.SPECIAL_TOKENS.index("<bos>")
@@ -23,21 +23,23 @@ def load_pairs(data_dir: str | Path, glob: str) -> list[Pair]:
             pairs.extend(json.load(f))
     return pairs
 
-def load_train_pairs(data_dir: str | Path = DATA_DIR) -> list[Pair]:
-    return load_pairs(data_dir, "pilot*/pilot_train_pairs.json")
+def load_train_pairs(train_dir: str | Path = TRAIN_DIR) -> list[Pair]:
+    """학습 폴더 안의 *.json 전부. 이 폴더에 넣은 파일은 학습 데이터와 BPE 코퍼스가 된다."""
+    return load_pairs(train_dir, "*.json")
 
-def load_eval_indist_pairs(data_dir: str | Path = DATA_DIR) -> list[Pair]:
-    return load_pairs(data_dir, "eval_indist*/eval_pairs.json")
+def load_eval_pairs(name: str, eval_dir: str | Path = EVAL_DIR) -> list[Pair]:
+    """평가셋 <eval_dir>/<name>/pairs.json"""
+    return load_pairs(Path(eval_dir) / name, PAIRS_FILE)
 
-def encode_pair(question: str, sql: str, merges: list[bpe.Merge]) -> list[int]:
-    q_ids = bpe.encode(question, merges)
-    s_ids = bpe.encode(sql, merges)
+def encode_pair(question: str, sql: str, tok: bpe.Tokenizer) -> list[int]:
+    q_ids = tok.encode(question)
+    s_ids = tok.encode(sql)
     return [BOS_ID] + q_ids + [SEP_ID] + s_ids + [EOS_ID]
 
-def tokenize_pairs(pairs: list[Pair], merges: list[bpe.Merge]) -> list[Example]:
+def tokenize_pairs(pairs: list[Pair], tok: bpe.Tokenizer) -> list[Example]:
     examples: list[Example] = []
     for p in pairs:
-        ids = encode_pair(p["question"], p["sql"], merges)
+        ids = encode_pair(p["question"], p["sql"], tok)
         examples.append({"ids": ids, "sql_start": ids.index(SEP_ID) + 1})
     return examples
 
@@ -73,14 +75,14 @@ def collate_fn(batch: list[Example]) -> dict[str, torch.Tensor]:
     return {"input_ids": input_ids, "target_ids": target_ids, "loss_mask": loss_mask}
 
 if __name__ == "__main__":
-    merges = bpe.load_merges(BPE_MERGES_PATH)
+    tok = bpe.Tokenizer.load(TOKENIZER_PATH)
 
     train_pairs = load_train_pairs()
-    eval_pairs = load_eval_indist_pairs()
+    eval_pairs = load_eval_pairs("indist")
     print(f"train pairs: {len(train_pairs)}, eval_indist pairs: {len(eval_pairs)}")
 
-    train_examples = tokenize_pairs(train_pairs, merges)
-    eval_examples = tokenize_pairs(eval_pairs, merges)
+    train_examples = tokenize_pairs(train_pairs, tok)
+    eval_examples = tokenize_pairs(eval_pairs, tok)
 
     lengths = [len(e["ids"]) for e in train_examples + eval_examples]
     lengths.sort()
@@ -93,12 +95,11 @@ if __name__ == "__main__":
     over = sum(1 for L in lengths if L > context_len)
     print(f"sequences exceeding context length {context_len}: {over} / {n} ({over / n:.2%})")
 
-    id_to_bytes = bpe.id_to_bytes_from_merges(merges)
     bad = 0
     for p, ex in zip(train_pairs[:5] + eval_pairs[:5], train_examples[:5] + eval_examples[:5]):
         ids = ex["ids"]
-        restored_q = bpe.decode(ids[1:ids.index(SEP_ID)], id_to_bytes)
-        restored_s = bpe.decode(ids[ex["sql_start"]:-1], id_to_bytes)
+        restored_q = tok.decode(ids[1:ids.index(SEP_ID)])
+        restored_s = tok.decode(ids[ex["sql_start"]:-1])
         if restored_q != p["question"] or restored_s != p["sql"]:
             bad += 1
             print(f"MISMATCH: {p!r} -> q={restored_q!r} s={restored_s!r}")

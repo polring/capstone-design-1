@@ -1,20 +1,18 @@
-import sys
-import os
 import json
 import pytest
 
-# 프로젝트 루트 디렉터리 경로 추가
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from src.data import dataset as ds
 from src.data.dataset import BOS_ID, EOS_ID, SEP_ID, PAD_ID, TextToSQLDataset, collate_fn
+from src.tokenizer import bpe
+
+TOK = bpe.Tokenizer(bpe.load_seed_tokens())
 
 
 # encode_pair가 [<bos> question <sep> sql <eos>] 구조를 정확히 만드는지, <sep>이 한 번만 들어가는지 검증
 @pytest.mark.unit
 def test_encode_pair_structure():
-    # merges=[] 를 줘도 바이트 레벨 인코딩으로 동작하므로 학습 없이 구조만 검증 가능
-    ids = ds.encode_pair("select name", "SELECT name", merges=[])
+    # 병합 규칙 없는 토크나이저도 바이트 레벨 인코딩으로 동작하므로 학습 없이 구조만 검증 가능
+    ids = ds.encode_pair("select name", "SELECT name", TOK)
 
     assert ids[0] == BOS_ID
     assert ids[-1] == EOS_ID
@@ -26,7 +24,7 @@ def test_encode_pair_structure():
 @pytest.mark.unit
 def test_tokenize_pairs_sql_start():
     pairs = [{"question": "hi", "sql": "SELECT 1"}]
-    examples = ds.tokenize_pairs(pairs, merges=[])
+    examples = ds.tokenize_pairs(pairs, TOK)
     ex = examples[0]
 
     # sql_start 바로 앞은 <sep>, sql_start부터는 SQL 쪽 토큰이어야 함
@@ -105,6 +103,20 @@ def test_load_pairs_merges_and_sorts_multiple_files(tmp_path):
         {"question": "q1", "sql": "s1"},
         {"question": "q2", "sql": "s2"},
     ]
+
+
+# load_train_pairs가 학습 폴더의 *.json 만 읽고 하위 폴더는 읽지 않는지 검증
+@pytest.mark.unit
+def test_load_train_pairs_reads_json_files_in_train_dir(tmp_path):
+    with open(tmp_path / "b.json", "w", encoding="utf-8") as f:
+        json.dump([{"question": "q2", "sql": "s2"}], f)
+    with open(tmp_path / "a.json", "w", encoding="utf-8") as f:
+        json.dump([{"question": "q1", "sql": "s1"}], f)
+    (tmp_path / "sub").mkdir()
+    with open(tmp_path / "sub" / "c.json", "w", encoding="utf-8") as f:
+        json.dump([{"question": "q3", "sql": "s3"}], f)
+
+    assert [p["question"] for p in ds.load_train_pairs(tmp_path)] == ["q1", "q2"]
 
 
 # load_pairs가 glob에 매칭되는 파일이 하나도 없을 때 예외 없이 빈 리스트를 반환하는지 검증

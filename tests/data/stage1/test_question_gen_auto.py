@@ -1,10 +1,4 @@
-import sys
-import os
-
-# 프로젝트 루트 디렉터리 경로 추가
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from src.data.generator import question_gen_auto as qga
+from src.data.stage1 import question_gen_auto as qga
 
 
 def test_extract_json_array_valid_input():

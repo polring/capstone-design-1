@@ -4,11 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from src.data import name_swap as ns
-from src.data.generator import db_gen
-from src.data.generator.question_gen import literal_in_question
+from src.data import db_gen
+from src.data.stage1 import name_swap as ns
+from src.data.stage1.question_gen import literal_in_question
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 CUSTOMER = db_gen.GIVEN_NAMES[0]
 ITEM = next(iter(db_gen.CATEGORY_NOUNS.values()))[0]
 

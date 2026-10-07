@@ -1,7 +1,7 @@
 """
 Text-to-SQL 1단계 LLM 질문 생성 파이프라인 (v1, 수동 호출 모드)
 
-sql_gen.py 가 만든 sql_train.json 에서 SQL을 뽑아, 외부 LLM에게 보낼 배치 프롬프트를
+sql_gen.py 가 만든 학습 SQL(data/stage1/sql/train.json)에서 SQL을 뽑아, 외부 LLM에게 보낼 배치 프롬프트를
 텍스트 파일로 만든다. API를 직접 호출하지 않고, 사람이 프롬프트를 챗봇에 붙여넣고
 받아온 응답을 다시 이 스크립트로 검증하는 흐름이다.
 
@@ -10,21 +10,24 @@ SQL 정답은 이미 sql_gen.py 가 정했다. LLM은 그 SQL에 맞는 자연�
 (CLAUDE.md 스크래치 원칙: LLM은 SQL 정답을 만들거나 수정하지 않는다).
 
 사용법
-    python src/data/generator/question_gen.py make-prompts --out data/pilot --n 200 --batch-size 25 --seed 0
-        data/pilot/prompts/batch_XX.txt          LLM에 붙여넣을 프롬프트
-        data/pilot/pilot_sql.json                배치별 SQL과 메타데이터 (검증용)
+    python -m src.data.stage1.question_gen make-prompts --out data_raw/stage1/pilot --n 200 --batch-size 25 --seed 0
+        <out>/prompts/batch_XX.txt          LLM에 붙여넣을 프롬프트
+        <out>/pilot_sql.json                배치별 SQL과 메타데이터 (검증용)
 
-    python src/data/generator/question_gen.py make-prompts-small --out data/pilot_small --n 200 --seed 0
+    python -m src.data.stage1.question_gen make-prompts-small --out data_raw/stage1/pilot_small --n 200 --seed 0
         make-prompts와 동일하지만 14B급 이하 약한 모델용 프롬프트를 만든다:
         배치 크기가 작고(기본 8, --batch-size로 조절), 규칙을 더 구체적으로 풀어 쓰고,
         5문장의 말투 슬롯을 명시적으로 지정하고, few-shot 예시를 포함한다.
 
     (사람이 각 batch_XX.txt 를 LLM에 붙여넣고, 응답 JSON을
-     data/pilot/responses/batch_XX.json 으로 저장)
+     <out>/responses/batch_XX.json 으로 저장)
 
-    python src/data/generator/question_gen.py validate --out data/pilot
-        data/pilot/pilot_train_pairs.json        검증 통과한 (질문, SQL) 쌍 (폴더명이 eval* 이면 eval_pairs.json)
-        data/pilot/validation_report.json        통과율 · 실패 사유 · 수동 확인용 flag
+    python -m src.data.stage1.question_gen validate --out data_raw/stage1/pilot
+        <out>/pairs.json                    검증 통과한 (질문, SQL) 쌍
+        <out>/validation_report.json        통과율 · 실패 사유 · 수동 확인용 flag
+
+    라운드는 data_raw/ 에서 검증하고, 직접 읽어 확인한 뒤 학습용은 data/stage1/train/ 에 파일로,
+    평가용은 data/stage1/eval/<이름>/pairs.json 으로 옮긴다 (평가셋은 python -m src.evaluation --build-sql 로 sql.json 생성).
 """
 
 from __future__ import annotations
@@ -34,6 +37,10 @@ import json
 import os
 import random
 import re
+from pathlib import Path
+
+from src import config
+from src.data.stage1 import sql_gen
 
 # ---------------------------------------------------------------------------
 # 1. SQL 샘플링 (sql_train.json 의 (table, where_col) 분포를 유지한 채 n개 축소)
@@ -129,11 +136,6 @@ def format_literal_for_prompt(where_val, coltype: str) -> str:
 
 
 def build_batch_prompt(batch: list[dict]) -> str:
-    import sys
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    import db_gen  # COLUMN_TYPES 대신 여기서 직접 판단하지 않고 sql_gen 재사용
-    import sql_gen
-
     lines = [SCHEMA_BLURB, "", RULES_BLURB, "", "sql list:"]
     for item in batch:
         e = item["entry"]
@@ -218,9 +220,6 @@ Return ONLY a JSON array in exactly the shape shown above, one object per sql be
 def build_small_model_batch_prompt(batch: list[dict], n_questions: int = 5) -> str:
     """build_batch_prompt()와 같은 정보를 담되, 14B급 이하 모델을 겨냥해 규칙을 더 구체적으로 풀어
     쓰고, n_questions개 문장의 각 말투 슬롯을 명시적으로 지정하고, few-shot 예시 1개를 포함한 프롬프트."""
-    import sys
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    import sql_gen
 
     lines = [SCHEMA_BLURB, "", small_model_rules_blurb(n_questions), "", "sql list:"]
     for item in batch:
@@ -349,9 +348,6 @@ def check_question(q: str, entry: dict) -> list[str]:
     fails = []
     if q != q.lower():
         fails.append("소문자 규칙 위반")
-    import sys
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    import sql_gen
     coltype = sql_gen.COLUMN_TYPES[(entry["table"], entry["where_col"])]
     if not literal_in_question(q, entry["where_val"], coltype):
         fails.append(f"리터럴 미포함 ({entry['where_val']!r})")
@@ -453,12 +449,6 @@ def _load_responses(out_dir: str) -> tuple[dict[int, list[str]], list[str]]:
     return responses, missing_files
 
 
-def pairs_filename(out_dir: str) -> str:
-    """검증 통과 쌍 파일명. 폴더 이름이 eval* 이면 평가용(eval_pairs.json), 아니면 학습용."""
-    name = os.path.basename(os.path.normpath(out_dir))
-    return "eval_pairs.json" if name.startswith("eval") else "pilot_train_pairs.json"
-
-
 def validate(out_dir: str, expected_questions: int = 5) -> dict:
     pilot_sql = _load_pilot_sql(out_dir)
     responses, missing_files = _load_responses(out_dir)
@@ -503,7 +493,7 @@ def validate(out_dir: str, expected_questions: int = 5) -> dict:
         "soft_flags_sample": soft_flag_list[:30],
     }
 
-    with open(os.path.join(out_dir, pairs_filename(out_dir)), "w", encoding="utf-8") as f:
+    with open(os.path.join(out_dir, config.PAIRS_FILE), "w", encoding="utf-8") as f:
         json.dump(passed_pairs, f, ensure_ascii=False, indent=2)
     with open(os.path.join(out_dir, "validation_report.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
@@ -521,9 +511,6 @@ def validate(out_dir: str, expected_questions: int = 5) -> dict:
 def skeletonize(q: str, entry: dict) -> str:
     """질문에서 리터럴 값을 <V>로 치환한 '틀'. 같은 (select, where_col) 조합에서
     이 틀이 다른 id에도 그대로 재사용되면 값만 바꿔 끼운 템플릿일 가능성이 크다."""
-    import sys
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    import sql_gen
     coltype = sql_gen.COLUMN_TYPES[(entry["table"], entry["where_col"])]
     where_val = entry["where_val"]
     if coltype == "text":
@@ -601,18 +588,19 @@ def template_check(out_dir: str, threshold: float = 0.3) -> dict:
 # ---------------------------------------------------------------------------
 
 def load_all_merged_pairs(data_dir: str) -> list[dict]:
-    """지금까지 merge된 모든 라운드(pilot*, eval_indist*)의 (질문, SQL) 쌍을 합쳐서 반환.
-    dataset.py의 load_train_pairs/load_eval_indist_pairs와 같은 glob 규칙을 쓴다."""
-    import glob
+    """병합된 학습 쌍(<data_dir>/train/*.json)과 분포 내 평가 쌍(<data_dir>/eval/indist/pairs.json)을 합쳐서 반환.
+    dataset.py 의 load_train_pairs / load_eval_pairs("indist") 와 같은 파일이다."""
+    files = sorted(Path(data_dir, config.TRAIN_DIR.name).glob("*.json"))
+    files.append(Path(data_dir, config.EVAL_DIR.name, "indist", config.PAIRS_FILE))
     pairs: list[dict] = []
-    for pattern in ("pilot*/pilot_train_pairs.json", "eval_indist*/eval_pairs.json"):
-        for pf in sorted(glob.glob(os.path.join(data_dir, pattern))):
+    for pf in files:
+        if pf.is_file():
             with open(pf, encoding="utf-8") as f:
                 pairs.extend(json.load(f))
     return pairs
 
 
-def corpus_check(data_dir: str) -> dict:
+def corpus_check(data_dir: str, out_path: str | Path = config.RAW_DIR / "corpus_check_report.json") -> dict:
     pairs = load_all_merged_pairs(data_dir)
     conflicts = find_cross_sql_question_conflicts(pairs)
     report = {
@@ -620,7 +608,7 @@ def corpus_check(data_dir: str) -> dict:
         "n_conflicting_questions": len(conflicts),
         "conflicts": conflicts,
     }
-    out_path = os.path.join(data_dir, "corpus_check_report.json")
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
     return report
@@ -632,8 +620,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="1단계 LLM 질문 생성 파이프라인 (수동 호출)")
     ap.add_argument("command", choices=["make-prompts", "make-prompts-small", "validate",
                                          "template-check", "corpus-check"])
-    ap.add_argument("--out", default="data/pilot")
-    ap.add_argument("--train", default="data/sql_train.json")
+    ap.add_argument("--out", default=str(config.RAW_DIR / "pilot"), help="라운드 폴더 (기본 data_raw/stage<N>/pilot)")
+    ap.add_argument("--train", default=str(config.SQL_TRAIN_PATH), help=f"샘플링할 SQL 파일 (기본 {config.SQL_TRAIN_PATH})")
     ap.add_argument("--n", type=int, default=200)
     ap.add_argument("--batch-size", type=int, default=None,
                      help="한 프롬프트에 담을 SQL 개수 (기본값: make-prompts=25, make-prompts-small=8)")
@@ -642,8 +630,8 @@ def main() -> int:
                      help="이 디렉터리들의 pilot_sql.json에 있는 SQL은 샘플링 후보에서 제외 (쉼표로 여러 개 지정 가능)")
     ap.add_argument("--threshold", type=float, default=0.3,
                      help="template-check: 이 비율 이상 틀이 재사용되면 그 (select,where_col) 조합을 flag")
-    ap.add_argument("--data-dir", default="data",
-                     help="corpus-check: pilot*/eval_indist* 병합 결과가 있는 상위 디렉터리")
+    ap.add_argument("--data-dir", default=str(config.DATA_DIR),
+                     help=f"corpus-check: train/, eval/indist/ 가 있는 단계 데이터 폴더 (기본 {config.DATA_DIR})")
     ap.add_argument("--questions-per-sql", type=int, default=5,
                      help="make-prompts-small: SQL 하나당 요구할 질문 개수 (기본 5, 최대 %d)"
                           % len(QUESTION_STYLE_SLOTS))
@@ -660,7 +648,7 @@ def main() -> int:
             print(f"  질문: {c['question']!r}")
             for s in c["conflicting_sqls"]:
                 print(f"    -> {s}")
-        print(f"저장: {os.path.join(args.data_dir, 'corpus_check_report.json')}")
+        print(f"저장: {config.RAW_DIR / 'corpus_check_report.json'}")
         return 0
 
     if args.command == "make-prompts":
@@ -692,7 +680,7 @@ def main() -> int:
           f"(통과율 {report['pass_rate']:.1%}, 목표 90%)")
     print(f"실패 {report['n_failures']}건, 응답 파일 누락 {report['n_missing_response_files']}건, "
           f"수동확인 flag {report['n_soft_flags']}건")
-    print(f"저장: {os.path.join(args.out, pairs_filename(args.out))}")
+    print(f"저장: {os.path.join(args.out, config.PAIRS_FILE)}")
     print(f"      {os.path.join(args.out, 'validation_report.json')}")
     return 0
 

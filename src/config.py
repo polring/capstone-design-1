@@ -1,6 +1,9 @@
-# config.py
+# config.py — 모델 구조, 학습 설정, 데이터·모델 저장 경로
+# 표준 라이브러리만 쓴다 (torch 없이 도는 질문 생성 스크립트도 import 한다)
 
-# 현재 학습 단계 — 단계를 바꿀 때는 이 값만 수정한다
+from pathlib import Path
+
+# 현재 학습 단계 — 단계를 바꿀 때는 이 값만 수정한다 (모델 구조와 아래 경로가 함께 바뀐다)
 STAGE = 1
 
 # 단계별 모델 구조 (계획서 3-2 단계별 자원 계획, 5 = 상한)
@@ -24,7 +27,26 @@ FFN_DIM = round(HIDDEN_DIM * 8 / 3)  # SwiGLU(행렬 3개)가 계획서의 GELU 
 # Training
 BATCH_SIZE = 32       # DataLoader 배치 크기
 
-# Paths (저장소 루트 기준 상대 경로)
-DATA_DIR = "data"                     # 커밋되는 데이터 산출물 폴더
-HOLDOUT_PATH = "data/holdout.json"    # 미등장 평가용 엔티티
-BPE_MERGES_PATH = "bpe_merges.json"   # BPE 학습 산출물 (커밋 안 함)
+# Paths (저장소 루트 기준 상대 경로). 역할은 폴더 위치로 정한다:
+# TRAIN_DIR 안의 *.json 은 전부 학습 데이터·BPE 코퍼스, EVAL_DIR 아래 폴더 하나가 평가셋 하나다.
+DATA_DIR = Path("data") / f"stage{STAGE}"          # 이 단계의 커밋되는 데이터
+DB_DIR = DATA_DIR / "db"
+DB_PATH = DB_DIR / "shop.db"                       # SQLite DB
+HOLDOUT_PATH = DB_DIR / "holdout.json"             # 미등장 평가용 엔티티 (학습 SQL 에 절대 나오면 안 됨)
+SQL_DIR = DATA_DIR / "sql"                         # sql_gen 출력
+SQL_TRAIN_PATH = SQL_DIR / "train.json"            # 학습용 SQL
+SQL_EVAL_INDIST_PATH = SQL_DIR / "eval_indist.json"    # 분포 내 평가용 SQL
+SQL_EVAL_HOLDOUT_PATH = SQL_DIR / "eval_holdout.json"  # 미등장 값 평가용 SQL (tier 포함)
+SQL_REPORT_PATH = SQL_DIR / "gen_report.json"      # SQL 구조별 할당량 보고서
+TRAIN_DIR = DATA_DIR / "train"                     # 학습 (질문, SQL) 쌍
+EVAL_DIR = DATA_DIR / "eval"                       # 평가셋: <이름>/pairs.json + sql.json
+PAIRS_FILE = "pairs.json"                          # 평가셋 폴더의 (질문, SQL) 쌍 파일 이름
+EVAL_SQL_FILE = "sql.json"                         # 평가셋 폴더의 SQL 메타데이터 파일 이름
+SEED_TOKENS_PATH = DATA_DIR / "tokenizer" / "seed_tokens.json"  # BPE seed 토큰 목록 (입력, 사람이 편집)
+TOKENIZER_PATH = DATA_DIR / "tokenizer" / "tokenizer.json"      # BPE 학습 결과 (특수·seed 토큰 + 병합 규칙)
+
+MODEL_DIR = Path("models") / f"stage{STAGE}"       # 이 단계의 배포용 최종 모델 (커밋)
+RAW_DIR = Path("data_raw") / f"stage{STAGE}"       # 검증 전 라운드·중간 산출물 (커밋 안 함)
+RUNS_DIR = Path("runs") / f"stage{STAGE}"          # 학습 실행 결과 (커밋 안 함)
+
+WORDLIST_PATH = Path("data") / "wordnet" / "english_words.txt"  # 이름 교체용 영단어 (WordNet 3.0 표제어, 단계 공통)

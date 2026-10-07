@@ -158,11 +158,9 @@ python -m src.evaluation --ckpt runs/stage1_ffn683_swap40/best.pt   # 저장된 
 - 모델 구조는 `src/config.py`의 `STAGE` 값으로 정해진다.
 - 이름 교체: 기본 학습이 매 epoch 이름 조건 쌍의 40%를 가짜 이름으로 바꾼다(`--name-swap-ratio`로 비율 변경, 0이면 끔).
   고정 파일로 실험하려면 파일을 만든 뒤 `--train-file`로 학습한다.
-- **WordNet 파일이 필요하다:** 가짜 이름에서 영단어를 걸러 내려고 NLTK WordNet 데이터
-  (`%APPDATA%\nltk_data\corpora\wordnet.zip`)를 표준 라이브러리 `zipfile`로 읽는다. NLTK 패키지는 필요
-  없다. 이 파일이 없으면 기본 학습이 `영단어 목록 없음` 오류로 멈추고, 다른 위치나 한 줄에 한 단어인 텍스트
-  파일은 `--wordlist`로 지정한다(목록이 다르면 가짜 이름과 결과가 달라진다). 이름 교체 없이 학습하려면
-  `--name-swap-ratio 0`.
+- 가짜 이름에서 영단어를 걸러 내는 데 저장소의 `data/wordnet/english_words.txt`(WordNet 3.0 표제어,
+  라이선스는 같은 폴더)를 쓴다. 다른 목록은 `--wordlist`로 지정한다(목록이 다르면 가짜 이름과 결과가 달라진다).
+  이름 교체 없이 학습하려면 `--name-swap-ratio 0`.
   ```
   python -m src.data.name_swap --ratio 0.4   # 고정 파일 방식 → data_raw/name_swap_40/train_pairs.json (커밋 안 함)
   python -m src.train --train-file data_raw/name_swap_40/train_pairs.json --run-name name_swap_40

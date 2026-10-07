@@ -1,7 +1,7 @@
 import pytest
 
-from src.data.clean_ambiguous import drop_reason, select_label
-from src.evaluation import parse_sql
+from src.data.stage1.clean_ambiguous import drop_reason, select_label
+from src.data.stage1.sql_rules import parse_sql
 
 
 # ===========================================================================

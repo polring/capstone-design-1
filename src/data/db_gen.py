@@ -8,16 +8,16 @@ v1 대비 변경점
   4. `space` 명령 추가: 1단계 문법으로 만들 수 있는 고유 SQL 수를 계산
 
 사용법
-    python db_gen.py build                      # preset=large, seed=0, out=./data
-    python db_gen.py build --preset small --seed 7
-    python db_gen.py verify
-    python db_gen.py test                       # 분포/결정성/price등호/미등장값 4종
-    python db_gen.py summary
-    python db_gen.py space                      # SQL 공간과 ID 조건 비중
+    python -m src.data.db_gen build                      # preset=large, seed=0, out=data/stage<N>/db (config.DB_DIR)
+    python -m src.data.db_gen build --preset small --seed 7
+    python -m src.data.db_gen verify
+    python -m src.data.db_gen test                       # 분포/결정성/price등호/미등장값 4종
+    python -m src.data.db_gen summary
+    python -m src.data.db_gen space                      # SQL 공간과 ID 조건 비중
 
 산출물
-    data/shop.db        SQLite DB
-    data/holdout.json   미등장 값 목록 (SQL 생성기가 읽어 해당 리터럴을 제외)
+    data/stage1/db/shop.db        SQLite DB
+    data/stage1/db/holdout.json   미등장 값 목록 (SQL 생성기가 읽어 해당 리터럴을 제외)
 """
 
 from __future__ import annotations
@@ -30,6 +30,8 @@ import random
 import sqlite3
 import sys
 from dataclasses import dataclass, asdict
+
+from src import config
 
 
 # ---------------------------------------------------------------------------
@@ -407,7 +409,7 @@ def build(seed: int, out_dir: str, cfg: Config | None = None) -> tuple[str, str]
     orders = build_orders(rng, cfg, [c[0] for c in customers], [i[0] for i in items])
     holdout = build_holdout(rng, cfg, customers, items, orders)
 
-    db_path = os.path.join(out_dir, "shop.db")
+    db_path = os.path.join(out_dir, config.DB_PATH.name)
     if os.path.exists(db_path):
         os.remove(db_path)
     con = sqlite3.connect(db_path)
@@ -420,7 +422,7 @@ def build(seed: int, out_dir: str, cfg: Config | None = None) -> tuple[str, str]
 
     holdout["seed"] = seed
     holdout["config"] = asdict(cfg)
-    ho_path = os.path.join(out_dir, "holdout.json")
+    ho_path = os.path.join(out_dir, config.HOLDOUT_PATH.name)
     with open(ho_path, "w", encoding="utf-8") as f:
         json.dump(holdout, f, ensure_ascii=False, indent=2)
     return db_path, ho_path
@@ -628,15 +630,15 @@ def main() -> int:
     ap.add_argument("command", choices=["build", "verify", "test", "summary", "space"])
     ap.add_argument("--preset", default="large", choices=list(PRESETS))
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--out", default="./data")
+    ap.add_argument("--out", default=str(config.DB_DIR), help=f"출력 폴더 (기본 {config.DB_DIR})")
     ap.add_argument("--name-style", default=None, choices=["single", "two_word"])
     args = ap.parse_args()
 
     cfg = Config(**asdict(PRESETS[args.preset]))
     if args.name_style:
         cfg.name_style = args.name_style
-    db = os.path.join(args.out, "shop.db")
-    ho = os.path.join(args.out, "holdout.json")
+    db = os.path.join(args.out, config.DB_PATH.name)
+    ho = os.path.join(args.out, config.HOLDOUT_PATH.name)
 
     if args.command == "build":
         db, ho = build(args.seed, args.out, cfg)

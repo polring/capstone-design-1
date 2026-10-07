@@ -5,8 +5,8 @@ name_swap.py — 이름 교체 실험용 학습 데이터 생성
 같은 가짜 이름으로 바꾼다. 모델이 이름 목록을 외우는 대신 질문에서 이름을 옮겨 적도록 만들려는 실험이다
 (진행 보고서 2026-10-01: 처음 보는 이름 정답률 0~3%).
 
-    python -m src.data.name_swap --ratio 0.4      # → data_raw/name_swap_40/train_pairs.json
-    python -m src.train --train-file data_raw/name_swap_40/train_pairs.json --run-name name_swap_40
+    python -m src.data.stage1.name_swap --ratio 0.4      # → data_raw/stage1/name_swap_40/train_pairs.json
+    python -m src.train --train-file data_raw/stage1/name_swap_40/train_pairs.json --run-name name_swap_40
     python -m src.train                           # 기본값: epoch 마다 새로 바꾸기 (--name-swap-ratio 0.4)
 
 - 가짜 이름: 실제 이름 목록(db_gen.GIVEN_NAMES / CATEGORY_NOUNS)으로 학습한 글자 단위 Markov chain 으로
@@ -14,13 +14,13 @@ name_swap.py — 이름 교체 실험용 학습 데이터 생성
   전략을 배우지 못하게 하려는 것이다. DB 의 모든 이름(holdout 포함), 이름 풀, 학습 질문에 나오는 단어,
   실제 영단어(WordNet 표제어와 그 -s/-es/-ed/-ing/-er/-ly 변화형)와 겹치는 것은 버리고, 쌍마다 서로 다른
   이름을 쓴다.
-- 영단어 목록: 기본은 NLTK 의 WordNet 데이터(wordnet.zip)를 표준 라이브러리 zipfile 로 직접 읽는다.
-  NLTK 패키지는 필요 없다. 다른 위치나 한 줄에 한 단어인 텍스트 파일은 --wordlist 로 지정한다.
+- 영단어 목록: 기본은 저장소의 data/wordnet/english_words.txt (WordNet 3.0 표제어, 한 줄에 한 단어).
+  NLTK 의 wordnet.zip 도 표준 라이브러리 zipfile 로 직접 읽을 수 있다. 다른 목록은 --wordlist 로 지정한다.
 - 질문 속 이름 위치는 question_gen.literal_in_question 과 같은 규칙(단어 경계, 뒤의 's/s/es 허용)으로 찾고,
   바꾼 뒤 같은 함수로 "새 이름은 있고 옛 이름은 없다"를 확인한다. 확인에 실패한 쌍은 바꾸지 않는다.
 - 바꾼 쌍에는 orig_question / orig_sql 을 남긴다. train.py 는 검증셋을 orig_sql 기준으로 떼고 검증에는
   원래 쌍을 쓰므로, 검증셋이 기준 실행과 같아진다.
-- 출력은 data_raw/ (커밋 안 함, pilot* glob 밖) — 학습 데이터나 BPE 코퍼스에 자동으로 섞이지 않는다.
+- 출력은 config.RAW_DIR (커밋 안 함, 학습 폴더 밖) — 학습 데이터나 BPE 코퍼스에 자동으로 섞이지 않는다.
 """
 
 from __future__ import annotations
@@ -35,11 +35,10 @@ from pathlib import Path
 
 from src import config
 from src.data.dataset import load_train_pairs
-from src.data.generator import db_gen
-from src.data.generator.question_gen import literal_in_question
+from src.data import db_gen
+from src.data.stage1.question_gen import literal_in_question
 
 NAME_SQL = re.compile(r"WHERE (name|item_name) = '([^']+)'")
-DEFAULT_WORDLIST = Path.home() / "AppData/Roaming/nltk_data/corpora/wordnet.zip"
 ENGLISH_SUFFIXES = (("ies", "y"), ("es", ""), ("s", ""), ("ed", ""), ("ed", "e"), ("ing", ""), ("ing", "e"),
                     ("er", ""), ("er", "e"), ("ly", ""))
 NAME_POOLS = {
@@ -168,14 +167,14 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="이름 교체 실험용 학습 데이터 생성")
     ap.add_argument("--ratio", type=float, default=0.4, help="이름 조건 쌍 중 가짜 이름으로 바꿀 비율")
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--wordlist", default=str(DEFAULT_WORDLIST),
+    ap.add_argument("--wordlist", default=str(config.WORDLIST_PATH),
                     help="영단어 목록 (WordNet zip 또는 한 줄에 한 단어인 텍스트 파일)")
-    ap.add_argument("--out", default=None, help="기본: data_raw/name_swap_<비율%>/train_pairs.json")
+    ap.add_argument("--out", default=None, help=f"기본: {config.RAW_DIR}/name_swap_<비율%%>/train_pairs.json")
     args = ap.parse_args()
 
-    out_path = Path(args.out or f"data_raw/name_swap_{round(args.ratio * 100)}/train_pairs.json")
-    assert not out_path.parts[0] == config.DATA_DIR or not out_path.parts[1].startswith("pilot"), \
-        "data/pilot* 아래에 두면 학습 데이터와 BPE 코퍼스에 자동으로 섞인다"
+    out_path = Path(args.out or config.RAW_DIR / f"name_swap_{round(args.ratio * 100)}" / "train_pairs.json")
+    assert config.TRAIN_DIR.resolve() not in out_path.resolve().parents, \
+        f"{config.TRAIN_DIR} 아래에 두면 학습 데이터와 BPE 코퍼스에 자동으로 섞인다"
     pairs, stats = build(load_train_pairs(), args.ratio, args.seed, load_english_words(args.wordlist))
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:

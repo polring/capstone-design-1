@@ -17,16 +17,15 @@ template_check)은 question_gen.py 걸 그대로 재사용한다 -- 검증 기�
 사이에서 서로 다르게 갈라지는 걸 막기 위해 로직을 한 곳(question_gen.py)에만 둔다.
 
 사용법:
-    python src/data/generator/question_gen_auto.py --model qwen3:14b --n 128 --batch-size 8 \
+    python -m src.data.stage1.question_gen_auto --model qwen3:14b --n 128 --batch-size 8 \
         --questions-per-sql 8 --seed 0
 
     (ollama가 로컬 11434 포트에서 떠 있어야 하고, --model로 지정한 모델이 이미 받아져 있어야 함)
 
-결과는 기본적으로 data_raw/auto_pilot/ 밑에 쌓인다(.gitignore로 커밋 안 되는 실험 영역 --
-data_raw/는 원래 "검증 전 원본 라운드"를 두는 자리라는 기존 관례를 따름). 결과를 정식
-학습 코퍼스로 채택하려면, 검토 후 data/pilot_<이름>_merged/pilot_train_pairs.json 같은
-곳으로 사람이 직접 옮긴다(Qwen3-14B 파일럿분은 검토 후 data/pilot_merged/에 source 필드를
-붙여 합쳤다) -- 이 스크립트가 자동으로 정식 코퍼스에 병합하지는 않는다.
+결과는 기본적으로 data_raw/stage<N>/auto_pilot/ 밑에 쌓인다(.gitignore로 커밋 안 되는 실험 영역 --
+data_raw/는 "검증 전 원본 라운드"를 두는 자리). 결과를 정식 학습 코퍼스로 채택하려면, 검토 후
+data/stage<N>/train/ 에 파일로 사람이 직접 옮긴다(Qwen3-14B 파일럿분은 검토 후 train/pairs.json 에
+source 필드를 붙여 합쳤다) -- 이 스크립트가 자동으로 정식 코퍼스에 병합하지는 않는다.
 """
 from __future__ import annotations
 
@@ -37,10 +36,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-try:
-    from . import question_gen as qg  # 패키지로 import될 때 (src.data.generator.question_gen_auto)
-except ImportError:
-    import question_gen as qg  # 스크립트로 직접 실행될 때
+from src.data.stage1 import question_gen as qg
 
 OLLAMA_API = "http://127.0.0.1:11434/api/generate"
 THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
@@ -241,16 +237,16 @@ def run_pipeline(model: str, train_path: str, n: int, batch_size: int, n_questio
 def main() -> int:
     ap = argparse.ArgumentParser(description="로컬 LLM(Ollama) 질문 생성 파이프라인 (완전 자동화)")
     ap.add_argument("--model", default="qwen3:14b", help="ollama에 받아져 있는 모델 이름")
-    ap.add_argument("--train", default="data/sql_train.json")
+    ap.add_argument("--train", default=str(qg.config.SQL_TRAIN_PATH))
     ap.add_argument("--n", type=int, default=128, help="샘플링할 SQL 개수")
     ap.add_argument("--batch-size", type=int, default=8, help="호출 1회당 SQL 개수")
     ap.add_argument("--questions-per-sql", type=int, default=5,
                      help="SQL 하나당 요구할 질문 개수 (최대 %d)" % len(qg.QUESTION_STYLE_SLOTS))
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--out", default="data_raw/auto_pilot",
+    ap.add_argument("--out", default=str(qg.config.RAW_DIR / "auto_pilot"),
                      help="결과 저장 위치. data_raw/ 밑이 기본값 -- 검토·채택 전 실험 데이터는 "
                           "여기 두는 게 프로젝트 관례(.gitignore로 커밋 안 됨). 정식 채택 시에만 "
-                          "data/pilot_<이름>_merged/ 같은 곳으로 수동으로 옮긴다.")
+                          "data/stage<N>/train/ 에 파일로 수동으로 옮긴다.")
     ap.add_argument("--exclude-dir", default=None,
                      help="이 디렉터리들의 pilot_sql.json에 있는 SQL은 샘플링에서 제외 (쉼표 구분)")
     ap.add_argument("--budget-seconds", type=int, default=1800, help="전체 실행 시간 예산")
@@ -280,7 +276,7 @@ def main() -> int:
     print(f"검증 통과율: {summary['pass_rate']:.1%} ({summary['n_passed']}/{summary['n_questions_seen']}), "
           f"수동확인 flag {summary['n_soft_flags']}건")
     print(f"틀(skeleton) 재사용 비율: {summary['template_repeat_ratio']:.1%}")
-    print(f"결과: {summary['out_dir']}/{qg.pairs_filename(summary['out_dir'])}")
+    print(f"결과: {summary['out_dir']}/{qg.config.PAIRS_FILE}")
     print(f"요약: {summary['out_dir']}/pipeline_summary.json")
     return 0
 

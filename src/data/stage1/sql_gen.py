@@ -11,7 +11,7 @@ db_gen.py 가 만든 shop.db / holdout.json 을 입력으로 받아, 1단계 문
   3. ID 조건 비중 30% 이하
 
 설계 메모
-  - 홀드아웃 리터럴(data/holdout.json)은 db_gen.load_bans() 로 걸러 절대 사용하지 않는다.
+  - 홀드아웃 리터럴(data/stage1/db/holdout.json)은 db_gen.load_bans() 로 걸러 절대 사용하지 않는다.
   - ID 컬럼(customer_id, item_id, order_id)은 값 종류가 많아 균등 샘플링하면 전체의
     60%+ 를 차지한다(계획서 5-3). cap_id 를 자동으로 줄여 나가며 30% 이하로 맞춘다.
   - 5-2가 지적한 "ID 첫 자리로 테이블 맞히기" 지름길을 깨기 위해, ID 조건 중 일부는
@@ -21,12 +21,12 @@ db_gen.py 가 만든 shop.db / holdout.json 을 입력으로 받아, 1단계 문
     값 자체를 완전히 분리하는 건 홀드아웃(미등장 값)의 몫이다.
 
 사용법
-    python sql_gen.py build                       # data/sql_train.json, data/sql_eval_indist.json
-    python sql_gen.py build --preset small --seed 1 --n-train-total 200   # 파일럿
-    python sql_gen.py verify                       # 완료 조건 3종 재검사
-    python sql_gen.py test                         # 결정성 · 홀드아웃 미포함 · train/eval 비중복
-    python sql_gen.py summary                      # 조합별 할당량 표 출력
-    python sql_gen.py holdout                      # data/sql_eval_holdout.json (미등장 값 평가 SQL)
+    python -m src.data.stage1.sql_gen build                       # data/stage1/sql/train.json, eval_indist.json (--out, --db-dir 로 변경)
+    python -m src.data.stage1.sql_gen build --preset small --seed 1 --n-train-total 200   # 파일럿
+    python -m src.data.stage1.sql_gen verify                       # 완료 조건 3종 재검사
+    python -m src.data.stage1.sql_gen test                         # 결정성 · 홀드아웃 미포함 · train/eval 비중복
+    python -m src.data.stage1.sql_gen summary                      # 조합별 할당량 표 출력
+    python -m src.data.stage1.sql_gen holdout                      # data/stage1/sql/eval_holdout.json (미등장 값 평가 SQL)
 """
 
 from __future__ import annotations
@@ -39,7 +39,8 @@ import random
 import sqlite3
 from dataclasses import asdict, dataclass
 
-import db_gen
+from src import config
+from src.data import db_gen
 
 
 # ---------------------------------------------------------------------------
@@ -248,19 +249,21 @@ def generate(con: sqlite3.Connection, bans: dict, cfg: SqlGenConfig
 # 빌드 / 저장
 # ---------------------------------------------------------------------------
 
-def _paths(out_dir: str) -> dict[str, str]:
+def _paths(out_dir: str, db_dir: str) -> dict[str, str]:
+    """out_dir = SQL 출력 폴더, db_dir = db_gen 출력 폴더. 파일 이름은 config 의 경로와 같다."""
     return {
-        "db": os.path.join(out_dir, "shop.db"),
-        "holdout": os.path.join(out_dir, "holdout.json"),
-        "train": os.path.join(out_dir, "sql_train.json"),
-        "eval": os.path.join(out_dir, "sql_eval_indist.json"),
-        "holdout_eval": os.path.join(out_dir, "sql_eval_holdout.json"),
-        "report": os.path.join(out_dir, "sql_gen_report.json"),
+        "db": os.path.join(db_dir, config.DB_PATH.name),
+        "holdout": os.path.join(db_dir, config.HOLDOUT_PATH.name),
+        "train": os.path.join(out_dir, config.SQL_TRAIN_PATH.name),
+        "eval": os.path.join(out_dir, config.SQL_EVAL_INDIST_PATH.name),
+        "holdout_eval": os.path.join(out_dir, config.SQL_EVAL_HOLDOUT_PATH.name),
+        "report": os.path.join(out_dir, config.SQL_REPORT_PATH.name),
     }
 
 
-def build(out_dir: str, cfg: SqlGenConfig) -> dict:
-    paths = _paths(out_dir)
+def build(out_dir: str, db_dir: str, cfg: SqlGenConfig) -> dict:
+    paths = _paths(out_dir, db_dir)
+    os.makedirs(out_dir, exist_ok=True)
     con = sqlite3.connect(paths["db"])
     bans = db_gen.load_bans(json.load(open(paths["holdout"], encoding="utf-8")))
 
@@ -289,9 +292,9 @@ def build(out_dir: str, cfg: SqlGenConfig) -> dict:
 # 검증
 # ---------------------------------------------------------------------------
 
-def verify(out_dir: str) -> list[str]:
+def verify(out_dir: str, db_dir: str) -> list[str]:
     """완료 조건 3종: 실행 오류 없음 / 할당량 표 재현 가능 / ID 비중 30% 이하."""
-    paths = _paths(out_dir)
+    paths = _paths(out_dir, db_dir)
     fails: list[str] = []
     if not os.path.exists(paths["report"]):
         return [f"{paths['report']} 없음 - 먼저 build 를 실행하세요"]
@@ -333,8 +336,8 @@ def canonical_hash(rows: list[dict]) -> str:
     return hashlib.sha256(json.dumps(sorted(keys), sort_keys=True).encode()).hexdigest()
 
 
-def test(out_dir: str, cfg: SqlGenConfig) -> list[tuple[str, list[str]]]:
-    paths = _paths(out_dir)
+def test(out_dir: str, db_dir: str, cfg: SqlGenConfig) -> list[tuple[str, list[str]]]:
+    paths = _paths(out_dir, db_dir)
     con = sqlite3.connect(paths["db"])
     ho = json.load(open(paths["holdout"], encoding="utf-8"))
     bans = db_gen.load_bans(ho)
@@ -431,8 +434,9 @@ def generate_holdout(con: sqlite3.Connection, ho: dict, seed: int, selects_per_l
     return rows
 
 
-def build_holdout_eval(out_dir: str, seed: int, selects_per_literal: int) -> list[dict]:
-    paths = _paths(out_dir)
+def build_holdout_eval(out_dir: str, db_dir: str, seed: int, selects_per_literal: int) -> list[dict]:
+    paths = _paths(out_dir, db_dir)
+    os.makedirs(out_dir, exist_ok=True)
     con = sqlite3.connect(paths["db"])
     ho = json.load(open(paths["holdout"], encoding="utf-8"))
     rows = generate_holdout(con, ho, seed, selects_per_literal)
@@ -442,10 +446,10 @@ def build_holdout_eval(out_dir: str, seed: int, selects_per_literal: int) -> lis
     return rows
 
 
-def verify_holdout_eval(out_dir: str) -> list[str]:
+def verify_holdout_eval(out_dir: str, db_dir: str) -> list[str]:
     """미등장 평가 SQL 검사: 실행 오류·0행 없음 / 리터럴이 실제 홀드아웃 값 /
     학습·분포 내 평가 SQL 과 비중복 / SQL 중복 없음."""
-    paths = _paths(out_dir)
+    paths = _paths(out_dir, db_dir)
     rows = json.load(open(paths["holdout_eval"], encoding="utf-8"))
     bans = db_gen.load_bans(json.load(open(paths["holdout"], encoding="utf-8")))
     seen_sqls = set()
@@ -492,8 +496,8 @@ def holdout_summary(rows: list[dict]) -> None:
 # 요약
 # ---------------------------------------------------------------------------
 
-def summary(out_dir: str) -> None:
-    paths = _paths(out_dir)
+def summary(out_dir: str, db_dir: str) -> None:
+    paths = _paths(out_dir, db_dir)
     if not os.path.exists(paths["report"]):
         print(f"{paths['report']} 없음 - 먼저 build 를 실행하세요")
         return
@@ -517,7 +521,8 @@ def main() -> int:
     ap.add_argument("command", choices=["build", "verify", "test", "summary", "holdout"])
     ap.add_argument("--preset", default="large", choices=list(db_gen.PRESETS))
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--out", default="./data")
+    ap.add_argument("--out", default=str(config.SQL_DIR), help=f"SQL 출력 폴더 (기본 {config.SQL_DIR})")
+    ap.add_argument("--db-dir", default=str(config.DB_DIR), help=f"shop.db·holdout.json 폴더 (기본 {config.DB_DIR})")
     ap.add_argument("--cap-nonid", type=int, default=40)
     ap.add_argument("--cap-id", type=int, default=40)
     ap.add_argument("--id-ratio-max", type=float, default=0.30)
@@ -531,35 +536,35 @@ def main() -> int:
                        train_ratio=args.train_ratio)
 
     if args.command == "build":
-        report = build(args.out, cfg)
-        print(f"생성  {os.path.join(args.out, 'sql_train.json')} ({report['n_train']}개)")
-        print(f"      {os.path.join(args.out, 'sql_eval_indist.json')} ({report['n_eval']}개)")
-        fails = verify(args.out)
+        report = build(args.out, args.db_dir, cfg)
+        print(f"생성  {os.path.join(args.out, config.SQL_TRAIN_PATH.name)} ({report['n_train']}개)")
+        print(f"      {os.path.join(args.out, config.SQL_EVAL_INDIST_PATH.name)} ({report['n_eval']}개)")
+        fails = verify(args.out, args.db_dir)
         print("검증 ", "통과" if not fails else "실패\n  - " + "\n  - ".join(fails))
         print(f"ID 조건 비중  {report['id_ratio']:.1%}")
         return 1 if fails else 0
 
     if args.command == "holdout":
-        rows = build_holdout_eval(args.out, args.seed, args.selects_per_literal)
-        print(f"생성  {os.path.join(args.out, 'sql_eval_holdout.json')} ({len(rows)}개)")
+        rows = build_holdout_eval(args.out, args.db_dir, args.seed, args.selects_per_literal)
+        print(f"생성  {os.path.join(args.out, config.SQL_EVAL_HOLDOUT_PATH.name)} ({len(rows)}개)")
         holdout_summary(rows)
-        fails = verify_holdout_eval(args.out)
+        fails = verify_holdout_eval(args.out, args.db_dir)
         print("검증 ", "통과" if not fails else "실패\n  - " + "\n  - ".join(fails))
         return 1 if fails else 0
 
     if args.command == "verify":
-        fails = verify(args.out)
+        fails = verify(args.out, args.db_dir)
         print("통과" if not fails else "실패\n  - " + "\n  - ".join(fails))
         return 1 if fails else 0
 
     if args.command == "test":
-        for name, fails in test(args.out, cfg):
+        for name, fails in test(args.out, args.db_dir, cfg):
             print(f"[{'PASS' if not fails else 'FAIL'}] {name}")
             for x in fails:
                 print(f"       {x}")
         return 0
 
-    summary(args.out)
+    summary(args.out, args.db_dir)
     return 0
 
 
