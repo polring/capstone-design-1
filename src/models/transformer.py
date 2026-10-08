@@ -7,6 +7,7 @@ from src.models.embedding import apply_rotary_emb
 
 class RMSNorm(nn.Module):
     """Root Mean Square Layer Normalization"""
+
     def __init__(self, dim: int, eps: float = 1e-6):
         super().__init__()
         self.eps = eps
@@ -19,6 +20,7 @@ class RMSNorm(nn.Module):
 
 class CausalMaskedSelfAttention(nn.Module):
     """Multi-Head Causal Masked Self-Attention"""
+
     def __init__(self, dim: int, num_heads: int):
         super().__init__()
         assert dim % num_heads == 0, "dim must be divisible by num_heads"
@@ -29,9 +31,9 @@ class CausalMaskedSelfAttention(nn.Module):
         self.qkv_proj = nn.Linear(dim, 3 * dim, bias=False)
         self.out_proj = nn.Linear(dim, dim, bias=False)
 
-    def forward(self, x: torch.Tensor,freqs_cis = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, freqs_cis=None) -> torch.Tensor:
         B, T, C = x.shape  # Batch, Sequence Length, Dim
-        
+
         qkv = self.qkv_proj(x)
         q, k, v = qkv.chunk(3, dim=-1)
 
@@ -58,21 +60,21 @@ class CausalMaskedSelfAttention(nn.Module):
 
 class FeedForward(nn.Module):
     """FFN with SwiGLU or GELU Activation"""
+
     def __init__(self, dim: int, hidden_dim: int):
         super().__init__()
-        
+
         self.w1 = nn.Linear(dim, hidden_dim, bias=False)  # Gate
         self.w3 = nn.Linear(dim, hidden_dim, bias=False)  # Up
         self.w2 = nn.Linear(hidden_dim, dim, bias=False)  # Down
-       
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.w2(F.silu(self.w1(x)) * self.w3(x))
-    
 
 
 class TransformerDecoderBlock(nn.Module):
     """Pre-LN Transformer Decoder Block with RMSNorm and Causal Self-Attention"""
+
     def __init__(self, dim: int, num_heads: int, hidden_dim: int):
         super().__init__()
         self.attn_norm = RMSNorm(dim)
@@ -80,7 +82,7 @@ class TransformerDecoderBlock(nn.Module):
         self.ffn_norm = RMSNorm(dim)
         self.ffn = FeedForward(dim, hidden_dim)
 
-    def forward(self, x: torch.Tensor,freqs_cis: torch.Tensor = None) -> torch.Tensor:
-        x = x + self.attn(self.attn_norm(x),freqs_cis = freqs_cis)
+    def forward(self, x: torch.Tensor, freqs_cis: torch.Tensor = None) -> torch.Tensor:
+        x = x + self.attn(self.attn_norm(x), freqs_cis=freqs_cis)
         x = x + self.ffn(self.ffn_norm(x))
-        return x    
+        return x

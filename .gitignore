@@ -22,6 +22,15 @@ __pycache__/
 data_raw/
 data/**/data_raw/
 
+# Local compiled binaries
+*.exe
+*.gguf
+*.pt
+*.pth
+
+# Model files (except for stage models)
+!models/stage*/model.pt
+
 # 약한/대체 모델(예: Qwen3-14B) 파일럿 테스트용 임시 폴더 — 정식 채택 전까지는 커밋 안 함
 qwen3_14b_test/
 
