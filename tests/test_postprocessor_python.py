@@ -1,5 +1,5 @@
 import pytest
-from src.postprocessor.python.main import process_sql
+from src.postprocessor.python import process_sql
 from src.postprocessor.python.parser import pre_correct_keywords
 from src.postprocessor.python.replacement import get_ngrams
 
@@ -63,5 +63,5 @@ def test_strategy_chaining():
 def test_semantic_correction_pipeline():
     sql = "SELECT usr FROM users"
     # Even if model is not downloaded/fails, it should fallback to original
-    result = process_sql(sql, strategy="semantic", dictionary=TEST_DICTIONARY)
+    result = process_sql(sql, strategy="semantic", dictionary=TEST_DICTIONARY, dim=300)
     assert "usr" in result or "user_name" in result

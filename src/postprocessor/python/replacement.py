@@ -11,7 +11,7 @@ import glob
 _semantic_data = {}
 
 
-def get_semantic_data(dim=100):
+def get_semantic_data(dim=300):
     """
     주어진 차원(dim)에 해당하는 GloVe 압축 사전(.pkl)을 로드합니다.
     이미 로드된 적이 있다면 전역 변수에서 캐시된 데이터를 반환하여
@@ -139,11 +139,13 @@ def cosine_similarity(vec1, vec2):
     return np.dot(vec1, vec2) / (norm1 * norm2)
 
 
-def semantic_correction(word, dictionary, dim=100, cutoff=0.5):
+def semantic_correction(word, dictionary, dim=None, cutoff=0.0):
     """
     입력 단어의 평균 풀링 벡터와 사전 타겟 단어의 평균 풀링 벡터 간
     코사인 유사도를 계산하여 가장 의미론적으로 적합한 단어를 반환합니다.
     """
+    if dim is None:
+        raise ValueError("dim is required for semantic correction")
     semantic_data = get_semantic_data(dim)
     if not semantic_data or "embeddings" not in semantic_data:
         return word
@@ -179,7 +181,7 @@ def semantic_correction(word, dictionary, dim=100, cutoff=0.5):
 # ==========================================
 # 파이프라인(Chaining) 인터페이스
 # ==========================================
-def apply_correction(word, dictionary, strategy, dim):
+def apply_correction(word, dictionary, strategy, dim, threshold=0.0):
     """
     단일 전략을 선택하여 교정 함수를 호출하는 라우터 역할을 수행합니다.
     """
@@ -188,11 +190,13 @@ def apply_correction(word, dictionary, strategy, dim):
     elif strategy == "ngram":
         return ngram_correction(word, dictionary)
     elif strategy == "semantic":
-        return semantic_correction(word, dictionary, dim=dim)
+        return semantic_correction(word, dictionary, dim=dim, cutoff=threshold)
     return word
 
 
-def correct_identifiers(identifiers, dictionary, strategy="typo", dim=100):
+def correct_identifiers(
+    identifiers, dictionary, strategy="typo,ngram,semantic", dim=None, threshold=0.0
+):
     """
     AST에서 추출된 식별자들을 대상으로 전략 기반 교정을 적용합니다.
     여러 전략이 콤마로 나열된 경우(예: 'typo,ngram,semantic'),
@@ -208,7 +212,7 @@ def correct_identifiers(identifiers, dictionary, strategy="typo", dim=100):
         corrected_name = check_name
 
         for strat in strategies:
-            new_name = apply_correction(corrected_name, dictionary, strat, dim)
+            new_name = apply_correction(corrected_name, dictionary, strat, dim, threshold)
             if new_name != corrected_name:
                 corrected_name = new_name
                 break

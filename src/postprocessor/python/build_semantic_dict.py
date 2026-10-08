@@ -28,6 +28,12 @@ def download_glove_if_missing(data_dir, dim):
     with zipfile.ZipFile(glove_zip, "r") as zip_ref:
         zip_ref.extract(f"glove.6B.{dim}d.txt", data_dir)
 
+    try:
+        os.remove(glove_zip)
+        print("Deleted downloaded .zip file to save disk space.")
+    except Exception as e:
+        print(f"Warning: failed to delete .zip file: {e}")
+
     return glove_txt
 
 
@@ -53,21 +59,21 @@ def main():
         description="Build lightweight Semantic Dictionary from GloVe using Numpy"
     )
     parser.add_argument(
-        "--dim",
+        "-d", "--dim",
         type=int,
         choices=[50, 100, 200, 300],
-        default=100,
-        help="GloVe dimension to use",
+        required=True,
+        help="GloVe dimension to use (required)",
     )
-    parser.add_argument("--db", type=str, default=None, help="Path to shop.db")
+    parser.add_argument("-b", "--db", type=str, default=None, help="Path to shop.db")
     parser.add_argument(
-        "--data_dir", type=str, default=None, help="Path to data directory"
+        "-D", "--data_dir", type=str, default=None, help="Path to data directory"
     )
     parser.add_argument(
-        "--top_k",
-        type=int,
-        default=50,
-        help="Number of similar words to keep per target",
+        "-t", "--threshold",
+        type=float,
+        required=True,
+        help="Cosine similarity threshold (e.g. 0.5) to keep words (required).",
     )
 
     args = parser.parse_args()
@@ -132,11 +138,13 @@ def main():
 
     keep_indices = set()
     for i in range(len(target_keys)):
-        # 해당 타겟에 대한 상위 K개의 인덱스를 가져옵니다.
-        top_indices = np.argsort(similarities[i])[-args.top_k :]
-        keep_indices.update(top_indices)
+        # 지정된 유사도 점수 이상의 인덱스만 추출합니다.
+        valid_indices = np.where(similarities[i] >= args.threshold)[0]
+        keep_indices.update(valid_indices)
 
-    print(f"Reduced vocabulary size (Top {args.top_k} per target): {len(keep_indices)}")
+    print(
+        f"Reduced vocabulary size (Threshold >= {args.threshold}): {len(keep_indices)}"
+    )
 
     reduced_glove = {}
     for idx in keep_indices:
@@ -157,6 +165,12 @@ def main():
         )
 
     print(f"Successfully saved reduced dictionary to {output_path}")
+
+    try:
+        os.remove(glove_txt)
+        print("Deleted extracted .txt file to save disk space.")
+    except Exception as e:
+        print(f"Warning: failed to delete .txt file: {e}")
 
 
 if __name__ == "__main__":
