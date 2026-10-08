@@ -59,7 +59,8 @@ def main():
         description="Build lightweight Semantic Dictionary from GloVe using Numpy"
     )
     parser.add_argument(
-        "-d", "--dim",
+        "-d",
+        "--dim",
         type=int,
         choices=[50, 100, 200, 300],
         required=True,
@@ -70,7 +71,8 @@ def main():
         "-D", "--data_dir", type=str, default=None, help="Path to data directory"
     )
     parser.add_argument(
-        "-t", "--threshold",
+        "-t",
+        "--threshold",
         type=float,
         required=True,
         help="Cosine similarity threshold (e.g. 0.5) to keep words (required).",

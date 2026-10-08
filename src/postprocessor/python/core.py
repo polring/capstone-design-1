@@ -2,6 +2,7 @@ from .parser import extract_identifiers
 from .replacement import correct_identifiers
 from .reconstruction import reconstruct_sql
 
+
 def process_sql(
     sql_query, strategy="typo,ngram,semantic", dictionary=None, dim=None, threshold=0.0
 ):

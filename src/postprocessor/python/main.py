@@ -13,26 +13,30 @@ def main():
         "-i", "--input", type=str, required=True, help="Input SQL string to correct"
     )
     parser.add_argument(
-        "-s", "--strategy",
+        "-s",
+        "--strategy",
         type=str,
         default="typo,ngram,semantic",
         help="Correction strategy (comma-separated for chaining: typo,ngram,semantic)",
     )
     parser.add_argument(
-        "-b", "--db",
+        "-b",
+        "--db",
         type=str,
         default=None,
         help="Path to SQLite database to extract schema dictionary from",
     )
     parser.add_argument(
-        "-d", "--dim",
+        "-d",
+        "--dim",
         type=int,
         choices=[50, 100, 200, 300],
         default=None,
         help="GloVe dimension to use for semantic correction (required if 'semantic' strategy is used)",
     )
     parser.add_argument(
-        "-t", "--threshold",
+        "-t",
+        "--threshold",
         type=float,
         default=0.0,
         help="Cosine similarity threshold for semantic correction (e.g. 0.5). If not set, all words in the cache are considered.",

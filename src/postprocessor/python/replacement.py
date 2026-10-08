@@ -212,7 +212,9 @@ def correct_identifiers(
         corrected_name = check_name
 
         for strat in strategies:
-            new_name = apply_correction(corrected_name, dictionary, strat, dim, threshold)
+            new_name = apply_correction(
+                corrected_name, dictionary, strat, dim, threshold
+            )
             if new_name != corrected_name:
                 corrected_name = new_name
                 break
