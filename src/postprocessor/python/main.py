@@ -1,15 +1,25 @@
 import argparse
+import os
 from .parser import extract_identifiers
 from .replacement import correct_identifiers
 from .reconstruction import reconstruct_sql
+from .schema import load_dictionary_from_sqlite
 
-# Target dictionary mapping domain specific terms and column names
-DICTIONARY = ["users", "user_name", "email", "id", "name", "department", "manager_id"]
+# Default dictionary just in case db is not provided or fails to load
+DEFAULT_DICTIONARY = [
+    "users",
+    "user_name",
+    "email",
+    "id",
+    "name",
+    "department",
+    "manager_id",
+]
 
 
 def process_sql(sql_query, strategy="typo", dictionary=None):
-    if dictionary is None:
-        dictionary = DICTIONARY
+    if dictionary is None or len(dictionary) == 0:
+        dictionary = DEFAULT_DICTIONARY
 
     try:
         ast, identifiers = extract_identifiers(sql_query)
@@ -30,10 +40,25 @@ def main():
         default="typo",
         help="Correction strategy (comma-separated for chaining: typo,ngram,semantic)",
     )
+    parser.add_argument(
+        "--db",
+        type=str,
+        default=None,
+        help="Path to SQLite database to extract schema dictionary from",
+    )
 
     args = parser.parse_args()
 
-    fixed_sql = process_sql(args.input, args.strategy)
+    dictionary = None
+    if args.db:
+        dictionary = load_dictionary_from_sqlite(args.db)
+    else:
+        # Default fallback to shop.db in the repo
+        default_db_path = os.path.join(os.getcwd(), "data", "shop.db")
+        if os.path.exists(default_db_path):
+            dictionary = load_dictionary_from_sqlite(default_db_path)
+
+    fixed_sql = process_sql(args.input, args.strategy, dictionary)
     print(fixed_sql)
 
 
