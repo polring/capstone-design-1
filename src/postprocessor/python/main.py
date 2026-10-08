@@ -57,7 +57,7 @@ def main():
     if args.db:
         dictionary = load_dictionary_from_sqlite(args.db)
     else:
-        # Default fallback to shop.db in the repo
+        # 리포지토리 내의 shop.db를 기본값으로 사용합니다.
         default_db_path = os.path.join(os.getcwd(), "data", "shop.db")
         if os.path.exists(default_db_path):
             dictionary = load_dictionary_from_sqlite(default_db_path)

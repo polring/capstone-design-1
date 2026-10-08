@@ -33,7 +33,7 @@ SQL_KEYWORDS = [
 
 def pre_correct_keywords(sql_string):
     """
-    Pre-pass to correct SQL keyword typos so sqlglot can parse successfully.
+    sqlglot이 정상적으로 파싱할 수 있도록 SQL 예약어의 오타를 사전에 교정합니다.
     """
     tokens = re.split(r"(\W+)", sql_string)
     fixed = []
@@ -60,7 +60,7 @@ def pre_correct_keywords(sql_string):
 
 def extract_identifiers(sql_string):
     """
-    Parses a SQL string and extracts AST and a list of identifiers.
+    SQL 문자열을 파싱하여 AST(추상 구문 트리)와 식별자 목록을 추출합니다.
     """
     corrected_sql = pre_correct_keywords(sql_string)
     ast = sqlglot.parse_one(corrected_sql)

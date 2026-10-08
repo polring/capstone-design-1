@@ -6,7 +6,7 @@ import numpy as np
 import pickle
 import sys
 
-# Ensure we can import schema
+# schema 모듈을 임포트할 수 있도록 경로를 추가합니다.
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from schema import load_dictionary_from_sqlite
 
@@ -20,7 +20,7 @@ def download_glove_if_missing(data_dir, dim):
 
     if not os.path.exists(glove_zip):
         print("Downloading GloVe embeddings (this may take a while)...")
-        url = "https://huggingface.co/stanfordnlp/glove/resolve/main/glove.6B.zip"  # more reliable link than stanford site
+        url = "https://huggingface.co/stanfordnlp/glove/resolve/main/glove.6B.zip"  # 스탠포드 공식 사이트보다 안정적인 허깅페이스 링크 사용
         urllib.request.urlretrieve(url, glove_zip)
         print("Download complete.")
 
@@ -72,7 +72,7 @@ def main():
 
     args = parser.parse_args()
 
-    # Calculate base project directory
+    # 프로젝트 루트 디렉토리를 계산합니다.
     base_dir = os.path.dirname(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     )
@@ -92,7 +92,7 @@ def main():
 
     print(f"Target dictionary size: {len(target_words)}")
 
-    # Optional: in testing environment, download might be too slow. We will print the instructions.
+    # 선택 사항: 테스트 환경 등에서 다운로드가 너무 느릴 경우를 대비해 수동 다운로드 안내를 출력합니다.
     try:
         glove_txt = download_glove_if_missing(args.data_dir, args.dim)
     except Exception as e:
@@ -132,7 +132,7 @@ def main():
 
     keep_indices = set()
     for i in range(len(target_keys)):
-        # Get top K indices for this target
+        # 해당 타겟에 대한 상위 K개의 인덱스를 가져옵니다.
         top_indices = np.argsort(similarities[i])[-args.top_k :]
         keep_indices.update(top_indices)
 
@@ -143,7 +143,7 @@ def main():
         word = all_words[idx]
         reduced_glove[word] = full_glove[word]
 
-    # Ensure components of target words are included regardless of similarity
+    # 유사도와 관계없이 타겟 단어의 구성 요소(쪼개진 단어)는 무조건 포함되도록 보장합니다.
     for tw in target_words:
         parts = split_snake_case(tw)
         for part in parts:

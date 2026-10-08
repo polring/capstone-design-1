@@ -33,7 +33,7 @@ def get_semantic_data(dim=100):
             with open(target_file, "rb") as f:
                 _semantic_data[dim] = pickle.load(f)
         else:
-            # Fallback to any available if the specific one is missing
+            # 지정된 차원의 사전이 없을 경우 사용 가능한 다른 사전을 로드합니다.
             pkl_files = glob.glob(os.path.join(data_dir, "semantic_dict_*d.pkl"))
             if pkl_files:
                 pkl_files.sort(reverse=True)

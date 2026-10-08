@@ -1,5 +1,5 @@
 def reconstruct_sql(ast):
     """
-    Converts the modified AST back into a valid SQL string.
+    수정된 AST 객체를 다시 유효한 SQL 문자열로 변환하여 반환합니다.
     """
     return ast.sql()

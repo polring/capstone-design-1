@@ -4,8 +4,8 @@ import os
 
 def load_dictionary_from_sqlite(db_path):
     """
-    Extracts all table names and column names from a SQLite database
-    and returns them as a list of strings to be used as a dictionary.
+    SQLite 데이터베이스에서 모든 테이블명과 컬럼명을 추출하여,
+    교정 사전으로 사용할 문자열 리스트로 반환합니다.
     """
     if not os.path.exists(db_path):
         return []
@@ -15,7 +15,7 @@ def load_dictionary_from_sqlite(db_path):
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
-        # Get all table names
+        # 모든 테이블명 조회
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
         tables = cursor.fetchall()
 
@@ -23,7 +23,7 @@ def load_dictionary_from_sqlite(db_path):
             table_name = table[0]
             dictionary.add(table_name)
 
-            # Get all column names for the table
+            # 해당 테이블의 모든 컬럼명 조회
             cursor.execute(f"PRAGMA table_info('{table_name}');")
             columns = cursor.fetchall()
             for col in columns:
