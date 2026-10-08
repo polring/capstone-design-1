@@ -1,21 +1,5 @@
 import difflib
 
-# Cache for semantic model to avoid reloading
-_semantic_model = None
-
-
-def get_semantic_model():
-    global _semantic_model
-    if _semantic_model is None:
-        try:
-            from sentence_transformers import SentenceTransformer
-
-            # Lightweight model
-            _semantic_model = SentenceTransformer("all-MiniLM-L6-v2")
-        except ImportError:
-            _semantic_model = None
-    return _semantic_model
-
 
 def typo_correction(word, dictionary):
     """Edit distance based correction."""
@@ -51,24 +35,9 @@ def ngram_correction(word, dictionary, n=2, cutoff=0.3):
     return best_match
 
 
-def semantic_correction(word, dictionary, cutoff=0.5):
+def semantic_correction(word, dictionary):
     """Vector embedding based correction."""
-    model = get_semantic_model()
-    if not model or not dictionary:
-        return word
-
-    from sklearn.metrics.pairwise import cosine_similarity
-
-    # In a real scenario, dictionary embeddings should be precomputed.
-    word_embedding = model.encode([word])
-    dict_embeddings = model.encode(dictionary)
-
-    similarities = cosine_similarity(word_embedding, dict_embeddings)[0]
-    best_idx = similarities.argmax()
-    best_score = similarities[best_idx]
-
-    if best_score >= cutoff:
-        return dictionary[best_idx]
+    # Placeholder for actual semantic embedding model logic
     return word
 
 
