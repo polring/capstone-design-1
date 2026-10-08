@@ -17,13 +17,13 @@ DEFAULT_DICTIONARY = [
 ]
 
 
-def process_sql(sql_query, strategy="typo", dictionary=None):
+def process_sql(sql_query, strategy="typo", dictionary=None, dim=100):
     if dictionary is None or len(dictionary) == 0:
         dictionary = DEFAULT_DICTIONARY
 
     try:
         ast, identifiers = extract_identifiers(sql_query)
-        correct_identifiers(identifiers, dictionary, strategy)
+        correct_identifiers(identifiers, dictionary, strategy, dim)
         return reconstruct_sql(ast)
     except Exception as e:
         return f"Error processing SQL: {e}"
@@ -46,6 +46,13 @@ def main():
         default=None,
         help="Path to SQLite database to extract schema dictionary from",
     )
+    parser.add_argument(
+        "--dim",
+        type=int,
+        choices=[50, 100, 200, 300],
+        default=100,
+        help="GloVe dimension to use for semantic correction",
+    )
 
     args = parser.parse_args()
 
@@ -58,7 +65,7 @@ def main():
         if os.path.exists(default_db_path):
             dictionary = load_dictionary_from_sqlite(default_db_path)
 
-    fixed_sql = process_sql(args.input, args.strategy, dictionary)
+    fixed_sql = process_sql(args.input, args.strategy, dictionary, args.dim)
     print(fixed_sql)
 
 

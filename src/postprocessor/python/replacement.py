@@ -5,13 +5,12 @@ import numpy as np
 import glob
 
 # Cache for semantic dictionary
-_semantic_data = None
+_semantic_data = {}
 
 
-def get_semantic_data():
+def get_semantic_data(dim=100):
     global _semantic_data
-    if _semantic_data is None:
-        # Find any semantic_dict_*.pkl in the data directory
+    if dim not in _semantic_data:
         data_dir = os.path.join(
             os.path.dirname(
                 os.path.dirname(
@@ -20,15 +19,21 @@ def get_semantic_data():
             ),
             "data",
         )
-        pkl_files = glob.glob(os.path.join(data_dir, "semantic_dict_*d.pkl"))
-        if pkl_files:
-            # Sort to get the highest dimension if multiple exist, or just pick first
-            pkl_files.sort(reverse=True)
-            with open(pkl_files[0], "rb") as f:
-                _semantic_data = pickle.load(f)
+        target_file = os.path.join(data_dir, f"semantic_dict_{dim}d.pkl")
+
+        if os.path.exists(target_file):
+            with open(target_file, "rb") as f:
+                _semantic_data[dim] = pickle.load(f)
         else:
-            _semantic_data = {}
-    return _semantic_data
+            # Fallback to any available if the specific one is missing
+            pkl_files = glob.glob(os.path.join(data_dir, "semantic_dict_*d.pkl"))
+            if pkl_files:
+                pkl_files.sort(reverse=True)
+                with open(pkl_files[0], "rb") as f:
+                    _semantic_data[dim] = pickle.load(f)
+            else:
+                _semantic_data[dim] = {}
+    return _semantic_data[dim]
 
 
 def typo_correction(word, dictionary):
@@ -90,30 +95,28 @@ def cosine_similarity(vec1, vec2):
     return np.dot(vec1, vec2) / (norm1 * norm2)
 
 
-def semantic_correction(word, dictionary, cutoff=0.5):
+def semantic_correction(word, dictionary, dim=100, cutoff=0.5):
     """Vector embedding based correction using pure numpy and GloVe."""
-    semantic_data = get_semantic_data()
+    semantic_data = get_semantic_data(dim)
     if not semantic_data or "embeddings" not in semantic_data:
-        # Fallback if dictionary isn't built yet
         return word
 
     embeddings = semantic_data["embeddings"]
-    dim = semantic_data["dim"]
+    actual_dim = semantic_data["dim"]
 
-    word_vec = get_mean_pooled_vector(word, embeddings, dim)
+    word_vec = get_mean_pooled_vector(word, embeddings, actual_dim)
     if np.linalg.norm(word_vec) == 0:
         return word
 
     best_match = word
     best_score = 0.0
 
-    # Filter dictionary based on actual available targets or original dictionary
     valid_targets = [t for t in dictionary if t in semantic_data["targets"]]
     if not valid_targets:
         valid_targets = semantic_data["targets"]
 
     for target in valid_targets:
-        target_vec = get_mean_pooled_vector(target, embeddings, dim)
+        target_vec = get_mean_pooled_vector(target, embeddings, actual_dim)
         if np.linalg.norm(target_vec) == 0:
             continue
 
@@ -125,17 +128,17 @@ def semantic_correction(word, dictionary, cutoff=0.5):
     return best_match
 
 
-def apply_correction(word, dictionary, strategy):
+def apply_correction(word, dictionary, strategy, dim):
     if strategy == "typo":
         return typo_correction(word, dictionary)
     elif strategy == "ngram":
         return ngram_correction(word, dictionary)
     elif strategy == "semantic":
-        return semantic_correction(word, dictionary)
+        return semantic_correction(word, dictionary, dim=dim)
     return word
 
 
-def correct_identifiers(identifiers, dictionary, strategy="typo"):
+def correct_identifiers(identifiers, dictionary, strategy="typo", dim=100):
     """
     Applies the specified word replacement techniques.
     'strategy' can be a comma-separated list like 'typo,ngram,semantic' for chaining fallback.
@@ -150,7 +153,7 @@ def correct_identifiers(identifiers, dictionary, strategy="typo"):
         corrected_name = check_name
 
         for strat in strategies:
-            new_name = apply_correction(corrected_name, dictionary, strat)
+            new_name = apply_correction(corrected_name, dictionary, strat, dim)
             if new_name != corrected_name:
                 corrected_name = new_name
                 break
