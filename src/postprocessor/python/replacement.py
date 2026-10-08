@@ -4,11 +4,19 @@ import pickle
 import numpy as np
 import glob
 
-# Cache for semantic dictionary
+# ==========================================
+# [GLOBAL CACHE]
+# 의미론적 교정에 사용되는 딕셔너리(캐시)
+# ==========================================
 _semantic_data = {}
 
 
 def get_semantic_data(dim=100):
+    """
+    주어진 차원(dim)에 해당하는 GloVe 압축 사전(.pkl)을 로드합니다.
+    이미 로드된 적이 있다면 전역 변수에서 캐시된 데이터를 반환하여
+    메모리 낭비와 로딩 시간을 절약합니다.
+    """
     global _semantic_data
     if dim not in _semantic_data:
         data_dir = os.path.join(
@@ -36,18 +44,38 @@ def get_semantic_data(dim=100):
     return _semantic_data[dim]
 
 
+# ==========================================
+# 1. Typo (편집 거리 기반 오타 교정)
+# 문자열의 형태적 삽입/삭제/변경 횟수를 기준으로
+# 단순 오타를 빠르게 교정하는 알고리즘
+# ==========================================
 def typo_correction(word, dictionary):
-    """Edit distance based correction."""
+    """
+    difflib 모듈을 활용하여 입력 단어와 가장 형태가 유사한 단어를 반환합니다.
+    임계값(cutoff) 이상인 단어가 없으면 원본 단어를 그대로 반환합니다.
+    """
     matches = difflib.get_close_matches(word, dictionary, n=1, cutoff=0.7)
     return matches[0] if matches else word
 
 
+# ==========================================
+# 2. N-gram (부분 문자열 패턴 교정)
+# 단어를 N개의 길이로 쪼갠 집합 간의 Jaccard 유사도를
+# 계산하여 변형이 심하거나 긴 단어의 패턴을 매칭하는 알고리즘
+# ==========================================
 def get_ngrams(word, n=2):
+    """
+    주어진 단어를 n 길이의 문자열 묶음(집합)으로 분해합니다.
+    """
     return set([word[i : i + n] for i in range(len(word) - n + 1)])
 
 
 def ngram_correction(word, dictionary, n=2, cutoff=0.3):
-    """N-gram based correction using Jaccard similarity on character n-grams."""
+    """
+    단어의 n-gram 집합과 도메인 사전 내 단어의 n-gram 집합 간
+    교집합/합집합 비율(Jaccard 유사도)을 계산하여 교정합니다.
+    단어가 n보다 짧은 경우 Typo 알고리즘으로 폴백합니다.
+    """
     if len(word) < n:
         return typo_correction(word, dictionary)
 
@@ -70,11 +98,24 @@ def ngram_correction(word, dictionary, n=2, cutoff=0.3):
     return best_match
 
 
+# ==========================================
+# 3. Semantic (의미론적 임베딩 기반 교정)
+# 형태가 아예 달라도(예: client -> customer)
+# 코사인 유사도가 높은 의미상 일치하는 단어로 치환하는 알고리즘
+# ==========================================
 def split_snake_case(word):
+    """
+    'user_name'과 같은 스네이크 케이스 문자열을 '_' 기준으로 잘라 리스트로 반환합니다.
+    """
     return word.lower().split("_")
 
 
 def get_mean_pooled_vector(word, embeddings_dict, dim):
+    """
+    스네이크 케이스로 쪼개진 각 단어의 임베딩 벡터를 구한 뒤,
+    합산 후 단어 개수로 나누어 평균 풀링(Mean Pooling)된 최종 벡터를 반환합니다.
+    사전에 없는(OOV) 단어는 무시되며, 모두 없으면 영벡터(Zero Vector)를 반환합니다.
+    """
     parts = split_snake_case(word)
     vectors = []
     for part in parts:
@@ -88,6 +129,9 @@ def get_mean_pooled_vector(word, embeddings_dict, dim):
 
 
 def cosine_similarity(vec1, vec2):
+    """
+    두 벡터 간의 코사인 유사도를 계산합니다. (Numpy 활용)
+    """
     norm1 = np.linalg.norm(vec1)
     norm2 = np.linalg.norm(vec2)
     if norm1 == 0 or norm2 == 0:
@@ -96,7 +140,10 @@ def cosine_similarity(vec1, vec2):
 
 
 def semantic_correction(word, dictionary, dim=100, cutoff=0.5):
-    """Vector embedding based correction using pure numpy and GloVe."""
+    """
+    입력 단어의 평균 풀링 벡터와 사전 타겟 단어의 평균 풀링 벡터 간
+    코사인 유사도를 계산하여 가장 의미론적으로 적합한 단어를 반환합니다.
+    """
     semantic_data = get_semantic_data(dim)
     if not semantic_data or "embeddings" not in semantic_data:
         return word
@@ -111,6 +158,7 @@ def semantic_correction(word, dictionary, dim=100, cutoff=0.5):
     best_match = word
     best_score = 0.0
 
+    # 캐시를 생성했을 당시 존재하던 타겟만 유효하게 검사
     valid_targets = [t for t in dictionary if t in semantic_data["targets"]]
     if not valid_targets:
         valid_targets = semantic_data["targets"]
@@ -128,7 +176,13 @@ def semantic_correction(word, dictionary, dim=100, cutoff=0.5):
     return best_match
 
 
+# ==========================================
+# 파이프라인(Chaining) 인터페이스
+# ==========================================
 def apply_correction(word, dictionary, strategy, dim):
+    """
+    단일 전략을 선택하여 교정 함수를 호출하는 라우터 역할을 수행합니다.
+    """
     if strategy == "typo":
         return typo_correction(word, dictionary)
     elif strategy == "ngram":
@@ -140,8 +194,9 @@ def apply_correction(word, dictionary, strategy, dim):
 
 def correct_identifiers(identifiers, dictionary, strategy="typo", dim=100):
     """
-    Applies the specified word replacement techniques.
-    'strategy' can be a comma-separated list like 'typo,ngram,semantic' for chaining fallback.
+    AST에서 추출된 식별자들을 대상으로 전략 기반 교정을 적용합니다.
+    여러 전략이 콤마로 나열된 경우(예: 'typo,ngram,semantic'),
+    가장 앞선 전략부터 순차적으로 시도(Fallback)하여 교정에 성공하면 중단합니다.
     """
     strategies = [s.strip() for s in strategy.split(",")]
 
@@ -158,6 +213,7 @@ def correct_identifiers(identifiers, dictionary, strategy="typo", dim=100):
                 corrected_name = new_name
                 break
 
+        # 교정이 일어났다면 원래 대소문자 속성에 맞추어 변환 후 저장
         if corrected_name != check_name:
             final_name = corrected_name.upper() if is_upper else corrected_name
             node.set("this", final_name)

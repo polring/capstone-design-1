@@ -5,21 +5,15 @@ from .replacement import correct_identifiers
 from .reconstruction import reconstruct_sql
 from .schema import load_dictionary_from_sqlite
 
-# Default dictionary just in case db is not provided or fails to load
-DEFAULT_DICTIONARY = [
-    "users",
-    "user_name",
-    "email",
-    "id",
-    "name",
-    "department",
-    "manager_id",
-]
-
 
 def process_sql(sql_query, strategy="typo", dictionary=None, dim=100):
+    """
+    파싱된 SQL 구문의 식별자들을 주어진 사전(dictionary)과 전략을 바탕으로 교정하고
+    다시 SQL 문자열로 변환하여 반환합니다.
+    사전이 비어있거나 주어지지 않으면 에러 메시지를 반환합니다.
+    """
     if dictionary is None or len(dictionary) == 0:
-        dictionary = DEFAULT_DICTIONARY
+        return "Error: No valid dictionary provided for correction. Please check the DB path."
 
     try:
         ast, identifiers = extract_identifiers(sql_query)
@@ -30,6 +24,9 @@ def process_sql(sql_query, strategy="typo", dictionary=None, dim=100):
 
 
 def main():
+    """
+    CLI 파라미터를 파싱하고 데이터베이스에서 사전을 로드하여 후처리기를 구동합니다.
+    """
     parser = argparse.ArgumentParser(description="SQL Post-processor")
     parser.add_argument(
         "--input", type=str, required=True, help="Input SQL string to correct"
