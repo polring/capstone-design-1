@@ -5,3 +5,5 @@ torch==2.14.0+cu130
 numpy==2.5.3
 tensorboard==2.21.0
 pytest==9.1.1
+
+sqlglot>=30.0.0
