@@ -28,8 +28,7 @@ def main():
         "--strategy",
         type=str,
         default="typo",
-        choices=["typo", "ngram", "semantic"],
-        help="Correction strategy",
+        help="Correction strategy (comma-separated for chaining: typo,ngram,semantic)",
     )
 
     args = parser.parse_args()

@@ -7,3 +7,6 @@ tensorboard==2.21.0
 pytest==9.1.1
 
 sqlglot>=30.0.0
+
+sentence-transformers>=3.0.0
+scikit-learn>=1.3.0
