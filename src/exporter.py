@@ -9,7 +9,13 @@ import io
 import struct
 from pathlib import Path
 import torch
-from src.inference import InferenceModel, ModelConfig, load_checkpoint
+from src.inference.gguf_model import (
+    InferenceModel,
+    ModelConfig,
+    _has_training_checkpoint_format,
+    load_checkpoint,
+)
+from src.inference.loading import tokenizer_path_for
 from src.tokenizer import bpe
 from src.tokenizer.contract import TokenizerConfig
 
@@ -103,36 +109,54 @@ def export_model(model, output, merges, tokenizer_config=None):
         stream.write(tensor_data)
 
 
-def main():
+def _checkpoint_tokenizer_path(checkpoint_path):
+    """The tokenizer a training or release checkpoint was trained with, or None."""
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    if not _has_training_checkpoint_format(checkpoint):
+        return None
+    return tokenizer_path_for(checkpoint_path, checkpoint)
+
+
+def main(argv=None):
     parser = argparse.ArgumentParser(description="Export capstone_sql F32 GGUF")
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--checkpoint")
     source.add_argument("--dummy", action="store_true")
     parser.add_argument("--output", required=True)
     parser.add_argument(
-        "--merges", help="team bpe_merges.json; required for checkpoints"
+        "--tokenizer",
+        help="team tokenizer.json (seeds + merges); defaults to the one saved"
+        " with a training or release checkpoint",
     )
     parser.add_argument(
         "--tokenizer-config", help="JSON token layout matching the training tokenizer"
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.dummy:
         torch.manual_seed(17)
         model = InferenceModel(
             ModelConfig(dim=16, heads=2, layers=2, ffn_dim=32)
         ).eval()
-        merges = bpe.load_merges(args.merges) if args.merges else []
+        tokenizer_path = args.tokenizer
     else:
-        if not args.merges:
-            parser.error("--checkpoint requires --merges")
+        tokenizer_path = args.tokenizer or _checkpoint_tokenizer_path(args.checkpoint)
+        if not tokenizer_path:
+            parser.error(
+                "--checkpoint in the config/state_dict format requires --tokenizer"
+            )
         model = load_checkpoint(args.checkpoint)
-        merges = bpe.load_merges(args.merges)
+    # Tokenizer.load also reads the older merges-only bpe_merges.json.
+    tokenizer = (
+        bpe.Tokenizer.load(tokenizer_path)
+        if tokenizer_path
+        else bpe.Tokenizer(bpe.load_seed_tokens())
+    )
     tokenizer_config = (
         TokenizerConfig.load(args.tokenizer_config)
         if args.tokenizer_config
-        else TokenizerConfig.from_team_bpe()
+        else TokenizerConfig.from_tokenizer(tokenizer)
     )
-    export_model(model, args.output, merges, tokenizer_config)
+    export_model(model, args.output, tokenizer.merges, tokenizer_config)
     print(f"saved {args.output}; architecture=capstone_sql; dummy={args.dummy}")
 
 

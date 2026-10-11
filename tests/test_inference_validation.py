@@ -4,11 +4,14 @@ import pytest
 import torch
 
 from src.exporter import _is_valid_ordered_merge
-from src.inference import (
+from src.inference.gguf_model import (
     ModelConfig,
     _has_checkpoint_contract,
+    _has_training_checkpoint_format,
     _is_input_shape_within_context,
+    from_training_checkpoint,
 )
+from src.models.model import TextToSQLModel
 
 pytestmark = pytest.mark.unit
 
@@ -70,6 +73,40 @@ def test_input_shape_checks_rank_before_sequence_length(shape, expected):
 )
 def test_checkpoint_contract_requires_both_keys(checkpoint, expected):
     assert _has_checkpoint_contract(checkpoint) is expected
+
+
+@pytest.mark.parametrize(
+    "checkpoint, expected",
+    [
+        (None, False),
+        ({"model": {}}, False),
+        ({"model_cfg": {}}, False),
+        ({"config": {}, "state_dict": {}}, False),
+        ({"model_cfg": {}, "model": {}}, True),
+        ({"format_version": 1, "stage": 1, "model_cfg": {}, "model": {}}, True),
+    ],
+)
+def test_training_checkpoint_format_requires_both_keys(checkpoint, expected):
+    assert _has_training_checkpoint_format(checkpoint) is expected
+
+
+def test_training_checkpoint_converts_to_same_logits():
+    torch.manual_seed(0)
+    cfg = {
+        "vocab_size": 320,
+        "dim": 16,
+        "num_layers": 2,
+        "num_heads": 2,
+        "ffn_dim": 43,
+        "max_seq_len": 32,
+        "padding_idx": 256,
+    }
+    team = TextToSQLModel(**cfg).eval()
+    converted = from_training_checkpoint({"model_cfg": cfg, "model": team.state_dict()})
+    assert converted.config.layers == 2 and converted.config.context == 32
+    ids = torch.tensor([[257, 104, 105, 259, 300]])
+    with torch.no_grad():
+        torch.testing.assert_close(converted(ids), team(ids), rtol=0, atol=0)
 
 
 @pytest.mark.parametrize(

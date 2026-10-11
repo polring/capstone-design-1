@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from src.data.dataset import PAD_ID, TextToSQLDataset, collate_fn, tokenize_pairs
+from src.tokenizer import bpe
 from src.models.model import TextToSQLModel
 from src.train import evaluate_teacher_forced, lr_at, make_optimizer, masked_loss, split_by_sql
 
@@ -122,7 +123,7 @@ def test_make_optimizer_weight_decay_groups():
 def test_evaluate_teacher_forced_and_train_step():
     """teacher-forced 평가가 유한한 loss·[0,1] 정확도를 내고, 몇 step 학습하면 loss 가 줄어드는지 검증"""
     pairs = [{"question": f"item {i}", "sql": f"SELECT * FROM items WHERE item_id = {i}"} for i in range(8)]
-    loader = DataLoader(TextToSQLDataset(tokenize_pairs(pairs, [])), batch_size=8, collate_fn=collate_fn)
+    loader = DataLoader(TextToSQLDataset(tokenize_pairs(pairs, bpe.Tokenizer(bpe.load_seed_tokens()))), batch_size=8, collate_fn=collate_fn)
     model = tiny_model()
     device = torch.device("cpu")
 

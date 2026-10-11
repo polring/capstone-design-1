@@ -8,7 +8,7 @@ import pytest
 import torch
 
 from src.exporter import export_model
-from src.inference import InferenceModel, ModelConfig
+from src.inference.gguf_model import InferenceModel, ModelConfig
 from src.tokenizer.contract import TokenizerConfig
 from tests.test_inference import engine, run  # Reuse the compiled C fixture.
 

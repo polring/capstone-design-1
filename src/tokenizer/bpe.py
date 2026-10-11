@@ -1,161 +1,68 @@
+"""
+bpe.py — byte-level BPE 토크나이저
+
+토큰 ID 배치 (모든 단계 공통):
+    0~255         바이트
+    256~259       특수 토큰 <pad> <bos> <eos> <sep>
+    260~          seed 토큰 (항상 토큰 하나: SQL 키워드, 테이블·컬럼 이름, 범주형 값)
+    seed 다음~    BPE 병합 결과
+
+seed 토큰 목록은 단계마다 달라서 파일로 관리한다 (config.SEED_TOKENS_PATH, 사람이 편집).
+학습 결과는 특수 토큰 + seed 토큰 + 병합 규칙을 한 파일(config.TOKENIZER_PATH)에 담는다. seed ID 가
+목록 순서로 정해지므로, 학습 당시 목록을 결과 파일에 함께 저장해야 나중에 seed 파일을 고쳐도
+기존 모델이 그대로 동작한다. 이 파일 하나로 Python 과 C 추론 엔진이 같은 토큰화를 재현한다.
+
+    python -m src.tokenizer.bpe          # seed 파일 + 학습 쌍 → tokenizer.json, round-trip·미등장 이름 토큰 수 확인
+    python -m src.tokenizer.bpe --train-files a.json b.json --seeds s.json --out t.json   # 입력·출력 바꾸기
+"""
+
 from __future__ import annotations
+
+import argparse
 import json
 import re
-import sys
 from collections import Counter
 from pathlib import Path
 
-from src.config import VOCAB_SIZE, DATA_DIR, HOLDOUT_PATH, BPE_MERGES_PATH
+from src.config import VOCAB_SIZE, TRAIN_DIR, HOLDOUT_PATH, SEED_TOKENS_PATH, TOKENIZER_PATH
 
-BYTE_BASE = 0
 SPECIAL_BASE = 256
-SEED_BASE = 260
-
 SPECIAL_TOKENS = ["<pad>", "<bos>", "<eos>", "<sep>"]
+SEED_BASE = SPECIAL_BASE + len(SPECIAL_TOKENS)
+FORMAT_VERSION = 1
 
-SEED_TOKENS = [
-    "WHERE",
-    "FROM",
-    "SELECT",
-    "customers",
-    "customer_id",
-    "name",
-    "city",
-    "membership",
-    "items",
-    "item_id",
-    "item_name",
-    "category",
-    "price",
-    "stock",
-    "orders",
-    "order_id",
-    "quantity",
-    "status",
-    "new york",
-    "chicago",
-    "houston",
-    "seattle",
-    "boston",
-    "denver",
-    "bronze",
-    "silver",
-    "gold",
-    "platinum",
-    "electronics",
-    "office supplies",
-    "kitchen",
-    "furniture",
-    "clothing",
-    "sports",
-    "pending",
-    "shipped",
-    "delivered",
-    "cancelled",
-]
-
-MERGE_BASE = SEED_BASE + len(SEED_TOKENS)
+Piece = tuple[str, "int | None"]
+Merge = tuple[tuple[int, int], int]
 
 
 def _validate_seeds(seeds: list[str]) -> None:
     assert len(seeds) == len(set(seeds)), "Seed tokens must be unique."
     for s in seeds:
         assert len(s) >= 2, f"Seed token '{s}' must be at least 2 characters long."
-        assert (
-            s.strip() == s
-        ), f"Seed token '{s}' must not have leading or trailing whitespace."
-
-
-_validate_seeds(SEED_TOKENS)
-
-SEED_TO_ID: dict[str, int] = {s: SEED_BASE + i for i, s in enumerate(SEED_TOKENS)}
-ID_TO_SEED: dict[int, str] = {i: s for s, i in SEED_TO_ID.items()}
-
-MERGE_BUDGET = VOCAB_SIZE - MERGE_BASE
-
-Piece = tuple[str, "int | None"]
+        assert s.strip() == s, f"Seed token '{s}' must not have leading or trailing whitespace."
 
 
 def _build_pattern(seeds: list[str]) -> re.Pattern:
     alts: list[str] = []
     for s in sorted(seeds, key=len, reverse=True):
-        alts.append(
-            r"\b" + re.escape(s) + r"\b"
-        )  # 단어 경계로 둘러쌓여 있는 시드 토큰 (' . , * 등으로 둘러쌓여 있는 경우)
-    alts.append(r"[^\W\d_]+")  # 단어문자이면서 숫자와 밑줄이 아닌것, 즉 알파벳만
-    alts.append(r"[0-9]")  # 0~9 까지 한글자만
-    alts.append(r"\s")  # 공백 문자
-    alts.append(r".")  # 아무 문자 한글자
-    return re.compile(
-        "|".join(alts), re.DOTALL
-    )  # re.DOTALL: .이 줄바꿈 문자를 포함한 모든 문자와 매치되도록 함
+        alts.append(r"\b" + re.escape(s) + r"\b")      # 단어 경계로 둘러쌓여 있는 시드 토큰 (' . , * 등으로 둘러쌓여 있는 경우)
+    alts.append(r"[^\W\d_]+")                          # 단어문자이면서 숫자와 밑줄이 아닌것, 즉 알파벳만
+    alts.append(r"[0-9]")                              # 0~9 까지 한글자만
+    alts.append(r"\s")                                 # 공백 문자
+    alts.append(r".")                                  # 아무 문자 한글자
+    return re.compile("|".join(alts), re.DOTALL)       # re.DOTALL: .이 줄바꿈 문자를 포함한 모든 문자와 매치되도록 함
 
 
-_PATTERN = None
+def load_seed_tokens(path: str | Path = SEED_TOKENS_PATH) -> list[str]:
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)["seed_tokens"]
 
 
-def pre_tokenize(text: str) -> list[Piece]:
-    global _PATTERN
-    if _PATTERN is None:
-        _PATTERN = _build_pattern(SEED_TOKENS)
-    pieces: list[Piece] = []
-    pos = 0
-    for m in _PATTERN.finditer(text):
-        assert m.start() == pos, f"Unexpected gap in text at position {pos}."
-        s = m.group(0)
-        pieces.append((s, SEED_TO_ID.get(s)))
-        pos = m.end()
-    assert pos == len(text), f"Unexpected gap in text at position {pos}."
-    return pieces
+# ---------------------------------------------------------------------------
+# 학습 보조 (seed 와 무관한 순수 함수)
+# ---------------------------------------------------------------------------
 
-
-def pieces_to_text(pieces: list[Piece]) -> str:
-    return "".join(p[0] for p in pieces)
-
-
-def check_roundtrip(text: str) -> None:
-    pieces = pre_tokenize(text)
-    restored = pieces_to_text(pieces)
-    if restored != text:
-        raise AssertionError(f"Roundtrip failed: '{restored}' != '{text}'")
-
-
-def show(text: str) -> None:
-    pieces = pre_tokenize(text)
-    check_roundtrip(text)
-    parts = []
-    for s, sid in pieces:
-        parts.append(f"[{s}]" if sid is None else repr(s))
-    print(f"Text: {text}\\n")
-    print(f"Pieces: {' '.join(parts)}\\n")
-    print(
-        f"조각 {len(pieces)}개, Seed 토큰 {sum(1 for _, sid in pieces if sid is not None)}개\\n"
-    )
-
-
-def load_corpus(data_dir: str | Path = DATA_DIR) -> list[str]:
-    corpus: list[str] = []
-    for pf in sorted(Path(data_dir).glob("pilot*/pilot_train_pairs.json")):
-        with open(pf, encoding="utf-8") as f:
-            pairs = json.load(f)
-        for row in pairs:
-            corpus.append(row["question"])
-            corpus.append(row["sql"])
-    return corpus
-
-
-def corpus_piece_freqs(corpus: list[str]) -> Counter[str]:
-    freqs: Counter[str] = Counter()
-    for text in corpus:
-        for piece, sid in pre_tokenize(text):
-            if sid is None:
-                freqs[piece] += 1
-    return freqs
-
-
-def get_pair_counts(
-    word_syms: dict[str, list[int]], freqs: Counter[str]
-) -> Counter[tuple[int, int]]:
+def get_pair_counts(word_syms: dict[str, list[int]], freqs: Counter[str]) -> Counter[tuple[int, int]]:
     pair_counts: Counter[tuple[int, int]] = Counter()
     for word, syms in word_syms.items():
         weight = freqs[word]
@@ -178,116 +85,185 @@ def merge_word(syms: list[int], pair: tuple[int, int], new_id: int) -> list[int]
     return out
 
 
-def build_base_id_to_bytes() -> dict[int, bytes]:
-    id_to_bytes: dict[int, bytes] = {i: bytes([i]) for i in range(256)}
-    for sid, s in ID_TO_SEED.items():
-        id_to_bytes[sid] = s.encode("utf-8")
-    return id_to_bytes
+# ---------------------------------------------------------------------------
+# 토크나이저
+# ---------------------------------------------------------------------------
+
+class Tokenizer:
+    """seed 토큰 목록 + 병합 규칙. 병합 규칙이 비어 있으면 seed + 바이트 단위로만 인코딩한다."""
+
+    def __init__(self, seed_tokens: list[str], merges: list[Merge] | None = None):
+        _validate_seeds(seed_tokens)
+        self.seed_tokens = list(seed_tokens)
+        self.seed_to_id = {s: SEED_BASE + i for i, s in enumerate(self.seed_tokens)}
+        self.merge_base = SEED_BASE + len(self.seed_tokens)
+        self.merges: list[Merge] = list(merges or [])
+        self._pattern = _build_pattern(self.seed_tokens)
+        self.id_to_bytes: dict[int, bytes] = {i: bytes([i]) for i in range(256)}
+        for s, sid in self.seed_to_id.items():
+            self.id_to_bytes[sid] = s.encode("utf-8")
+        for (a, b), new_id in self.merges:
+            self.id_to_bytes[new_id] = self.id_to_bytes[a] + self.id_to_bytes[b]
+
+    @property
+    def vocab_size(self) -> int:
+        """실제로 쓰는 ID 개수 (= 마지막 병합 ID + 1)."""
+        return self.merge_base + len(self.merges)
+
+    # --- 사전 분할 -----------------------------------------------------------
+
+    def pre_tokenize(self, text: str) -> list[Piece]:
+        """text → (조각, seed ID 또는 None). seed 토큰은 단어 경계 안에서 통째로 한 조각이 된다."""
+        pieces: list[Piece] = []
+        pos = 0
+        for m in self._pattern.finditer(text):
+            assert m.start() == pos, f"Unexpected gap in text at position {pos}."
+            s = m.group(0)
+            pieces.append((s, self.seed_to_id.get(s)))
+            pos = m.end()
+        assert pos == len(text), f"Unexpected gap in text at position {pos}."
+        return pieces
+
+    # --- 인코딩 / 디코딩 -----------------------------------------------------
+
+    def encode(self, text: str) -> list[int]:
+        ids: list[int] = []
+        for piece, sid in self.pre_tokenize(text):
+            if sid is not None:
+                ids.append(sid)
+            else:
+                syms = list(piece.encode("utf-8"))
+                for pair, new_id in self.merges:
+                    syms = merge_word(syms, pair, new_id)
+                ids.extend(syms)
+        return ids
+
+    def decode(self, ids: list[int]) -> str:
+        """특수 토큰은 태그 문자열(<bos> 등)로 복원한다. 모르는 ID 는 KeyError, 깨진 UTF-8 은 UnicodeDecodeError."""
+        parts: list[str] = []
+        buf = bytearray()
+        for i in ids:
+            if SPECIAL_BASE <= i < SEED_BASE:
+                if buf:
+                    parts.append(bytes(buf).decode("utf-8"))
+                    buf = bytearray()
+                parts.append(SPECIAL_TOKENS[i - SPECIAL_BASE])
+            else:
+                buf.extend(self.id_to_bytes[i])
+        if buf:
+            parts.append(bytes(buf).decode("utf-8"))
+        return "".join(parts)
+
+    # --- 학습 ----------------------------------------------------------------
+
+    @classmethod
+    def train(cls, corpus: list[str], seed_tokens: list[str], vocab_size: int = VOCAB_SIZE) -> "Tokenizer":
+        """vocab_size 를 채울 때까지 가장 많이 나온 바이트 쌍을 병합한다 (seed 토큰 조각은 병합 대상 아님)."""
+        tok = cls(seed_tokens)
+        freqs: Counter[str] = Counter()
+        for text in corpus:
+            for piece, sid in tok.pre_tokenize(text):
+                if sid is None:
+                    freqs[piece] += 1
+        word_syms: dict[str, list[int]] = {w: list(w.encode("utf-8")) for w in freqs}
+        merges: list[Merge] = []
+        for step in range(vocab_size - tok.merge_base):
+            pair_counts = get_pair_counts(word_syms, freqs)
+            if not pair_counts:
+                break
+            best_count = max(pair_counts.values())
+            best_pair = min(p for p, c in pair_counts.items() if c == best_count)  # 동점이면 항상 같은 쌍이 뽑히도록 사전순 최솟값으로 고정
+            new_id = tok.merge_base + step
+            for w in word_syms:
+                word_syms[w] = merge_word(word_syms[w], best_pair, new_id)
+            merges.append((best_pair, new_id))
+        return cls(seed_tokens, merges)
+
+    # --- 저장 / 불러오기 -----------------------------------------------------
+
+    def to_dict(self) -> dict:
+        return {
+            "format_version": FORMAT_VERSION,
+            "special_base": SPECIAL_BASE, "special_tokens": SPECIAL_TOKENS,
+            "seed_base": SEED_BASE, "seed_tokens": self.seed_tokens,
+            "merge_base": self.merge_base, "merges": [[a, b, new_id] for (a, b), new_id in self.merges],
+        }
+
+    def save(self, path: str | Path) -> None:
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, ensure_ascii=False)
+
+    @classmethod
+    def load(cls, path: str | Path, legacy_seed_path: str | Path = SEED_TOKENS_PATH) -> "Tokenizer":
+        """tokenizer.json 을 읽는다. 예전 형식(병합 규칙만 있는 bpe_merges.json 리스트)이면 seed 목록은
+        legacy_seed_path 에서 읽는다 — 이전 1단계 실행 결과(runs/ 의 bpe_merges.json)를 계속 평가하기 위해서다."""
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            return cls(load_seed_tokens(legacy_seed_path), [((a, b), new_id) for a, b, new_id in data])
+        if data["special_tokens"] != SPECIAL_TOKENS or data["special_base"] != SPECIAL_BASE:
+            raise ValueError(f"{path}: 특수 토큰 배치가 코드와 다름 ({data['special_tokens']})")
+        tok = cls(data["seed_tokens"], [((a, b), new_id) for a, b, new_id in data["merges"]])
+        if tok.merge_base != data["merge_base"]:
+            raise ValueError(f"{path}: merge_base 불일치 ({data['merge_base']} != {tok.merge_base})")
+        return tok
 
 
-Merge = tuple[tuple[int, int], int]
+# ---------------------------------------------------------------------------
+# 코퍼스
+# ---------------------------------------------------------------------------
+
+def load_corpus(files: list[str | Path] | None = None, train_dir: str | Path = TRAIN_DIR) -> list[str]:
+    """BPE 코퍼스 = 학습 쌍의 (질문, SQL) 전부. files 를 주면 그 파일들, 아니면 학습 폴더의 *.json
+    (dataset.load_train_pairs 와 같은 규칙. bpe 는 torch 없이 돌아야 해서 따로 둔다)."""
+    corpus: list[str] = []
+    for pf in [Path(f) for f in files] if files else sorted(Path(train_dir).glob("*.json")):
+        with open(pf, encoding="utf-8") as f:
+            pairs = json.load(f)
+        for row in pairs:
+            corpus.append(row["question"])
+            corpus.append(row["sql"])
+    return corpus
 
 
-def train(
-    corpus: list[str], merge_budget: int = MERGE_BUDGET
-) -> tuple[list[Merge], dict[int, bytes]]:
-    freqs = corpus_piece_freqs(corpus)
-    word_syms: dict[str, list[int]] = {w: list(w.encode("utf-8")) for w in freqs}
-    id_to_bytes = build_base_id_to_bytes()
-    merges: list[Merge] = []
+def main() -> int:
+    ap = argparse.ArgumentParser(description="BPE 토크나이저 학습")
+    ap.add_argument("--train-files", nargs="+", default=None, help=f"코퍼스 학습 쌍 파일 (기본: {TRAIN_DIR}/*.json)")
+    ap.add_argument("--seeds", default=str(SEED_TOKENS_PATH), help=f"seed 토큰 파일 (기본 {SEED_TOKENS_PATH})")
+    ap.add_argument("--vocab-size", type=int, default=VOCAB_SIZE, help=f"목표 vocab 크기 (기본 {VOCAB_SIZE})")
+    ap.add_argument("--out", default=str(TOKENIZER_PATH), help=f"저장 위치 (기본 {TOKENIZER_PATH})")
+    ap.add_argument("--holdout", default=str(HOLDOUT_PATH), help=f"미등장 이름 토큰 수 확인용 (기본 {HOLDOUT_PATH})")
+    args = ap.parse_args()
 
-    for step in range(merge_budget):
-        pair_counts = get_pair_counts(word_syms, freqs)
-        if not pair_counts:
-            break
-        best_count = max(pair_counts.values())
-        best_pair = min(
-            p for p, c in pair_counts.items() if c == best_count
-        )  # 동점이면 항상 같은 쌍이 뽑히도록 사전순 최솟값으로 고정
-        new_id = MERGE_BASE + step
-        for w in word_syms:
-            word_syms[w] = merge_word(word_syms[w], best_pair, new_id)
-        id_to_bytes[new_id] = id_to_bytes[best_pair[0]] + id_to_bytes[best_pair[1]]
-        merges.append((best_pair, new_id))
-
-    return merges, id_to_bytes
-
-
-def id_to_bytes_from_merges(merges: list[Merge]) -> dict[int, bytes]:
-    id_to_bytes = build_base_id_to_bytes()
-    for (a, b), new_id in merges:
-        id_to_bytes[new_id] = id_to_bytes[a] + id_to_bytes[b]
-    return id_to_bytes
-
-
-def apply_merges(syms: list[int], merges: list[Merge]) -> list[int]:
-    for pair, new_id in merges:
-        syms = merge_word(syms, pair, new_id)
-    return syms
-
-
-def encode(text: str, merges: list[Merge]) -> list[int]:
-    ids: list[int] = []
-    for piece, sid in pre_tokenize(text):
-        if sid is not None:
-            ids.append(sid)
-        else:
-            ids.extend(apply_merges(list(piece.encode("utf-8")), merges))
-    return ids
-
-
-def decode(ids: list[int], id_to_bytes: dict[int, bytes]) -> str:
-    parts: list[str] = []
-    buf = bytearray()
-    for i in ids:
-        if SPECIAL_BASE <= i < SPECIAL_BASE + len(SPECIAL_TOKENS):
-            if buf:
-                parts.append(bytes(buf).decode("utf-8"))
-                buf = bytearray()
-            parts.append(SPECIAL_TOKENS[i - SPECIAL_BASE])
-        else:
-            buf.extend(id_to_bytes[i])
-    if buf:
-        parts.append(bytes(buf).decode("utf-8"))
-    return "".join(parts)
-
-
-def save_merges(merges: list[Merge], path: str | Path) -> None:
-    data = [[a, b, new_id] for (a, b), new_id in merges]
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f)
-
-
-def load_merges(path: str | Path) -> list[Merge]:
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f)
-    return [((a, b), new_id) for a, b, new_id in data]
-
-
-if __name__ == "__main__":
-    corpus = load_corpus()
+    corpus = load_corpus(args.train_files)
     print(f"코퍼스 크기: {len(corpus)}")
 
-    merges, id_to_bytes = train(corpus)
-    print(f"학습된 병합 수: {len(merges)} / {MERGE_BUDGET}")
-    save_merges(merges, BPE_MERGES_PATH)
+    seeds = load_seed_tokens(args.seeds)
+    tok = Tokenizer.train(corpus, seeds, args.vocab_size)
+    print(f"seed 토큰 {len(seeds)}개, 학습된 병합 수: {len(tok.merges)} / {args.vocab_size - tok.merge_base}")
+    tok.save(args.out)
+    print(f"저장: {args.out}")
 
     bad = 0
     for text in corpus:
-        restored = decode(encode(text, merges), id_to_bytes)
+        restored = tok.decode(tok.encode(text))
         if restored != text:
             bad += 1
             if bad <= 5:
                 print(f"ROUNDTRIP FAIL: {text!r} -> {restored!r}")
     print(f"round-trip 실패: {bad} / {len(corpus)}")
 
-    holdout_path = Path(HOLDOUT_PATH)
+    holdout_path = Path(args.holdout)
     if holdout_path.exists():
         with open(holdout_path, encoding="utf-8") as f:
             holdout = json.load(f)
         names = [r["name"] for r in holdout["customers"]["heldout_rows"]]
         names += [r["item_name"] for r in holdout["items"]["heldout_rows"]]
-        counts = [len(encode(n, merges)) for n in names]
-        print(
-            f"미등장 이름 {len(names)}개 평균 토큰 수: {sum(counts) / len(counts):.2f}"
-        )
+        counts = [len(tok.encode(n)) for n in names]
+        print(f"미등장 이름 {len(names)}개 평균 토큰 수: {sum(counts) / len(counts):.2f}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
