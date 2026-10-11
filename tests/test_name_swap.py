@@ -1,6 +1,6 @@
+import json
 import random
 import zipfile
-from pathlib import Path
 
 import pytest
 
@@ -8,7 +8,6 @@ from src.data import name_swap as ns
 from src.data.generator import db_gen
 from src.data.generator.question_gen import literal_in_question
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CUSTOMER = db_gen.GIVEN_NAMES[0]
 ITEM = next(iter(db_gen.CATEGORY_NOUNS.values()))[0]
 
@@ -26,10 +25,23 @@ def make_pairs() -> list[dict]:
     ]
 
 
+HOLDOUT_NAME, HOLDOUT_ITEM = "zelphine", "quorvel"
+
+
 @pytest.fixture
-def swapper(monkeypatch):
-    # NameSwapper 는 holdout.json 을 cwd 기준 상대 경로로 읽는다
-    monkeypatch.chdir(PROJECT_ROOT)
+def holdout_path(tmp_path, monkeypatch):
+    """저장소의 data/holdout.json 대신 쓰는 최소 holdout 파일 (config.HOLDOUT_PATH 를 임시 경로로 바꾼다)"""
+    path = tmp_path / "holdout.json"
+    path.write_text(json.dumps({
+        "customers": {"heldout_rows": [{"name": HOLDOUT_NAME}]},
+        "items": {"heldout_rows": [{"item_name": HOLDOUT_ITEM}]},
+    }), encoding="utf-8")
+    monkeypatch.setattr(ns.config, "HOLDOUT_PATH", str(path))
+    return path
+
+
+@pytest.fixture
+def swapper(holdout_path):
     return ns.NameSwapper(make_pairs(), english=set())
 
 
@@ -165,12 +177,12 @@ def test_swap_names_avoid_banned_words(swapper):
     out, _ = swapper.swap(pairs, 1.0, random.Random(0))
     new_names = {ns.NAME_SQL.search(p["sql"]).group(2) for p in out if p["swapped"]}
     assert new_names and not new_names & swapper.base_banned
+    assert {HOLDOUT_NAME, HOLDOUT_ITEM} <= swapper.base_banned
 
 
 @pytest.mark.unit
-def test_swap_rejects_english_words(monkeypatch):
+def test_swap_rejects_english_words(holdout_path):
     """영단어 목록에 있는 후보는 버리고 rejected_english 로 센다"""
-    monkeypatch.chdir(PROJECT_ROOT)
     swapper = ns.NameSwapper(make_pairs(), english=set())
     out, stats = swapper.swap(make_pairs()[:1], 1.0, random.Random(0))
     assert out[0]["swapped"] and stats.get("rejected_english", 0) == 0

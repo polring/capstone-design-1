@@ -51,10 +51,12 @@ python -m src.train                  # 본 학습 + 평가 (이름 교체 40% �
 
 모든 테스트에는 `unit` / `integration` 중 **정확히 하나**를 지정한다.
 
-- `unit`: 단일 모듈·함수의 독립 검증. 외부 프로세스 실행이나 컴파일은 하지 않는다.
-  한 모듈의 파일 읽기·저장 함수 검증을 위한 `tmp_path` 사용은 허용한다.
-- `integration`: 여러 모듈의 연동, 모델의 Forward/Backward 파이프라인,
-  C 엔진 빌드·subprocess 실행, exporter와 loader의 파일 왕복 등을 검증한다.
+분류는 import 한 모듈 개수가 아니라 **assert 가 무엇을 검증하는지**로 정한다.
+
+- `unit`: 한 함수·클래스의 동작 검증. 다른 모듈은 입력 준비용으로 쓰거나 대체(scripted forward 등)해도 된다.
+  외부 프로세스·컴파일·저장소 데이터 파일(`data/…`) 없이 메모리와 `tmp_path` 만 쓴다. 모델 forward 검증은 unit 이다.
+- `integration`: 구성요소 간 왕복·일치 검증(exporter↔loader, Python↔C, tokenize↔split, 배치 생성↔단일 생성),
+  학습 동작(backward·optimizer step), C 엔진 빌드·subprocess·pytester, 저장소 데이터 파일 사용.
 
 파일 전체가 같은 분류면 import 다음에 `pytestmark = pytest.mark.unit` 또는
 `pytestmark = pytest.mark.integration`을 넣는다. 혼합 파일은 각 테스트 함수나 클래스에

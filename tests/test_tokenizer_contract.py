@@ -123,7 +123,7 @@ def test_export_accepts_variable_seed_count(tmp_path, seed_count):
         {"seeds": ("nul\0seed",)},
     ],
 )
-@pytest.mark.integration
+@pytest.mark.unit
 def test_export_rejects_invalid_layout_before_writing(custom_model, tmp_path, changes):
     model, _, layout, _ = custom_model
     path = tmp_path / "invalid.gguf"
@@ -132,7 +132,7 @@ def test_export_rejects_invalid_layout_before_writing(custom_model, tmp_path, ch
     assert not path.exists()
 
 
-@pytest.mark.integration
+@pytest.mark.unit
 def test_export_rejects_merge_using_special_token(custom_model, tmp_path):
     model, _, layout, _ = custom_model
     with pytest.raises(ValueError, match="merges"):

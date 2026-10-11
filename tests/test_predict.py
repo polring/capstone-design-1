@@ -11,6 +11,8 @@ from src.tokenizer import bpe
 VOCAB, MAX_LEN = 300, 64
 ID_TO_BYTES = bpe.id_to_bytes_from_merges([])
 
+pytestmark = pytest.mark.unit
+
 
 def scripted_model(output: str | list[int]) -> tuple[TextToSQLModel, list]:
     """프롬프트 뒤에 output 을 생성하고 <eos> 를 내는 모델. 받은 프롬프트를 기록한다."""
@@ -45,7 +47,6 @@ def con():
 # predict
 # ===========================================================================
 
-@pytest.mark.integration
 def test_predict_builds_lowercased_prompt_and_decodes():
     """질문을 소문자·strip 해서 <bos> question <sep> 프롬프트로 넣고, 생성 결과를 SQL 문자열로 복원"""
     sql = "SELECT city FROM customers WHERE name = 'ashley'"
@@ -54,7 +55,6 @@ def test_predict_builds_lowercased_prompt_and_decodes():
     assert prompts[0] == [BOS_ID] + bpe.encode("what city is ashley in?", []) + [SEP_ID]
 
 
-@pytest.mark.integration
 def test_predict_rejects_too_long_question():
     """프롬프트가 max_seq_len 이상이면 ValueError"""
     model, _ = scripted_model("x")
@@ -62,7 +62,6 @@ def test_predict_rejects_too_long_question():
         pr.predict(model, "a" * MAX_LEN, [], ID_TO_BYTES, None)
 
 
-@pytest.mark.integration
 def test_predict_returns_none_on_broken_bytes():
     """깨진 UTF-8 을 생성하면 None"""
     model, _ = scripted_model([0xFF])
@@ -73,7 +72,6 @@ def test_predict_returns_none_on_broken_bytes():
 # run_sql / answer
 # ===========================================================================
 
-@pytest.mark.unit
 def test_run_sql_prints_rows(con, capsys):
     """결과 행 수·컬럼명·행 값을 출력"""
     pr.run_sql(con, "SELECT * FROM customers WHERE city = 'paris'")
@@ -81,7 +79,6 @@ def test_run_sql_prints_rows(con, capsys):
     assert "결과 1행" in out and "customer_id, name, city" in out and "1001 | ashley | paris" in out
 
 
-@pytest.mark.unit
 def test_run_sql_truncates_long_results(con, capsys, monkeypatch):
     """MAX_ROWS 를 넘는 행은 생략 안내만 출력"""
     monkeypatch.setattr(pr, "MAX_ROWS", 1)
@@ -90,14 +87,12 @@ def test_run_sql_truncates_long_results(con, capsys, monkeypatch):
     assert "결과 2행" in out and "1행 더 있음" in out
 
 
-@pytest.mark.unit
 def test_run_sql_reports_error(con, capsys):
     """실행 오류는 예외 없이 메시지로 출력"""
     pr.run_sql(con, "SELECT nope FROM customers")
     assert "실행 오류" in capsys.readouterr().out
 
 
-@pytest.mark.integration
 def test_answer_flags_non_stage1_sql(capsys):
     """1단계 형식이 아닌 SQL 은 표시를 붙이고, con=None 이면 실행하지 않음"""
     model, _ = scripted_model("SELECT city FROM customers")
@@ -107,7 +102,6 @@ def test_answer_flags_non_stage1_sql(capsys):
     assert "결과" not in out
 
 
-@pytest.mark.integration
 def test_answer_executes_stage1_sql(con, capsys):
     """1단계 SQL 이면 표시 없이 출력하고 실행 결과까지 보여줌"""
     model, _ = scripted_model("SELECT city FROM customers WHERE name = 'henry'")
@@ -116,7 +110,6 @@ def test_answer_executes_stage1_sql(con, capsys):
     assert "형식 아님" not in out and "결과 1행" in out and "rome" in out
 
 
-@pytest.mark.integration
 def test_answer_handles_undecodable_output(capsys):
     """디코딩 불가 출력은 안내 메시지"""
     model, _ = scripted_model([0xFF])
