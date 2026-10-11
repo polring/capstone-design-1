@@ -15,6 +15,7 @@ TEST_DICTIONARY = [
 ]
 
 
+@pytest.mark.unit
 def test_pre_correct_keywords():
     """
     파서(sqlglot)로 넘어가기 전, 문자열 상태에서 SQL 예약어 오타가
@@ -26,6 +27,7 @@ def test_pre_correct_keywords():
     assert fixed == "SELECT id, name FROM users"
 
 
+@pytest.mark.unit
 def test_typo_correction_keywords():
     """
     전체 파이프라인(process_sql)을 돌렸을 때, 예약어 오타가
@@ -36,6 +38,7 @@ def test_typo_correction_keywords():
     assert result == "SELECT id, name FROM users"
 
 
+@pytest.mark.unit
 def test_typo_correction_identifiers():
     """
     Typo(편집 거리 기반) 전략을 사용하여, 단어의 길이가 비슷하고
@@ -48,6 +51,7 @@ def test_typo_correction_identifiers():
     assert "email" in result
 
 
+@pytest.mark.unit
 def test_typo_correction_complex():
     """
     여러 개의 식별자 오타가 한 쿼리에 복합적으로 존재할 때,
@@ -59,6 +63,7 @@ def test_typo_correction_complex():
     assert "department" in result
 
 
+@pytest.mark.unit
 def test_get_ngrams():
     """
     N-gram 분리 유틸리티 함수가 단어를 지정된 길이(기본 2)만큼
@@ -68,6 +73,7 @@ def test_get_ngrams():
     assert ngrams == {"te", "es", "st"}
 
 
+@pytest.mark.unit
 def test_ngram_correction():
     """
     N-gram(부분 문자열 Jaccard 유사도) 전략이 제대로 동작하는지 검증합니다.
@@ -78,6 +84,7 @@ def test_ngram_correction():
     assert "department" in result
 
 
+@pytest.mark.unit
 def test_strategy_chaining():
     """
     전략 체이닝(다중 적용) 기능을 검증합니다.
@@ -90,6 +97,7 @@ def test_strategy_chaining():
     assert "department" in result
 
 
+@pytest.mark.unit
 def test_semantic_correction_pipeline():
     """
     Semantic(의미론적 유사도) 전략 파이프라인의 안전성을 검증합니다.
