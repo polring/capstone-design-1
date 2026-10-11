@@ -9,7 +9,7 @@ import io
 import struct
 from pathlib import Path
 import torch
-from src.inference import InferenceModel, ModelConfig, load_checkpoint
+from src.inference.gguf_model import InferenceModel, ModelConfig, load_checkpoint
 from src.tokenizer import bpe
 from src.tokenizer.contract import TokenizerConfig
 

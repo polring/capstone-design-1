@@ -4,7 +4,7 @@ import pytest
 import torch
 
 from src.exporter import _is_valid_ordered_merge
-from src.inference import (
+from src.inference.gguf_model import (
     ModelConfig,
     _has_checkpoint_contract,
     _is_input_shape_within_context,

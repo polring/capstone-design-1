@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import torch
 from src.exporter import export_model
-from src.inference import InferenceModel, ModelConfig, load_checkpoint
+from src.inference.gguf_model import InferenceModel, ModelConfig, load_checkpoint
 from src.tokenizer import bpe
 
 pytestmark = pytest.mark.integration

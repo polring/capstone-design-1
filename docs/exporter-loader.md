@@ -6,7 +6,7 @@
 무작위 가중치 기준으로 Python/C logits와 반복 생성 결과를 비교한다.
 학습된 체크포인트가 아직 없어 SQL 정확도는 검증하지 않았다.
 
-`src/inference.py`는 팀의 `TokenEmbedding`, `TransformerDecoderBlock`,
+`src/inference/gguf_model.py`는 팀의 `TokenEmbedding`, `TransformerDecoderBlock`,
 `RMSNorm`을 사용하여 전체 모델을 감싼 검증용 모델이다.
 전체 학습 모델이 완성되면 이 문서의 체크포인트 계약으로 연결하거나
 Exporter의 이름 대응을 수정해야 한다. 파라미터 수만 같은 모델은 호환되지 않는다.
@@ -36,7 +36,7 @@ Linux에서는 `-o loader`로 빌드하고 `./loader`로 실행한다.
 ```python
 from dataclasses import asdict
 import torch
-from src.inference import ModelConfig, InferenceModel
+from src.inference.gguf_model import ModelConfig, InferenceModel
 
 config = ModelConfig()  # 최종 학습 설정을 정확히 전달
 model = InferenceModel(config)
