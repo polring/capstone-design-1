@@ -9,7 +9,7 @@ import io
 import struct
 from pathlib import Path
 import torch
-from src.inference import InferenceModel, ModelConfig, load_checkpoint
+from src.inference.gguf_model import InferenceModel, ModelConfig, load_checkpoint
 from src.tokenizer import bpe
 from src.tokenizer.contract import TokenizerConfig
 
@@ -110,7 +110,7 @@ def main():
     source.add_argument("--dummy", action="store_true")
     parser.add_argument("--output", required=True)
     parser.add_argument(
-        "--merges", help="team bpe_merges.json; required for checkpoints"
+        "--tokenizer", help="team tokenizer.json (seeds + merges); required for checkpoints"
     )
     parser.add_argument(
         "--tokenizer-config", help="JSON token layout matching the training tokenizer"
@@ -121,18 +121,21 @@ def main():
         model = InferenceModel(
             ModelConfig(dim=16, heads=2, layers=2, ffn_dim=32)
         ).eval()
-        merges = bpe.load_merges(args.merges) if args.merges else []
     else:
-        if not args.merges:
-            parser.error("--checkpoint requires --merges")
+        if not args.tokenizer:
+            parser.error("--checkpoint requires --tokenizer")
         model = load_checkpoint(args.checkpoint)
-        merges = bpe.load_merges(args.merges)
+    tokenizer = (
+        bpe.Tokenizer.load(args.tokenizer)
+        if args.tokenizer
+        else bpe.Tokenizer(bpe.load_seed_tokens())
+    )
     tokenizer_config = (
         TokenizerConfig.load(args.tokenizer_config)
         if args.tokenizer_config
-        else TokenizerConfig.from_team_bpe()
+        else TokenizerConfig.from_tokenizer(tokenizer)
     )
-    export_model(model, args.output, merges, tokenizer_config)
+    export_model(model, args.output, tokenizer.merges, tokenizer_config)
     print(f"saved {args.output}; architecture=capstone_sql; dummy={args.dummy}")
 
 

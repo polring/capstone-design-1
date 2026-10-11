@@ -1,6 +1,10 @@
 import json
 
+import pytest
+
 from src.data.stage1 import question_gen as qg
+
+pytestmark = pytest.mark.unit
 
 
 def _entry(table, where_col, where_val, select=None, is_nonexistent=False):

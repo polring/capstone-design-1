@@ -1,4 +1,8 @@
+import pytest
+
 from src.data.stage1 import question_gen_auto as qga
+
+pytestmark = pytest.mark.unit
 
 
 def test_extract_json_array_valid_input():

@@ -129,6 +129,7 @@ def test_load_rules_provides_stage_interface():
         assert hasattr(rules, name), name
 
 
+@pytest.mark.unit
 def test_label_mismatch_follows_label_rules():
     """규칙 일치 EM 의 제외 판정: 라벨 규칙(L2~L4)과 다른 정답만 True"""
     rules = scoring.load_rules(1)

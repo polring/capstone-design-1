@@ -8,8 +8,10 @@ import numpy as np
 import pytest
 import torch
 from src.exporter import export_model
-from src.inference import InferenceModel, ModelConfig, load_checkpoint
+from src.inference.gguf_model import InferenceModel, ModelConfig, load_checkpoint
 from src.tokenizer import bpe
+
+pytestmark = pytest.mark.integration
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -43,6 +45,10 @@ def run(engine, path, *args, check=True):
     )
 
 
+def team_encode(text, merges):
+    return bpe.Tokenizer(bpe.load_seed_tokens(), merges).encode(text)
+
+
 @pytest.fixture
 def fixture_model(tmp_path):
     torch.manual_seed(17)
@@ -50,9 +56,12 @@ def fixture_model(tmp_path):
         vocab_size=320, dim=16, heads=2, layers=2, ffn_dim=24, context=128
     )
     model = InferenceModel(config).eval()
-    merges, _ = bpe.train(
-        ["hello hello", "stock mouse", "SELECT stock FROM items;"], merge_budget=12
-    )
+    seeds = bpe.load_seed_tokens()
+    merges = bpe.Tokenizer.train(
+        ["hello hello", "stock mouse", "SELECT stock FROM items;"],
+        seeds,
+        vocab_size=bpe.SEED_BASE + len(seeds) + 12,
+    ).merges
     path = tmp_path / "model.gguf"
     export_model(model, path, merges)
     return model, path, merges
@@ -117,14 +126,14 @@ def test_independent_gguf_reader(fixture_model):
 def test_team_bpe_matches_c(engine, fixture_model, text):
     _, path, merges = fixture_model
     actual = list(map(int, run(engine, path, "--encode", text).stdout.split()))
-    assert actual == bpe.encode(text, merges)
+    assert actual == team_encode(text, merges)
 
 
 def test_generation_repeats_python_forward(engine, fixture_model):
     model, path, merges = fixture_model
     question = "hello"
-    ids = [257] + bpe.encode(question, merges) + [259]
-    pieces = bpe.id_to_bytes_from_merges(merges)
+    ids = [257] + team_encode(question, merges) + [259]
+    pieces = bpe.Tokenizer(bpe.load_seed_tokens(), merges).id_to_bytes
     expected = bytearray()
     for _ in range(5):
         with torch.no_grad():
@@ -300,7 +309,7 @@ def test_c_rejects_invalid_mode_argument_counts(engine, fixture_model, args):
 def test_encode_handler_preserves_piece_boundaries(engine, fixture_model, text):
     _, path, merges = fixture_model
     result = run(engine, path, "--encode", text)
-    assert list(map(int, result.stdout.split())) == bpe.encode(text, merges)
+    assert list(map(int, result.stdout.split())) == team_encode(text, merges)
 
 
 def test_generation_handler_normalizes_uppercase_questions(engine, fixture_model):
