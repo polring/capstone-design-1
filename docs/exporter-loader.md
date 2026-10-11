@@ -28,7 +28,7 @@ python -m pytest tests/test_inference.py -q
 Linux에서는 `-o loader`로 빌드하고 `./loader`로 실행한다.
 `--dummy`는 dim=16, heads=2, layers=2, ffn_dim=32의 무작위 모델이다.
 더미 기본 BPE는 병합 없이 바이트와 seed만 사용한다.
-학습된 BPE를 사용하려면 `--merges bpe_merges.json`을 지정한다.
+학습된 BPE를 사용하려면 `--tokenizer tokenizer.json`(seed + 병합 규칙)을 지정한다.
 더미 출력은 SQL이거나 유효한 UTF-8 문자열이라는 보장이 없다.
 
 ## 실제 체크포인트 계약
@@ -45,7 +45,7 @@ torch.save({"config": asdict(config), "state_dict": model.state_dict()}, "model.
 ```
 
 ```powershell
-python -m src.exporter --checkpoint model.pt --merges bpe_merges.json --output model.gguf
+python -m src.exporter --checkpoint model.pt --tokenizer tokenizer.json --output model.gguf
 .\loader.exe model.gguf --generate "how many mouse units are left in stock?" 64
 ```
 
