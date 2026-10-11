@@ -66,6 +66,21 @@ def _has_checkpoint_contract(checkpoint):
     )
 
 
+def _has_training_checkpoint_format(checkpoint):
+    return isinstance(checkpoint, dict) and {"model_cfg", "model"} <= checkpoint.keys()
+
+
+# TextToSQLModel uses the same blocks; only these top-level names differ.
+_TRAINING_NAME_PREFIXES = (("tok_emb.", "embedding."), ("norm.", "final_norm."))
+
+
+def _rename_training_parameter(name):
+    for old, new in _TRAINING_NAME_PREFIXES:
+        if name.startswith(old):
+            return new + name[len(old) :]
+    return name
+
+
 class InferenceModel(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
@@ -101,11 +116,37 @@ class InferenceModel(nn.Module):
         return {"config": asdict(self.config), "state_dict": self.state_dict()}
 
 
+def from_training_checkpoint(checkpoint):
+    """Convert a TextToSQLModel checkpoint (training best.pt or release model.pt).
+
+    eps and theta keep their defaults, which match RMSNorm and RoPE in the team model.
+    """
+    cfg = checkpoint["model_cfg"]
+    config = ModelConfig(
+        vocab_size=cfg["vocab_size"],
+        dim=cfg["dim"],
+        layers=cfg["num_layers"],
+        heads=cfg["num_heads"],
+        ffn_dim=cfg["ffn_dim"],
+        context=cfg["max_seq_len"],
+    )
+    state = {
+        _rename_training_parameter(name): tensor
+        for name, tensor in checkpoint["model"].items()
+    }
+    model = InferenceModel(config)
+    model.load_state_dict(state, strict=True)
+    return model.eval()
+
+
 def load_checkpoint(path):
     checkpoint = torch.load(path, map_location="cpu", weights_only=True)
+    if _has_training_checkpoint_format(checkpoint):
+        return from_training_checkpoint(checkpoint)
     if not _has_checkpoint_contract(checkpoint):
         raise ValueError(
-            "checkpoint requires config and state_dict; see docs/exporter-loader.md"
+            "checkpoint requires config and state_dict, or model_cfg and model;"
+            " see docs/exporter-loader.md"
         )
     model = InferenceModel(ModelConfig(**checkpoint["config"]))
     model.load_state_dict(checkpoint["state_dict"], strict=True)

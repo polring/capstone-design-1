@@ -7,8 +7,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
-from src.exporter import export_model
+from src.data.dataset import BOS_ID, EOS_ID, SEP_ID
+from src.exporter import export_model, main as exporter_main
 from src.inference.gguf_model import InferenceModel, ModelConfig, load_checkpoint
+from src.inference.loading import load_model, tokenizer_path_for
+from src.models.model import TextToSQLModel
 from src.tokenizer import bpe
 
 pytestmark = pytest.mark.integration
@@ -382,3 +385,83 @@ def test_logits_handler_accepts_full_context_and_rejects_overflow(
     np.testing.assert_allclose(actual, expected, atol=2e-5, rtol=2e-5)
     overflow = run(engine, path, "--logits", *ids, 104, check=False)
     assert overflow.returncode != 0 and b"context length exceeded" in overflow.stderr
+
+
+def test_exporter_converts_training_checkpoint(engine, tmp_path, capsys):
+    """A release-format checkpoint exports without --tokenizer and matches in C."""
+    torch.manual_seed(5)
+    seeds = bpe.load_seed_tokens()
+    tokenizer = bpe.Tokenizer.train(
+        ["hello hello", "stock mouse", "SELECT stock FROM items;"],
+        seeds,
+        vocab_size=bpe.SEED_BASE + len(seeds) + 12,
+    )
+    cfg = {
+        "vocab_size": 320,
+        "dim": 16,
+        "num_layers": 2,
+        "num_heads": 2,
+        "ffn_dim": 43,
+        "max_seq_len": 64,
+        "padding_idx": 256,
+    }
+    team = TextToSQLModel(**cfg).eval()
+    release = tmp_path / "release"
+    release.mkdir()
+    torch.save(
+        {"format_version": 1, "stage": 1, "model_cfg": cfg, "model": team.state_dict()},
+        release / "model.pt",
+    )
+    tokenizer.save(release / "tokenizer.json")
+    path = tmp_path / "model.gguf"
+    exporter_main(["--checkpoint", str(release / "model.pt"), "--output", str(path)])
+    capsys.readouterr()
+
+    text = "hello stock"
+    encoded = list(map(int, run(engine, path, "--encode", text).stdout.split()))
+    assert encoded == tokenizer.encode(text)
+    ids = [BOS_ID] + tokenizer.encode(text) + [SEP_ID]
+    with torch.no_grad():
+        expected = team(torch.tensor([ids]))[0, -1].numpy()
+    actual = np.fromstring(run(engine, path, "--logits", *ids).stdout.decode(), sep=" ")
+    np.testing.assert_allclose(actual, expected, atol=2e-5, rtol=2e-5)
+
+
+def test_exporter_requires_tokenizer_for_contract_checkpoint(fixture_model, tmp_path):
+    model, _, _ = fixture_model
+    checkpoint = tmp_path / "model.pt"
+    torch.save(model.checkpoint(), checkpoint)
+    with pytest.raises(SystemExit):
+        exporter_main(
+            ["--checkpoint", str(checkpoint), "--output", str(tmp_path / "x.gguf")]
+        )
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "what city does ashley live in?",
+        "how many mouse units are left in stock?",
+        "show me everything about order 5012",
+    ],
+)
+def test_release_model_generates_same_sql_in_c(engine, release_gguf, question):
+    """The committed release model gives the same greedy SQL in Python and C."""
+    team, tokenizer, path = release_gguf
+    prompt = [BOS_ID] + tokenizer.encode(question) + [SEP_ID]
+    expected = tokenizer.decode(team.generate(prompt, EOS_ID, max_new_tokens=64))
+    result = run(engine, path, "--generate", question, 64)
+    assert expected.startswith("SELECT ")
+    assert result.stdout.decode().strip() == expected
+
+
+@pytest.fixture(scope="module")
+def release_gguf(tmp_path_factory):
+    checkpoint = ROOT / "models/stage1/model.pt"
+    if not checkpoint.exists():
+        pytest.skip("release model is not available")
+    team, raw = load_model(checkpoint, torch.device("cpu"))
+    tokenizer = bpe.Tokenizer.load(tokenizer_path_for(checkpoint, raw))
+    path = tmp_path_factory.mktemp("release") / "model.gguf"
+    exporter_main(["--checkpoint", str(checkpoint), "--output", str(path)])
+    return team, tokenizer, path
