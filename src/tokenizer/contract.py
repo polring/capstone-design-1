@@ -22,22 +22,18 @@ class TokenizerConfig:
 
     @classmethod
     def from_team_bpe(cls):
-        return cls.from_tokenizer(bpe.Tokenizer(bpe.load_seed_tokens()))
-
-    @classmethod
-    def from_tokenizer(cls, tokenizer):
         special_ids = {
             token: bpe.SPECIAL_BASE + index
             for index, token in enumerate(bpe.SPECIAL_TOKENS)
         }
         return cls(
-            seeds=tuple(tokenizer.seed_tokens),
+            seeds=tuple(bpe.SEED_TOKENS),
             pad_id=special_ids["<pad>"],
             bos_id=special_ids["<bos>"],
             eos_id=special_ids["<eos>"],
             sep_id=special_ids["<sep>"],
             seed_base=bpe.SEED_BASE,
-            merge_base=tokenizer.merge_base,
+            merge_base=bpe.SEED_BASE + len(bpe.SEED_TOKENS),
         )
 
     @classmethod

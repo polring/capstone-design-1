@@ -42,8 +42,7 @@ capstone-design-1/
 │   │   └── bpe.py                        # 바이트 레벨 BPE 토크나이저 (Tokenizer)
 │   ├── inference/                        # 학습된 모델 쓰기
 │   │   ├── loading.py                    # 체크포인트·배포 모델 불러오기, 짝이 맞는 토크나이저 찾기
-│   │   ├── generate.py                   # 질문 → SQL greedy 생성 (배치), 디코딩
-│   │   └── gguf_model.py                 # GGUF export 용 체크포인트 계약 모델 (exporter.py 가 사용)
+│   │   └── generate.py                   # 질문 → SQL greedy 생성 (배치), 디코딩
 │   ├── evaluation/                       # 평가
 │   │   ├── scoring.py                    # 채점·집계: EM, 다중 정답 EM, 규칙 일치 EM, 실행 정확도, 신뢰구간
 │   │   └── eval_sets.py                  # 평가셋 폴더(pairs.json + sql.json), 평가 결과 위치
