@@ -3,13 +3,14 @@
 ## 구현 범위
 
 기존 #9의 EXL1 확인용 코드를 GGUF v3와 실제 C forward로 교체했다.
-무작위 가중치 기준으로 Python/C logits와 반복 생성 결과를 비교한다.
-학습된 체크포인트가 아직 없어 SQL 정확도는 검증하지 않았다.
+무작위 가중치 기준으로 Python/C logits와 반복 생성 결과를 비교하고,
+배포 모델(`models/stage1/model.pt`)로 Python/C의 greedy 생성 SQL이 같은지 확인한다.
 
 `src/inference/gguf_model.py`는 팀의 `TokenEmbedding`, `TransformerDecoderBlock`,
-`RMSNorm`을 사용하여 전체 모델을 감싼 검증용 모델이다.
-전체 학습 모델이 완성되면 이 문서의 체크포인트 계약으로 연결하거나
-Exporter의 이름 대응을 수정해야 한다. 파라미터 수만 같은 모델은 호환되지 않는다.
+`RMSNorm`을 사용하여 전체 모델을 감싼 내보내기용 모델(`InferenceModel`)이다.
+학습 모델(`TextToSQLModel`)과 블록 구성이 같고 최상위 파라미터 이름만 다르므로,
+학습·배포 체크포인트는 이름만 바꿔 그대로 불러온다(아래 "학습·배포 체크포인트 내보내기").
+파라미터 수만 같은 모델은 호환되지 않는다.
 
 ## 실행 (저장소 루트, Windows PowerShell)
 
@@ -31,27 +32,50 @@ Linux에서는 `-o loader`로 빌드하고 `./loader`로 실행한다.
 학습된 BPE를 사용하려면 `--tokenizer tokenizer.json`(seed + 병합 규칙)을 지정한다.
 더미 출력은 SQL이거나 유효한 UTF-8 문자열이라는 보장이 없다.
 
-## 실제 체크포인트 계약
+## 학습·배포 체크포인트 내보내기
+
+`python -m src.release`가 만든 배포 모델이나 학습 체크포인트(`runs/.../best.pt`)는 바로 내보낸다.
+`--tokenizer`를 생략하면 체크포인트와 같은 폴더의 `tokenizer.json`(없으면 체크포인트에 기록된 경로)을
+쓴다. 학습할 때 쓴 토크나이저와 다르면 토큰 ID가 어긋나므로 다른 파일을 직접 지정하지 않는다.
+
+```powershell
+python -m src.exporter --checkpoint models/stage1/model.pt --output runs/stage1/model.gguf
+.\loader.exe runs/stage1/model.gguf --generate "what city does ashley live in?" 64
+```
+
+`load_checkpoint`는 `model_cfg` + `model` 형식(학습·배포 체크포인트)을 알아보고 다음과 같이 바꾼다.
+
+| 학습·배포 체크포인트 (`TextToSQLModel`) | 내보내기 모델 (`InferenceModel`) |
+|---|---|
+| `model_cfg.num_layers`, `num_heads`, `max_seq_len` | `config.layers`, `heads`, `context` |
+| `tok_emb.*` | `embedding.*` |
+| `norm.*` | `final_norm.*` |
+| 그 밖의 `blocks.*`, `lm_head.weight` | 같은 이름 |
+
+`eps`(1e-6)와 `theta`(10000)는 학습 모델의 기본값과 같아 체크포인트에 없어도 된다.
+`padding_idx`는 추론 결과에 영향이 없어 버린다.
+가중치가 공유된(weight tying) 임베딩·출력층은 독립 embedding/lm_head 텐서 두 개로 내보낸다.
+
+## 내보내기 전용 체크포인트 계약
+
+`InferenceModel`을 직접 학습하거나 만든 경우 `config` + `state_dict` 형식으로 저장한다.
+이 형식에는 토크나이저 위치가 없으므로 `--tokenizer`가 필요하다.
 
 ```python
 from dataclasses import asdict
 import torch
 from src.inference.gguf_model import ModelConfig, InferenceModel
 
-config = ModelConfig()  # 최종 학습 설정을 정확히 전달
+config = ModelConfig()
 model = InferenceModel(config)
-# 학습 루프에서 이 모델을 학습한 뒤 저장
 torch.save({"config": asdict(config), "state_dict": model.state_dict()}, "model.pt")
 ```
 
 ```powershell
 python -m src.exporter --checkpoint model.pt --tokenizer tokenizer.json --output model.gguf
-.\loader.exe model.gguf --generate "how many mouse units are left in stock?" 64
 ```
 
-최종 학습 모델이 다른 이름이나 `model_state_dict` 키를 쓰면 자동으로
-추측하지 않고 어댑터를 추가한다. 현재 코드는 키와 shape를 엄격히 검사한다.
-가중치가 공유된 모델은 현재 독립 embedding/lm_head 텐서 두 개로 내보낸다.
+두 형식 모두 키와 shape를 엄격히 검사한다. 다른 이름을 쓰는 체크포인트는 추측하지 않고 오류를 낸다.
 
 ## 파일 형식과 이름 대응
 

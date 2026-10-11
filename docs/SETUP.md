@@ -228,6 +228,15 @@ python -m src.release --ckpt runs/stage1/ffn683_swap40/best.pt    # → models/s
   토크나이저), `model_info.json`(출처 체크포인트, 학습 설정 요약, 검증 EM, 내보낸 파일로 다시 측정한 평가 결과)을 쓴다.
 - 단계마다 최종 모델 하나만 커밋한다. 다시 내보내면 덮어쓴다. `--no-eval`로 평가를 생략할 수 있다.
 
+### GGUF 내보내기 (C 추론 엔진용)
+
+```
+python -m src.exporter --checkpoint models/stage1/model.pt --output runs/stage1/model.gguf
+```
+
+- 배포 모델·학습 체크포인트를 그대로 받고, 토크나이저는 체크포인트 옆의 `tokenizer.json`을 쓴다(`--tokenizer`로 변경).
+- C 엔진 빌드와 실행, 파일 형식은 [exporter-loader.md](exporter-loader.md)에 있다. 결과 `.gguf`는 커밋하지 않는다.
+
 ## 8. 추론·평가 (`run.py`)
 
 추론과 평가는 `python -m src.run` 하나로 한다. 모델 불러오기·생성은 `src/inference/`, 채점·평가셋 관리는
