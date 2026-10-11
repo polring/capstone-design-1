@@ -12,6 +12,9 @@ __pycache__/
 # IDEs and Editors
 .vscode/
 .idea/
+.vs/
+out/
+build/
 *.swp
 *.swo
 
@@ -25,6 +28,9 @@ bpe_merges.json
 
 # Local compiled binaries
 *.exe
+*.obj
+*.o
+*.a
 *.gguf
 *.pt
 *.pth
@@ -34,3 +40,9 @@ qwen3_14b_test/
 
 # 학습 산출물 (체크포인트, TensorBoard 로그)
 runs/
+
+# 의미론적 교정 캐시 및 원본 워드 임베딩
+*.pkl
+semantic_dict_*
+glove.6B.*
+
