@@ -7,10 +7,9 @@ import struct
 import pytest
 import torch
 
-from src.exporter import export_model
+from src.exporter import export_model, read_gguf
 from src.inference.gguf_model import InferenceModel, ModelConfig
 from src.tokenizer.contract import TokenizerConfig
-from tests.test_inference import engine, run  # Reuse the compiled C fixture.
 
 
 def custom_layout(seed_count=2):
@@ -146,85 +145,18 @@ def test_export_rejects_merge_using_special_token(custom_model, tmp_path):
 
 @pytest.mark.parametrize("seed_count", [0, 2, 45])
 @pytest.mark.integration
-def test_c_uses_variable_seed_count(engine, tmp_path, seed_count):
+def test_read_gguf_follows_stored_layout(tmp_path, seed_count):
+    """파일에 저장된 토큰 ID 배치(seed 개수, 시작 ID, 특수 토큰)대로 다시 인코딩한다.
+
+    C 엔진 쪽 같은 검사는 C 엔진 저장소의 fixture(custom_layout, no_seeds, many_seeds)와 오류 테스트가 맡는다.
+    """
     layout = custom_layout(seed_count)
+    merges = [((104, 105), layout.merge_base)]
     model = InferenceModel(ModelConfig(vocab_size=320, dim=8, heads=1, layers=1))
-    path = tmp_path / "variable.gguf"
-    export_model(model, path, [], layout)
-    text = "seed0" if seed_count else "hello"
-    expected = [layout.seed_base] if seed_count else list(b"hello")
-    assert (
-        list(map(int, run(engine, path, "--encode", text).stdout.split())) == expected
-    )
-
-
-@pytest.mark.integration
-def test_c_encodes_custom_seed_and_merge_ids(engine, custom_model):
-    _, path, layout, _ = custom_model
-    actual = list(map(int, run(engine, path, "--encode", "seed0 hi").stdout.split()))
-    assert actual == [layout.seed_base, 32, layout.merge_base]
-
-
-@pytest.mark.integration
-def test_c_generation_uses_custom_special_ids(engine, custom_model):
-    model, path, layout, _ = custom_model
-    ids = [layout.bos_id, layout.merge_base, layout.sep_id]
-    pieces = {i: bytes([i]) for i in range(256)}
-    pieces.update(
-        {layout.seed_base + i: seed.encode() for i, seed in enumerate(layout.seeds)}
-    )
-    pieces[layout.merge_base] = b"hi"
-    expected = bytearray()
-    for _ in range(5):
-        with torch.no_grad():
-            logits = model(torch.tensor([ids]))[0, -1]
-        # EOS wins ties; otherwise the smallest decodable ID wins.
-        allowed = [layout.eos_id] + sorted(pieces)
-        next_id = max(allowed, key=lambda i: float(logits[i]))
-        if next_id == layout.eos_id:
-            break
-        ids.append(next_id)
-        expected.extend(pieces[next_id])
-    assert run(engine, path, "--generate", "hi", 5).stdout == expected + b"\n"
-    with torch.no_grad():
-        model.lm_head.weight.zero_()
-    export_model(model, path, [((104, 105), layout.merge_base)], layout)
-    result = run(engine, path, "--generate", "hi", 5)
-    assert result.stdout == b"\n" and b"stop=eos" in result.stderr
-
-
-@pytest.mark.parametrize(
-    "field, value",
-    [
-        ("pad_id", 0),
-        ("bos_id", 268),
-        ("sep_id", 270),
-        ("merge_base", 271),
-        ("merge_base", 320),
-        ("seed_base", 400),
-    ],
-)
-@pytest.mark.integration
-def test_c_rejects_corrupted_tokenizer_layout(
-    engine, custom_model, tmp_path, field, value
-):
-    _, path, _, _ = custom_model
-    raw = bytearray(path.read_bytes())
-    key = ("capstone_sql.tokenizer." + field).encode()
-    struct.pack_into("<I", raw, raw.index(key) + len(key) + 4, value)
-    invalid = tmp_path / "invalid.gguf"
-    invalid.write_bytes(raw)
-    result = run(engine, invalid, "--encode", "hi", check=False)
-    assert result.returncode != 0 and b"invalid tokenizer layout" in result.stderr
-
-
-@pytest.mark.integration
-def test_c_explicitly_rejects_contract_v1(engine, custom_model, tmp_path):
-    _, path, _, _ = custom_model
-    raw = bytearray(path.read_bytes())
-    key = b"capstone_sql.contract_version"
-    struct.pack_into("<I", raw, raw.index(key) + len(key) + 4, 1)
-    invalid = tmp_path / "v1.gguf"
-    invalid.write_bytes(raw)
-    result = run(engine, invalid, "--encode", "hi", check=False)
-    assert result.returncode != 0 and b"re-export as version 2" in result.stderr
+    path = tmp_path / "layout.gguf"
+    export_model(model, path, merges, layout)
+    _, tokenizer, _ = read_gguf(path)
+    assert tokenizer.config == layout
+    assert (tokenizer.bos_id, tokenizer.eos_id, tokenizer.sep_id) == (267, 268, 269)
+    expected = [layout.seed_base, 32] if seed_count else list(b"seed0 ")
+    assert tokenizer.encode("seed0 hi") == expected + [layout.merge_base]

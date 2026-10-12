@@ -28,24 +28,6 @@ jobs:
             python -m pip install -r requirements-inference.txt
           fi
 
-      # ubuntu-latest ships gcc, so the C inference tests run instead of skipping.
       - name: Run tests
         run: python -m pytest tests/ -q -rs
 
-  # cli/ will move to its own repository, so it must build and test without
-  # Python and without paths outside cli/ (fixtures/ stand in for the exporter).
-  cli:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Check cli/ is self-contained
-        run: |
-          if grep -rnE '\.\./\.\.|\.\./(src|data|models|tests|docs)/' cli; then
-            echo "cli/ must not reference files outside cli/"
-            exit 1
-          fi
-
-      - name: Build and test
-        run: make -C cli all test

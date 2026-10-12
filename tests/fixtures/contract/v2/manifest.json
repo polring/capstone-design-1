@@ -1,0 +1,13 @@
+{
+  "contract_version": 2,
+  "files": {
+    "base/model.gguf": "ce54981c51ce71929ecb9ae530d088ac9956739d33bb5027e59cd7acd19f1247",
+    "base/cases.txt": "e6127ca2025ab875ba145978c2dd4f88b5267c38fb8dab3e47697d01ea92a6cd",
+    "custom_layout/model.gguf": "18e266348d5ff04c9e8382ae0aeddaae2a5ea46b46d0a9d1de1ecc43061fe7ba",
+    "custom_layout/cases.txt": "2e3791b4b5ac75fd0718b42875f7b13c3947017f3dbfc78ef960283913f00d6f",
+    "no_seeds/model.gguf": "014cc1640879161be9fdb914249e622403b5e3886588001ce0776be8b0ad2763",
+    "no_seeds/cases.txt": "20dc209e130f212eff519cfbb810c04eea546a3bf80c380692cb7c2944ae13f3",
+    "many_seeds/model.gguf": "f2cdd6e9d268447a21fd80ae28977ac9c96eec3b98f6499fb54c9dda021f78d6",
+    "many_seeds/cases.txt": "f7c1b2bd50b1333c55e388e21aa6a9307cc3b5ebbce8c7e0f5e7da0fbf12d529"
+  }
+}

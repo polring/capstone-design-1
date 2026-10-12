@@ -53,10 +53,16 @@ jobs:
           cp "data/stage$STAGE/db/shop.db" dist/
           (cd dist && sha256sum * > SHA256SUMS)
 
+      # The engine must already support this contract version (its main branch).
+      - uses: actions/checkout@v4
+        with:
+          repository: polring/capstone-sql-cli
+          path: engine
+
       - name: Smoke test with the C engine
         run: |
-          make -C cli engine
-          ./cli/build/loader dist/model.gguf --generate "what city does ashley live in?" 64 | tee /tmp/sql.txt
+          make -C engine engine
+          ./engine/build/loader dist/model.gguf --generate "what city does ashley live in?" 64 | tee /tmp/sql.txt
           grep -q '^SELECT ' /tmp/sql.txt
 
       - name: Publish GitHub release

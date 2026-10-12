@@ -1,10 +1,14 @@
 """GGUF 계약 fixture 생성 — C 엔진이 Python 없이 같은 계산을 하는지 확인하는 기대값
 
-    python -m src.export_fixtures            # cli/fixtures/v<CONTRACT_VERSION>/ 의 cases.txt, manifest.json 갱신
+    python -m src.export_fixtures            # tests/fixtures/contract/v<CONTRACT_VERSION>/<세트>/cases.txt, manifest.json 갱신
     python -m src.export_fixtures --new-model  # 작은 무작위 모델(model.gguf)부터 새로 만든다 (계약 버전을 올렸을 때)
 
+세트마다 폴더 하나(model.gguf + cases.txt)다. base 는 기본 토큰 배치, 나머지는 파일에서 읽는 토큰 ID 배치
+(특수 토큰·seed·merge 시작 ID, seed 개수)가 기본값과 달라도 엔진이 그대로 따르는지 본다.
+
 기대값은 항상 커밋된 model.gguf 를 읽어 Python 으로 계산한다. 그래서 무작위 초기화가 torch 버전마다 달라도
-fixture 는 바뀌지 않고, 계산 규칙(cli/CONTRACT.md)이 바뀌었을 때만 바뀐다.
+fixture 는 바뀌지 않고, 계산 규칙(C 엔진 저장소의 CONTRACT.md)이 바뀌었을 때만 바뀐다.
+C 엔진 저장소(https://github.com/polring/capstone-sql-cli)는 이 폴더를 fixtures/v<N>/ 로 복사해 Python 없이 검증한다.
 tests/test_contract_fixtures.py 가 이 값을 다시 계산해 커밋된 값과 비교한다.
 
 cases.txt 형식 (탭 구분, 문자열은 UTF-8 바이트의 hex, 빈 문자열은 빈 칸):
@@ -16,6 +20,7 @@ cases.txt 형식 (탭 구분, 문자열은 UTF-8 바이트의 hex, 빈 문자열
 import argparse
 import hashlib
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import torch
@@ -23,25 +28,18 @@ import torch
 from src.exporter import export_model, read_gguf
 from src.inference.gguf_model import InferenceModel, ModelConfig
 from src.tokenizer import bpe
-from src.tokenizer.contract import CONTRACT_VERSION
+from src.tokenizer.contract import CONTRACT_VERSION, TokenizerConfig
 
-FIXTURE_ROOT = Path("cli/fixtures")
+FIXTURE_ROOT = Path("tests/fixtures/contract")
 MODEL_FILE = "model.gguf"
 CASES_FILE = "cases.txt"
 MANIFEST_FILE = "manifest.json"
 
-BOS_ID, EOS_ID, SEP_ID = (
-    bpe.SPECIAL_BASE + bpe.SPECIAL_TOKENS.index(token)
-    for token in ("<bos>", "<eos>", "<sep>")
-)
-
 # context 를 작게 두어 문맥 길이 초과 경로도 짧은 질문으로 확인한다.
-FIXTURE_CONFIG = ModelConfig(
-    vocab_size=320, dim=16, heads=2, layers=2, ffn_dim=24, context=32
-)
+CONTEXT = 32
 FIXTURE_CORPUS = ["hello hello", "stock mouse", "SELECT stock FROM items;"]
 
-ENCODE_TEXTS = [
+BASE_ENCODE_TEXTS = [
     "hello hello",
     "SELECT stock FROM items;",
     "new york_ new york",
@@ -57,30 +55,98 @@ ENCODE_TEXTS = [
     "_stock",
     "aaaaaa",
 ]
-LOGITS_IDS = [
-    [BOS_ID],
-    [BOS_ID, 104, 105, SEP_ID],
-    [BOS_ID, 1, 2, 3, 4, 5, SEP_ID],
-    [BOS_ID] + [104] * (FIXTURE_CONFIG.context - 1),  # 문맥을 꽉 채운 입력
-]
-GENERATE_CASES = [
+BASE_GENERATE_CASES = [
     ("hello", 5),
     ("hello stock", 3),
     ("HELLO STOCK", 3),  # 질문은 소문자로 바꿔 인코딩한다
     ("", 0),
     ("hello", 32),
-    ("1" * (FIXTURE_CONFIG.context - 2), 8),  # <bos> 질문 <sep> 이 문맥을 꽉 채움
+    ("1" * (CONTEXT - 2), 8),  # <bos> 질문 <sep> 이 문맥을 꽉 채움
 ]
 
 
-def new_fixture_model(path: Path) -> None:
-    torch.manual_seed(17)
-    model = InferenceModel(FIXTURE_CONFIG).eval()
-    seeds = bpe.load_seed_tokens()
-    tokenizer = bpe.Tokenizer.train(
-        FIXTURE_CORPUS, seeds, vocab_size=bpe.SEED_BASE + len(seeds) + 12
+def custom_layout(seed_count: int) -> TokenizerConfig:
+    """특수 토큰·seed·merge 시작 ID 를 bpe 기본값(256, 260, ...)과 다르게 둔 배치."""
+    return TokenizerConfig(
+        seeds=tuple(f"seed{index}" for index in range(seed_count)),
+        pad_id=266,
+        bos_id=267,
+        eos_id=268,
+        sep_id=269,
+        seed_base=270,
+        merge_base=270 + seed_count,
     )
-    export_model(model, path, tokenizer.merges)
+
+
+@dataclass(frozen=True)
+class FixtureSet:
+    name: str
+    seed: int
+    config: ModelConfig
+    layout: TokenizerConfig | None  # None: 현재 단계의 seed 와 bpe 기본 배치
+    merges: str | list  # "corpus": FIXTURE_CORPUS 로 학습, 또는 고정 목록
+    encode_texts: list = field(default_factory=list)
+    generate_cases: list = field(default_factory=list)
+    full_context_logits: bool = False
+
+
+SMALL_CONFIG = ModelConfig(
+    vocab_size=320, dim=8, heads=1, layers=1, ffn_dim=12, context=CONTEXT
+)
+FIXTURE_SETS = [
+    FixtureSet(
+        "base",
+        17,
+        ModelConfig(
+            vocab_size=320, dim=16, heads=2, layers=2, ffn_dim=24, context=CONTEXT
+        ),
+        None,
+        "corpus",
+        BASE_ENCODE_TEXTS,
+        BASE_GENERATE_CASES,
+        full_context_logits=True,
+    ),
+    FixtureSet(
+        "custom_layout",
+        23,
+        SMALL_CONFIG,
+        custom_layout(2),
+        [((104, 105), 272)],  # "hi" → merge_base
+        ["seed0 hi", "hi", "seed1", "seed0seed1", "HI"],
+        [("hi", 5), ("seed0 hi", 5)],
+    ),
+    FixtureSet(
+        "no_seeds",
+        29,
+        SMALL_CONFIG,
+        custom_layout(0),
+        [],
+        ["hello", "seed0", "SELECT"],
+        [("hello", 3)],
+    ),
+    FixtureSet(
+        "many_seeds",
+        31,
+        SMALL_CONFIG,
+        custom_layout(45),
+        [],
+        ["seed0", "seed44 hello", "seed4 seed40", "seed45"],
+        [("seed44", 3)],
+    ),
+]
+
+
+def new_fixture_model(fixture: FixtureSet, path: Path) -> None:
+    torch.manual_seed(fixture.seed)
+    model = InferenceModel(fixture.config).eval()
+    if fixture.layout is None:
+        seeds = bpe.load_seed_tokens()
+        tokenizer = bpe.Tokenizer.train(
+            FIXTURE_CORPUS, seeds, vocab_size=bpe.SEED_BASE + len(seeds) + 12
+        )
+        export_model(model, path, tokenizer.merges)
+    else:
+        export_model(model, path, fixture.merges, fixture.layout)
 
 
 def last_logits(model, ids: list[int]) -> list[float]:
@@ -89,30 +155,46 @@ def last_logits(model, ids: list[int]) -> list[float]:
 
 
 def reference_generate(model, tokenizer, question: str, max_new_tokens: int):
-    """C 엔진과 같은 규칙의 greedy 생성: 바이트가 있는 토큰만 후보, 동점이면 <eos> 다음 작은 ID."""
-    ids = [BOS_ID] + tokenizer.encode(question.lower()) + [SEP_ID]
+    """C 엔진과 같은 규칙의 greedy 생성: 바이트가 있는 토큰만 후보, 동점이면 <eos> 다음 작은 ID.
+
+    tokenizer 는 exporter.read_gguf 가 돌려준 것(파일의 토큰 ID 배치)이다."""
+    ids = [tokenizer.bos_id] + tokenizer.encode(question.lower()) + [tokenizer.sep_id]
     candidates = sorted(tokenizer.id_to_bytes)
     output = bytearray()
     for _ in range(max_new_tokens):
         if len(ids) >= model.config.context:
             return bytes(output), "context"
         logits = last_logits(model, ids)
-        next_id = EOS_ID
+        next_id = tokenizer.eos_id
         for candidate in candidates:
             if logits[candidate] > logits[next_id]:
                 next_id = candidate
-        if next_id == EOS_ID:
+        if next_id == tokenizer.eos_id:
             return bytes(output), "eos"
         output.extend(tokenizer.id_to_bytes[next_id])
         ids.append(next_id)
     return bytes(output), "max_new_tokens"
 
 
-def compute_cases(model_path: Path) -> list[tuple]:
+def logits_inputs(fixture: FixtureSet, tokenizer) -> list[list[int]]:
+    bos, sep = tokenizer.bos_id, tokenizer.sep_id
+    inputs = [[bos], [bos, 104, 105, sep], [bos, 1, 2, 3, 4, 5, sep]]
+    inputs.append([bos] + tokenizer.encode(fixture.encode_texts[0]) + [sep])
+    if fixture.full_context_logits:
+        inputs.append(
+            [bos] + [104] * (fixture.config.context - 1)
+        )  # 문맥을 꽉 채운 입력
+    return inputs
+
+
+def compute_cases(fixture: FixtureSet, model_path: Path) -> list[tuple]:
     model, tokenizer, _ = read_gguf(model_path)
-    cases = [("encode", text, tokenizer.encode(text)) for text in ENCODE_TEXTS]
-    cases += [("logits", ids, last_logits(model, ids)) for ids in LOGITS_IDS]
-    for question, max_new_tokens in GENERATE_CASES:
+    cases = [("encode", text, tokenizer.encode(text)) for text in fixture.encode_texts]
+    cases += [
+        ("logits", ids, last_logits(model, ids))
+        for ids in logits_inputs(fixture, tokenizer)
+    ]
+    for question, max_new_tokens in fixture.generate_cases:
         output, stop = reference_generate(model, tokenizer, question, max_new_tokens)
         cases.append(("generate", max_new_tokens, question, output, stop))
     return cases
@@ -126,9 +208,10 @@ def _ints(values) -> str:
     return " ".join(map(str, values))
 
 
-def format_cases(cases: list[tuple]) -> str:
+def format_cases(fixture: FixtureSet, cases: list[tuple]) -> str:
     lines = [
-        f"# capstone_sql contract v{CONTRACT_VERSION} fixtures; see src/export_fixtures.py"
+        f"# capstone_sql contract v{CONTRACT_VERSION} fixtures ({fixture.name});"
+        " see src/export_fixtures.py"
     ]
     for case in cases:
         kind = case[0]
@@ -179,15 +262,17 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     output = Path(args.output)
-    model_path = output / MODEL_FILE
-    if args.new_model or not model_path.exists():
-        new_fixture_model(model_path)
-    cases_path = output / CASES_FILE
-    cases_path.write_bytes(format_cases(compute_cases(model_path)).encode("utf-8"))
-    manifest = {
-        "contract_version": CONTRACT_VERSION,
-        "files": {name: sha256(output / name) for name in (MODEL_FILE, CASES_FILE)},
-    }
+    files = {}
+    for fixture in FIXTURE_SETS:
+        folder = output / fixture.name
+        model_path = folder / MODEL_FILE
+        if args.new_model or not model_path.exists():
+            new_fixture_model(fixture, model_path)
+        cases = format_cases(fixture, compute_cases(fixture, model_path))
+        (folder / CASES_FILE).write_bytes(cases.encode("utf-8"))
+        for name in (MODEL_FILE, CASES_FILE):
+            files[f"{fixture.name}/{name}"] = sha256(folder / name)
+    manifest = {"contract_version": CONTRACT_VERSION, "files": files}
     (output / MANIFEST_FILE).write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
     )

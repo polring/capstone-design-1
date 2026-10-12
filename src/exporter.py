@@ -182,8 +182,71 @@ def read_gguf(path):
         ((flat[index], flat[index + 1]), flat[index + 2])
         for index in range(0, len(flat), 3)
     ]
-    tokenizer = bpe.Tokenizer(field("tokenizer.seeds"), merges)
-    return model.eval(), tokenizer, metadata
+    layout = TokenizerConfig(
+        seeds=tuple(field("tokenizer.seeds")),
+        **{
+            name: field("tokenizer." + name)
+            for name in (
+                "pad_id",
+                "bos_id",
+                "eos_id",
+                "sep_id",
+                "seed_base",
+                "merge_base",
+            )
+        },
+    )
+    return model.eval(), GgufTokenizer(layout, merges), metadata
+
+
+class GgufTokenizer:
+    """The team BPE with the token ID layout stored in a GGUF file.
+
+    bpe.Tokenizer always numbers seeds from SEED_BASE; a GGUF file may place seeds,
+    merges and special tokens elsewhere, so IDs are mapped to and from that layout.
+    """
+
+    def __init__(self, config, merges):
+        self.config = config
+        self.seed_tokens = list(config.seeds)
+        self.merges = list(merges)
+        self.bos_id, self.eos_id, self.sep_id = (
+            config.bos_id,
+            config.eos_id,
+            config.sep_id,
+        )
+        seed_count = len(config.seeds)
+        standard_merge_base = bpe.SEED_BASE + seed_count
+
+        def to_standard(token_id):
+            if token_id < 256:
+                return token_id
+            if token_id < config.seed_base + seed_count:
+                return bpe.SEED_BASE + token_id - config.seed_base
+            return standard_merge_base + token_id - config.merge_base
+
+        def from_standard(token_id):
+            if token_id < 256:
+                return token_id
+            if token_id < standard_merge_base:
+                return config.seed_base + token_id - bpe.SEED_BASE
+            return config.merge_base + token_id - standard_merge_base
+
+        self._from_standard = from_standard
+        self._tokenizer = bpe.Tokenizer(
+            self.seed_tokens,
+            [
+                ((to_standard(a), to_standard(b)), to_standard(new))
+                for (a, b), new in self.merges
+            ],
+        )
+        self.id_to_bytes = {
+            from_standard(token_id): piece
+            for token_id, piece in self._tokenizer.id_to_bytes.items()
+        }
+
+    def encode(self, text):
+        return [self._from_standard(i) for i in self._tokenizer.encode(text)]
 
 
 def _checkpoint_tokenizer_path(checkpoint_path):

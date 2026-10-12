@@ -35,11 +35,7 @@ data/**/data_raw/
 *.pth
 
 # GGUF 계약 fixture (C 엔진 테스트용 작은 모델)는 커밋한다
-!cli/fixtures/**/*.gguf
-
-# C 후처리기 빌드 결과 (확장자 없는 실행 파일)
-cli/postprocessor/postprocessor
-cli/postprocessor/test_postprocessor
+!tests/fixtures/contract/**/*.gguf
 
 # Model files (except for stage models)
 !models/stage*/model.pt
