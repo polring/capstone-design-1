@@ -1,6 +1,6 @@
 # SQL Post-processor C 구현 가이드
 
-기존 Python 구현체(`src/postprocessor/python`)와 완전히 동일한 알고리즘 및 동작을 수행하도록 C 언어로 작성된 모듈(`src/postprocessor/c`)에 대한 설계 및 사용 설명서입니다.
+학습 저장소의 Python 구현체(`src/postprocessor/python`)와 같은 알고리즘·동작을 하도록 C 언어로 작성된 모듈(`cli/postprocessor/`)에 대한 설계 및 사용 설명서입니다.
 
 C 프로젝트에서 헤더를 인클루드하여 정적/동적 라이브러리로 링크해 사용할 수 있으며, CLI 바이너리로 빌드하여 단독 실행할 수도 있습니다.
 
@@ -8,18 +8,18 @@ C 프로젝트에서 헤더를 인클루드하여 정적/동적 라이브러리�
 
 ## 1. 아키텍처 및 모듈 구성
 
-모듈은 `src/postprocessor/c/` 디렉터리에 위치하며 다음 파일들로 구성되어 있습니다:
+모듈은 `cli/postprocessor/` 디렉터리에 위치하며 다음 파일들로 구성되어 있습니다:
 
 | 파일명 | 역할 설명 |
 | :--- | :--- |
-| [`postprocessor.h`](file:///C:/Users/issil/Desktop/capstone/capstone-design-1/src/postprocessor/c/postprocessor.h) | 외부 공개용 C 라이브러리 인터페이스 헤더 |
-| [`core.h`](file:///C:/Users/issil/Desktop/capstone/capstone-design-1/src/postprocessor/c/core.h) / [`core.c`](file:///C:/Users/issil/Desktop/capstone/capstone-design-1/src/postprocessor/c/core.c) | 전체 교정 파이프라인(`process_sql`) 제어 및 오케스트레이션 |
-| [`parser.h`](file:///C:/Users/issil/Desktop/capstone/capstone-design-1/src/postprocessor/c/parser.h) / [`parser.c`](file:///C:/Users/issil/Desktop/capstone/capstone-design-1/src/postprocessor/c/parser.c) | SQL 예약어 사전 보정(`pre_correct_keywords`), 토크나이저 및 SQL 재구성기 |
-| [`replacement.h`](file:///C:/Users/issil/Desktop/capstone/capstone-design-1/src/postprocessor/c/replacement.h) / [`replacement.c`](file:///C:/Users/issil/Desktop/capstone/capstone-design-1/src/postprocessor/c/replacement.c) | Typo(difflib 비율), N-gram(Jaccard 유사도), Semantic(임베딩 코사인 유사도) 교정기 및 전략 체이닝 |
-| [`schema.h`](file:///C:/Users/issil/Desktop/capstone/capstone-design-1/src/postprocessor/c/schema.h) / [`schema.c`](file:///C:/Users/issil/Desktop/capstone/capstone-design-1/src/postprocessor/c/schema.c) | SQLite 데이터베이스로부터 테이블 및 컬럼 스키마 사전 로더 |
-| [`main.c`](file:///C:/Users/issil/Desktop/capstone/capstone-design-1/src/postprocessor/c/main.c) | CLI 단독 실행용 진입점 (명령줄 인수 파싱 및 실행) |
-| [`test_postprocessor.c`](file:///C:/Users/issil/Desktop/capstone/capstone-design-1/src/postprocessor/c/test_postprocessor.c) | `tests/test_postprocessor_python.py`의 모든 테스트 케이스를 1:1 검증하는 C 단위 테스트 |
-| [`Makefile`](file:///C:/Users/issil/Desktop/capstone/capstone-design-1/src/postprocessor/c/Makefile) | 정적 라이브러리(`libpostprocessor.a`), CLI 바이너리, 테스트 바이너리 자동 빌드 스크립트 |
+| [`postprocessor.h`](postprocessor.h) | 외부 공개용 C 라이브러리 인터페이스 헤더 |
+| [`core.h`](core.h) / [`core.c`](core.c) | 전체 교정 파이프라인(`process_sql`) 제어 및 오케스트레이션 |
+| [`parser.h`](parser.h) / [`parser.c`](parser.c) | SQL 예약어 사전 보정(`pre_correct_keywords`), 토크나이저 및 SQL 재구성기 |
+| [`replacement.h`](replacement.h) / [`replacement.c`](replacement.c) | Typo(difflib 비율), N-gram(Jaccard 유사도), Semantic(임베딩 코사인 유사도) 교정기 및 전략 체이닝 |
+| [`schema.h`](schema.h) / [`schema.c`](schema.c) | SQLite 데이터베이스로부터 테이블 및 컬럼 스키마 사전 로더 |
+| [`main.c`](main.c) | CLI 단독 실행용 진입점 (명령줄 인수 파싱 및 실행) |
+| [`test_postprocessor.c`](test_postprocessor.c) | `tests/test_postprocessor_python.py`의 모든 테스트 케이스를 1:1 검증하는 C 단위 테스트 |
+| [`Makefile`](Makefile) | 정적 라이브러리(`libpostprocessor.a`), CLI 바이너리, 테스트 바이너리 자동 빌드 스크립트 |
 
 ---
 
@@ -45,7 +45,7 @@ C 프로젝트에서 헤더를 인클루드하여 정적/동적 라이브러리�
 
 ### 라이브러리 및 CLI 빌드
 ```bash
-cd src/postprocessor/c
+cd cli/postprocessor   # 또는 저장소 루트에서 make -C cli postprocessor
 make
 ```
 
@@ -95,7 +95,7 @@ int main(void) {
 
 ### 컴파일 명령:
 ```bash
-gcc -std=c11 -O2 my_code.c -Isrc/postprocessor/c src/postprocessor/c/libpostprocessor.a -lm -o my_code
+gcc -std=c11 -O2 my_code.c -Icli/postprocessor cli/postprocessor/libpostprocessor.a -lm -o my_code
 ```
 
 ---
@@ -120,7 +120,7 @@ Options:
 
 ### 실행 예시
 ```bash
-# 1. 기본 실행 (data/shop.db 사전 자동 참조)
+# 1. 기본 실행 (-b 를 생략하면 실행 위치의 data/shop.db 를 찾는다. semantic_dict_<dim>d.bin 도 실행 위치의 data/ 에서 찾는다)
 ./postprocessor -i "SELETC usr_name, emil FRMO users" -b "data/shop.db"
 
 # 2. 특정 전략만 지정하여 실행 (N-gram)
@@ -144,7 +144,7 @@ python -m src.postprocessor.python.export_embeddings -d 300
 
 ### 2단계: C postprocessor에서 의미론적(Semantic) 유사도 교정 실행
 ```powershell
-.\postprocessor.exe -i "SELECT client FROM customers" -b "..\..\..\data\shop.db" -s "semantic" -d 300 -t 0.5
+.\postprocessor.exe -i "SELECT client FROM customers" -b "data\shop.db" -s "semantic" -d 300 -t 0.5
 ```
 * `shop.db`의 `customers` 테이블 스키마에서 컬럼/테이블명을 읽어온 후, `client` 단어와 `customers` 간 코사인 유사도를 계산하여 교정합니다.
 
