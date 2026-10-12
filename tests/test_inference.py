@@ -32,7 +32,7 @@ def engine(tmp_path_factory):
             "-Wall",
             "-Wextra",
             "-Werror",
-            str(ROOT / "src/loader.c"),
+            str(ROOT / "cli/engine/loader.c"),
             "-lm",
             "-o",
             str(output),
