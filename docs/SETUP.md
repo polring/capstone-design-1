@@ -235,8 +235,8 @@ python -m src.exporter --checkpoint models/stage1/model.pt --output runs/stage1/
 ```
 
 - 배포 모델·학습 체크포인트를 그대로 받고, 토크나이저는 체크포인트 옆의 `tokenizer.json`을 쓴다(`--tokenizer`로 변경).
-- 내보내기 세부와 계약 버전 변경 절차는 [exporter-loader.md](exporter-loader.md), C 엔진 빌드·실행은
-  [cli/README.md](../cli/README.md), 파일 형식은 [cli/CONTRACT.md](../cli/CONTRACT.md)에 있다. 결과 `.gguf`는 커밋하지 않는다.
+- 내보내기 세부와 계약 버전 변경 절차는 [exporter-loader.md](exporter-loader.md), C 엔진 빌드·실행과 파일 형식(CONTRACT.md)은
+  C 엔진 저장소 [capstone-sql-cli](https://github.com/polring/capstone-sql-cli)에 있다. 결과 `.gguf`는 커밋하지 않는다.
 - 배포용 GGUF는 `stage<N>-contract<V>` 태그를 push하면 GitHub Actions가 만들어 release에 올린다.
 
 ## 8. 추론·평가 (`run.py`)

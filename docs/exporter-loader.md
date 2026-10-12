@@ -1,7 +1,7 @@
 # GGUF Exporter
 
-학습·배포 체크포인트를 C 추론 엔진(`cli/`)이 읽는 GGUF 파일로 내보낸다. 파일 형식과 계산 규칙(계약)은
-[cli/CONTRACT.md](../cli/CONTRACT.md), 엔진 빌드·실행은 [cli/README.md](../cli/README.md)에 있다.
+학습·배포 체크포인트를 C 추론 엔진이 읽는 GGUF 파일로 내보낸다. C 엔진과 파일 형식·계산 규칙(계약, `CONTRACT.md`)은
+별도 저장소 [capstone-sql-cli](https://github.com/polring/capstone-sql-cli)에 있다.
 
 `src/inference/gguf_model.py`는 팀의 `TokenEmbedding`, `TransformerDecoderBlock`,
 `RMSNorm`을 사용하여 전체 모델을 감싼 내보내기용 모델(`InferenceModel`)이다.
@@ -14,8 +14,6 @@
 ```powershell
 python -m src.exporter --checkpoint models/stage1/model.pt --output runs/stage1/model.gguf
 python -m src.exporter --dummy --output dummy.gguf
-make -C cli engine
-.\cli\build\loader.exe runs/stage1/model.gguf --generate "what city does ashley live in?" 64
 python -m pytest tests/test_inference.py tests/test_contract_fixtures.py -q
 ```
 
@@ -96,27 +94,27 @@ seed가 38개일 필요는 없다. 현재 영어 ASCII 전처리와 질문 소�
 ## 계약 버전과 fixture
 
 계약 버전은 `src/tokenizer/contract.py`의 `CONTRACT_VERSION` 하나로 정하고 exporter가 파일에 쓴다.
-C 엔진은 `cli/fixtures/v<N>/`의 기대값으로만 검증되므로, 계산 규칙(CONTRACT.md 3~6절)을 바꾸면 다음 순서를 따른다.
+C 엔진은 `tests/fixtures/contract/v<N>/`의 사본으로만 검증되므로, 계산 규칙(CONTRACT.md 3~6절)을 바꾸면 다음 순서를 따른다.
 
-1. `CONTRACT_VERSION`을 올리고 `cli/engine/loader.c`의 `CONTRACT_VERSION`과 [cli/CONTRACT.md](../cli/CONTRACT.md)를 고친다.
-2. `python -m src.export_fixtures --new-model`로 `cli/fixtures/v<새 버전>/`을 만든다.
-3. `make -C cli test`로 C 엔진이 새 기대값과 맞는지 확인한다.
+1. `CONTRACT_VERSION`을 올리고 `python -m src.export_fixtures --new-model`로 `tests/fixtures/contract/v<새 버전>/`을 만든다.
+2. C 엔진 저장소에 그 폴더를 `fixtures/v<새 버전>/`으로 복사하고, 엔진의 `CONTRACT_VERSION`·계산·`CONTRACT.md`를 고쳐
+   `make test`를 통과시킨다.
+3. 엔진이 먼저 병합된 뒤에 새 버전 태그로 release를 올린다(release workflow가 엔진 main으로 생성 확인을 한다).
 
-`tests/test_contract_fixtures.py`는 커밋된 fixture 모델로 기대값을 다시 계산해 비교한다. 계산이 바뀌었는데 1~2번을
+`tests/test_contract_fixtures.py`는 커밋된 fixture 모델로 기대값을 다시 계산해 비교한다. 계산이 바뀌었는데 1번을
 빠뜨리면 이 테스트가 실패한다. 값만 바뀌는 변경(모델 크기, vocab, seed·merge 내용)은 버전을 올리지 않는다.
 
 ## 배포 (GitHub Release)
 
 `stage<N>-contract<V>` 태그(시험용은 `-rc1` 같은 접미사, prerelease로 올라감)를 push하면
-`.github/workflows/release.yml`이 `models/stage<N>/model.pt`를 내보내 C 엔진으로 SQL 생성까지 확인한 뒤
+`.github/workflows/release.yml`이 `models/stage<N>/model.pt`를 내보내 C 엔진 저장소의 main으로 SQL 생성까지 확인한 뒤
 `model.gguf`, `model_info.json`, `shop.db`, `SHA256SUMS`를 release에 올린다. 태그의 계약 버전이
 `CONTRACT_VERSION`과 다르면 실패한다. `.gguf`는 git에 커밋하지 않는다(fixture 모델만 예외).
 
 ## 검증
 
-`tests/test_inference.py`는 `cli/engine/loader.c`를 GCC 경고를 오류로 처리해 빌드하고,
-동일한 더미 가중치로 전체 Python/C logits를 `atol=rtol=2e-5` 기준 비교한다.
-다른 설정, 토큰 생성 반복, EOS/문맥 종료, BPE 및 잘못된 입력/파일도 검증한다.
-배포 모델(`models/stage1/model.pt`)로 Python/C의 greedy 생성 SQL이 같은지도 확인한다.
+`tests/test_inference.py`는 내보낸 GGUF를 `exporter.read_gguf`로 다시 읽어 가중치·병합 규칙·logits가 원래 모델과
+같은지 확인한다. 배포 모델(`models/stage1/model.pt`)은 계약 규칙의 greedy 생성(`export_fixtures.reference_generate`)이
+학습 모델과 같은 SQL을 내는지 확인한다.
 선택적 `gguf.GGUFReader` 검사로 모든 텐서 값의 파일 호환성을 독립 확인한다.
-C 엔진 쪽 검증 기록은 [cli/README.md](../cli/README.md)에 있다.
+C 엔진의 Python 대조(fixture)·오류 경로 테스트와 검증 기록은 C 엔진 저장소에 있다.

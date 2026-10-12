@@ -1,6 +1,6 @@
 # CLI 저장소 분리 계획
 
-작성: 2026-10-12 · 1단계 구현: 2026-10-12 (`refactor/cli-split` 브랜치)
+작성: 2026-10-12 · 1·2단계 완료: 2026-10-12 (PR #36). 분리한 저장소: [polring/capstone-sql-cli](https://github.com/polring/capstone-sql-cli)
 
 C 추론 엔진과 C 후처리기를 별도 저장소(이하 CLI 저장소)로 분리하는 계획이다. 먼저 같은 저장소 안에서 의존성을
 끊고(1단계), 분리 직전 검증을 거쳐 히스토리를 보존해 떼어낸다(2단계). 안정화 기간은 두지 않는다.
@@ -87,30 +87,35 @@ CLI 저장소 (실행)
 | 8 | **CI 분리**: 기존 `pytest` job과 새 `cli` job(gcc + `make -C cli test`, Python 없음). `cli/`가 `src/`나 `data/`를 참조하면 실패하는 grep 검사를 추가한다 | 두 job 모두 통과 |
 | 9 | **문서 이동**: `docs/exporter-loader.md`의 C 부분, `docs/postprocessor-c.md`, `CONVENTION.md`의 C 코드 작성 기준을 `cli/` 아래로 옮기고, 옛 경로와 절대 경로 링크를 고친다. README 디렉터리 트리를 갱신한다 | `cli/` 밖에 C 관련 문서가 남지 않음 |
 
-## 6. 2단계: 저장소 분리
+## 6. 2단계: 저장소 분리 (완료)
 
-1단계 PR이 병합되면 분리 직전에 한 번 끝까지 확인한다.
+**분리 전 검증**
 
-- 시험 태그(`stage1-contract2-rc1`)를 push해 release가 만들어지는지 확인한다.
-- release에서 받은 `model.gguf`로 C 엔진과 Python 추론(`src.run --input`)의 SQL이 같은지 확인한다.
-- 계산 규칙을 일부러 한 줄 바꿔 `tests/test_contract_fixtures.py`가 실패하는지 확인하고 되돌린다.
+| 확인 | 결과 |
+| --- | --- |
+| 시험 태그 `stage1-contract2-rc1` → release workflow | 성공. prerelease에 `model.gguf`, `model_info.json`, `shop.db`, `SHA256SUMS` 첨부, 받은 파일 sha256 일치 |
+| release의 `model.gguf`로 C 엔진 vs Python 추론 | 평가 질문 100개(분포 내 + 미등장 값 무작위) 생성 SQL 100/100 동일 |
+| 계산을 일부러 바꿨을 때 가드 테스트 | RoPE theta 사용을 바꾸자 `test_contract_fixtures.py`가 실패하고 버전을 올리라고 안내 |
 
-그다음 진행한다.
+**분리**
 
-1. `git subtree split --prefix=cli -b cli-split`으로 히스토리를 보존한 채 새 저장소로 push한다.
-2. 새 저장소에 CI(빌드 + fixture 테스트 + clang-format 검사)와 `scripts/fetch-model`을 둔다.
-3. 메인 저장소에서 `cli/`를 지우고, `test_inference.py`의 Python↔C 실시간 비교를 없앤다. 그 역할은 1단계 6번 테스트가
-   맡는다. fixture 생성기 출력 경로는 메인 저장소 안(`tests/fixtures/contract/`)으로 바꾼다.
-4. 메인 저장소의 C 관련 CI(gcc 설치 전제)와 루트 `.clang-format`을 정리한다.
-5. `test_inference.py`에 있는 C 엔진 오류 경로 테스트(잘못된 파일·인자 거부 등)는 torch로 만든 모델을 바이트
-   변조해 쓰므로, CLI 저장소에서는 fixture `model.gguf`를 변조하는 방식으로 옮긴다. 옮기기 전에는 분리 후 이
-   검사가 사라진다.
+1. `git subtree split` 대신 `git filter-branch`로 `cli/` 이전의 경로(`src/loader.c`, `src/postprocessor/c/`)까지 새 경로로
+   바꿔, 엔진(#18)과 후처리기(#29)의 원래 커밋부터 이력을 보존했다. 마지막 트리는 분리 직전 `cli/`와 같다.
+2. 새 저장소: CI(빌드, fixture 테스트, 오류 경로 테스트, 후처리기 테스트, clang-format), `scripts/fetch-model`.
+3. C 테스트를 모두 옮겼다. `tests/test_inference.py`와 `tests/test_tokenizer_contract.py`의 C 오류 경로 테스트(잘못된
+   인자·손상된 파일·잘못된 토크나이저 배치·계약 v1 거부, EOS 종료, 기본 생성 길이) 39개는 `tests/error_test.c`로,
+   토큰 배치 검사(사용자 정의 특수 토큰 ID, seed 0·2·45개)는 fixture 세트(`custom_layout`, `no_seeds`, `many_seeds`)로
+   옮겼다. 동점 시 특수 토큰을 건너뛰고 작은 ID를 고르는 테스트는 가중치를 직접 만들어야 해서 옮기지 못했다(계약 6절
+   규칙으로만 남음).
+4. 메인 저장소: `cli/` 삭제, fixture를 `tests/fixtures/contract/v2/<세트>/`로 이동, `exporter.read_gguf`가 파일의 토큰
+   ID 배치를 따르도록(`GgufTokenizer`) 고침, `test_inference.py`는 C 없이 GGUF를 다시 읽어 비교하는 테스트로 바꿈, `cli` CI job·루트 `.clang-format`·`clang-format` 개발 의존성 제거. release workflow의 생성 확인은
+   엔진 저장소 main을 받아 빌드한다.
 
 ## 7. 운영 규칙 (분리 후)
 
-- **계약이 바뀔 때**: 메인에서 `CONTRACT_VERSION`을 올리고 fixture를 재생성해 PR → 태그 push로 release → CLI 저장소에서
-  새 fixture를 `fixtures/v<N>/`에 복사하고 새 버전을 지원하는 PR. CLI는 지원하는 버전 목록을 명시하고, 그 밖의 버전은
-  지금처럼 에러로 거부한다.
+- **계약이 바뀔 때**: 메인에서 `CONTRACT_VERSION`을 올리고 fixture를 재생성해 PR → CLI 저장소에서 새 fixture를
+  `fixtures/v<N>/`에 복사하고 새 버전을 지원하는 PR → 태그 push로 release (release workflow가 엔진 main으로 생성을
+  확인하므로 엔진이 먼저다). CLI는 지원하지 않는 버전을 에러로 거부한다.
 - **버전을 올리는 경우**: 계산 규칙, BPE 알고리즘, 입력 형식, 디코딩 규칙, GGUF 메타데이터 키나 텐서 배치가 바뀔 때.
   예: 위치 토큰 도입, RoPE 구현 변경, 특수 토큰 추가.
 - **버전을 올리지 않는 경우**: 모델 크기, vocab 크기, seed·merge 내용만 바뀔 때. 2단계 모델 전환은 GGUF 메타데이터로
@@ -130,5 +135,4 @@ CLI 저장소 (실행)
 
 | 항목 | 제안 |
 | --- | --- |
-| 새 저장소 위치와 이름 | 같은 조직(`polring`) 아래 |
 | CLI 저장소 담당자 | 계약 변경 PR을 받아 줄 사람 한 명 |

@@ -43,15 +43,12 @@
 ## 📐 4. 코드 가독성과 포맷팅
 
 - Python은 `pyproject.toml`의 Black 설정을 사용합니다.
-- C는 `.clang-format`을 사용하며 들여쓰기는 공백 4칸입니다.
-- C의 `for`, `while`, `if`, `else`는 본문이 한 줄이어도 중괄호를 사용합니다.
-- 한 줄에 여러 실행문을 넣지 않고, 중첩 반복문은 단계별로 들여씁니다.
 - 코드 포맷 변경과 기능 변경은 가능한 한 별도 커밋으로 구분합니다.
 
 ### C 코드 작성 기준
 
-C 추론 엔진과 후처리기(`cli/`)의 작성 기준은 [cli/README.md](../cli/README.md)의 "코드 작성 기준"에 있습니다.
-`cli/`는 별도 저장소로 분리할 예정이라 `cli/` 밖의 파일을 참조하지 않습니다(CI가 검사합니다).
+C 추론 엔진과 후처리기는 별도 저장소 [capstone-sql-cli](https://github.com/polring/capstone-sql-cli)로 분리했습니다. 작성 기준은 그 저장소의 README
+"코드 작성 기준"에 있습니다.
 
 저장소 루트에서 프로젝트 가상환경을 활성화한 뒤 실행합니다.
 포맷터는 개발용 도구이며 모델 실행에 필요한 의존성이 아닙니다.
@@ -59,14 +56,12 @@ C 추론 엔진과 후처리기(`cli/`)의 작성 기준은 [cli/README.md](../c
 ```powershell
 python -m pip install -r requirements-format.txt
 python -m black src tests
-clang-format -i cli/engine/loader.c
 ```
 
 변경 없이 포맷 검사와 테스트만 실행하려면:
 
 ```powershell
 python -m black --check src tests
-clang-format --dry-run --Werror cli/engine/loader.c
 python -m pytest tests/ -q
 ```
 
