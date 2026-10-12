@@ -9,6 +9,11 @@ from pathlib import Path
 
 from src.tokenizer import bpe
 
+# GGUF contract version, see CONTRACT.md in https://github.com/polring/capstone-sql-cli.
+# Bump it whenever the computation, tokenizer algorithm, prompt format, decoding rule
+# or GGUF layout changes; the C engine rejects versions it does not list.
+CONTRACT_VERSION = 2
+
 
 @dataclass(frozen=True)
 class TokenizerConfig:

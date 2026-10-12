@@ -34,6 +34,9 @@ data/**/data_raw/
 *.pt
 *.pth
 
+# GGUF 계약 fixture (C 엔진 테스트용 작은 모델)는 커밋한다
+!tests/fixtures/contract/**/*.gguf
+
 # Model files (except for stage models)
 !models/stage*/model.pt
 

@@ -1,0 +1,74 @@
+name: release
+
+# Tag stage<N>-contract<V> (optionally with a suffix such as -rc1 for a
+# prerelease) to publish models/stage<N>/ as a GGUF the C engine can download.
+on:
+  push:
+    tags: ["stage*-contract*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu
+          grep -vE '^(torch|--extra-index-url)' requirements.txt > /tmp/requirements-ci.txt
+          python -m pip install -r /tmp/requirements-ci.txt
+
+      - name: Parse tag
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^stage([0-9]+)-contract([0-9]+)(-.+)?$ ]]; then
+            echo "tag must look like stage1-contract2 or stage1-contract2-rc1"
+            exit 1
+          fi
+          echo "STAGE=${BASH_REMATCH[1]}" >> "$GITHUB_ENV"
+          echo "CONTRACT=${BASH_REMATCH[2]}" >> "$GITHUB_ENV"
+          if [[ -n "${BASH_REMATCH[3]}" ]]; then
+            echo "PRERELEASE=--prerelease" >> "$GITHUB_ENV"
+          fi
+
+      - name: Check tag matches CONTRACT_VERSION
+        run: |
+          python -c "from src.tokenizer.contract import CONTRACT_VERSION as v; \
+          import sys; sys.exit(f'tag says contract $CONTRACT, code says {v}' if v != $CONTRACT else 0)"
+
+      - name: Export release files
+        run: |
+          mkdir dist
+          python -m src.exporter --checkpoint "models/stage$STAGE/model.pt" --output dist/model.gguf
+          cp "models/stage$STAGE/model_info.json" dist/
+          cp "data/stage$STAGE/db/shop.db" dist/
+          (cd dist && sha256sum * > SHA256SUMS)
+
+      # The engine must already support this contract version (its main branch).
+      - uses: actions/checkout@v4
+        with:
+          repository: polring/capstone-sql-cli
+          path: engine
+
+      - name: Smoke test with the C engine
+        run: |
+          make -C engine engine
+          ./engine/build/loader dist/model.gguf --generate "what city does ashley live in?" 64 | tee /tmp/sql.txt
+          grep -q '^SELECT ' /tmp/sql.txt
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* $PRERELEASE \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Stage $STAGE model, GGUF contract v$CONTRACT. Verify downloads with SHA256SUMS."

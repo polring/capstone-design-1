@@ -21,6 +21,8 @@ pytest tests/ -v                                             # 단위 테스트
 
 > **참고**: PyTorch CUDA 빌드 인덱스(`--extra-index-url`)가 `requirements.txt`에 포함되어 있습니다. 추론·평가는 CPU로도 됩니다(`--cpu`).
 > 모든 명령은 저장소 루트에서 실행합니다. 학습·데이터 생성·인자 설명은 [docs/SETUP.md](docs/SETUP.md)에 있습니다.
+> C 추론 엔진과 SQL 후처리기는 별도 저장소 [capstone-sql-cli](https://github.com/polring/capstone-sql-cli)에 있고,
+> 이 저장소는 GGUF 모델을 GitHub Release로 배포합니다([docs/exporter-loader.md](docs/exporter-loader.md)).
 
 ---
 
@@ -34,12 +36,16 @@ capstone-design-1/
 │   ├── release.py                        # 학습 체크포인트 → 배포 모델 폴더 models/stage<N>/
 │   ├── run.py                            # 추론·평가 통합 명령 (단건 / JSON 배치 / 대화형, --test / --evaluation)
 │   ├── demo.py                           # 파이프라인 단계별 입력 → 출력 보기
+│   ├── exporter.py                       # 체크포인트 → GGUF (C 엔진용), GGUF 읽기
+│   ├── export_fixtures.py                # GGUF 계약 fixture 생성 → tests/fixtures/contract/v<N>/
 │   ├── models/
 │   │   ├── embedding.py                  # TokenEmbedding, RoPE
 │   │   ├── transformer.py                # RMSNorm, Attention, SwiGLU FFN, 디코더 블록
 │   │   └── model.py                      # 전체 모델 조립, greedy 생성
 │   ├── tokenizer/
-│   │   └── bpe.py                        # 바이트 레벨 BPE 토크나이저 (Tokenizer)
+│   │   ├── bpe.py                        # 바이트 레벨 BPE 토크나이저 (Tokenizer)
+│   │   └── contract.py                   # GGUF 계약 버전(CONTRACT_VERSION), 토큰 ID 배치
+│   ├── postprocessor/python/             # 생성 SQL 오타 교정 (Python), semantic dict 생성
 │   ├── inference/                        # 학습된 모델 쓰기
 │   │   ├── loading.py                    # 체크포인트·배포 모델 불러오기, 짝이 맞는 토크나이저 찾기
 │   │   ├── generate.py                   # 질문 → SQL greedy 생성 (배치), 디코딩
@@ -68,9 +74,12 @@ capstone-design-1/
 ├── models/
 │   └── stage1/                           # 배포 모델: model.pt, tokenizer.json, model_info.json
 ├── tests/                                # pytest — src/ 와 같은 구조 (tests/inference/, tests/evaluation/, tests/data/stage1/, ...)
+│   └── fixtures/contract/v<N>/           # GGUF 계약 fixture (C 엔진 저장소가 복사해 검증)
 ├── docs/
 │   ├── CONVENTION.md                     # 팀 협업 규칙 및 커밋 컨벤션
 │   ├── SETUP.md                          # 환경 설정, 각 단계 실행·재현 방법, 인자 설명
+│   ├── exporter-loader.md                # GGUF 내보내기, 계약 버전 변경 절차, release 배포
+│   ├── repo-split-plan.md                # C 엔진 저장소 분리 계획과 결과
 │   ├── text-to-sql-llm-project-plan.md   # 전체 프로젝트 설계서
 │   └── text-to-sql-stage1-report.md      # 1단계 진행 보고서
 ├── CLAUDE.md                             # Claude Code 작업 규칙

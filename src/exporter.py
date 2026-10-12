@@ -17,7 +17,7 @@ from src.inference.gguf_model import (
 )
 from src.inference.loading import tokenizer_path_for
 from src.tokenizer import bpe
-from src.tokenizer.contract import TokenizerConfig
+from src.tokenizer.contract import CONTRACT_VERSION, TokenizerConfig
 
 
 def _string(value):
@@ -48,7 +48,7 @@ def export_model(model, output, merges, tokenizer_config=None):
     metadata = [
         ("general.architecture", 8, _string("capstone_sql")),
         ("general.alignment", 4, struct.pack("<I", 32)),
-        ("capstone_sql.contract_version", 4, struct.pack("<I", 2)),
+        ("capstone_sql.contract_version", 4, struct.pack("<I", CONTRACT_VERSION)),
     ]
     for name in ("vocab_size", "dim", "layers", "heads", "ffn_dim", "context"):
         metadata.append(
@@ -107,6 +107,146 @@ def export_model(model, output, merges, tokenizer_config=None):
         stream.write(header.getvalue())
         stream.write(b"\0" * (-header.tell() % 32))
         stream.write(tensor_data)
+
+
+def read_gguf(path):
+    """Read a file written by export_model back into (model, tokenizer, metadata).
+
+    Only the subset of GGUF that export_model writes is supported; the contract
+    fixtures use it to recompute expected values from the committed model file.
+    """
+    raw = Path(path).read_bytes()
+    position = 0
+
+    def take(fmt):
+        nonlocal position
+        values = struct.unpack_from(fmt, raw, position)
+        position += struct.calcsize(fmt)
+        return values if len(values) > 1 else values[0]
+
+    def take_string():
+        nonlocal position
+        length = take("<Q")
+        position += length
+        return raw[position - length : position].decode("utf-8")
+
+    def take_value(kind):
+        if kind == 4:
+            return take("<I")
+        if kind == 6:
+            return take("<f")
+        if kind == 8:
+            return take_string()
+        element_kind, count = take("<IQ")
+        return [take_value(element_kind) for _ in range(count)]
+
+    magic, version, tensor_count, metadata_count = take("<4sIQQ")
+    if magic != b"GGUF" or version != 3:
+        raise ValueError("not a GGUF v3 file")
+    metadata = {}
+    for _ in range(metadata_count):
+        key = take_string()
+        metadata[key] = take_value(take("<I"))
+    descriptors = []
+    for _ in range(tensor_count):
+        name = take_string()
+        dims = take(f"<{take('<I')}Q")
+        dims = dims if isinstance(dims, tuple) else (dims,)
+        _, offset = take("<IQ")
+        descriptors.append((name, tuple(reversed(dims)), offset))
+    data_start = position + (-position % 32)
+
+    def field(name):
+        return metadata["capstone_sql." + name]
+
+    config = ModelConfig(
+        **{
+            name: field(name)
+            for name in ("vocab_size", "dim", "layers", "heads", "ffn_dim", "context")
+        },
+        eps=field("eps"),
+        theta=field("theta"),
+    )
+    state = {}
+    for name, shape, offset in descriptors:
+        count = 1
+        for size in shape:
+            count *= size
+        start = data_start + offset
+        values = struct.unpack_from(f"<{count}f", raw, start)
+        state[name] = torch.tensor(values, dtype=torch.float32).reshape(shape)
+    model = InferenceModel(config)
+    model.load_state_dict(state, strict=True)
+    flat = field("tokenizer.merges")
+    merges = [
+        ((flat[index], flat[index + 1]), flat[index + 2])
+        for index in range(0, len(flat), 3)
+    ]
+    layout = TokenizerConfig(
+        seeds=tuple(field("tokenizer.seeds")),
+        **{
+            name: field("tokenizer." + name)
+            for name in (
+                "pad_id",
+                "bos_id",
+                "eos_id",
+                "sep_id",
+                "seed_base",
+                "merge_base",
+            )
+        },
+    )
+    return model.eval(), GgufTokenizer(layout, merges), metadata
+
+
+class GgufTokenizer:
+    """The team BPE with the token ID layout stored in a GGUF file.
+
+    bpe.Tokenizer always numbers seeds from SEED_BASE; a GGUF file may place seeds,
+    merges and special tokens elsewhere, so IDs are mapped to and from that layout.
+    """
+
+    def __init__(self, config, merges):
+        self.config = config
+        self.seed_tokens = list(config.seeds)
+        self.merges = list(merges)
+        self.bos_id, self.eos_id, self.sep_id = (
+            config.bos_id,
+            config.eos_id,
+            config.sep_id,
+        )
+        seed_count = len(config.seeds)
+        standard_merge_base = bpe.SEED_BASE + seed_count
+
+        def to_standard(token_id):
+            if token_id < 256:
+                return token_id
+            if token_id < config.seed_base + seed_count:
+                return bpe.SEED_BASE + token_id - config.seed_base
+            return standard_merge_base + token_id - config.merge_base
+
+        def from_standard(token_id):
+            if token_id < 256:
+                return token_id
+            if token_id < standard_merge_base:
+                return config.seed_base + token_id - bpe.SEED_BASE
+            return config.merge_base + token_id - standard_merge_base
+
+        self._from_standard = from_standard
+        self._tokenizer = bpe.Tokenizer(
+            self.seed_tokens,
+            [
+                ((to_standard(a), to_standard(b)), to_standard(new))
+                for (a, b), new in self.merges
+            ],
+        )
+        self.id_to_bytes = {
+            from_standard(token_id): piece
+            for token_id, piece in self._tokenizer.id_to_bytes.items()
+        }
+
+    def encode(self, text):
+        return [self._from_standard(i) for i in self._tokenizer.encode(text)]
 
 
 def _checkpoint_tokenizer_path(checkpoint_path):

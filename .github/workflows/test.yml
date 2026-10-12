@@ -28,6 +28,6 @@ jobs:
             python -m pip install -r requirements-inference.txt
           fi
 
-      # ubuntu-latest ships gcc, so the C inference tests run instead of skipping.
       - name: Run tests
         run: python -m pytest tests/ -q -rs
+
