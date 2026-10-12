@@ -1,6 +1,6 @@
 # SQL Post-processor C 구현 가이드
 
-학습 저장소의 Python 구현체(`src/postprocessor/python`)와 같은 알고리즘·동작을 하도록 C 언어로 작성된 모듈(`cli/postprocessor/`)에 대한 설계 및 사용 설명서입니다.
+학습 저장소의 Python 구현체(`src/postprocessor/python`)와 같은 알고리즘·동작을 하도록 C 언어로 작성된 모듈(`postprocessor/`)에 대한 설계 및 사용 설명서입니다.
 
 C 프로젝트에서 헤더를 인클루드하여 정적/동적 라이브러리로 링크해 사용할 수 있으며, CLI 바이너리로 빌드하여 단독 실행할 수도 있습니다.
 
@@ -8,7 +8,7 @@ C 프로젝트에서 헤더를 인클루드하여 정적/동적 라이브러리�
 
 ## 1. 아키텍처 및 모듈 구성
 
-모듈은 `cli/postprocessor/` 디렉터리에 위치하며 다음 파일들로 구성되어 있습니다:
+모듈은 `postprocessor/` 디렉터리에 위치하며 다음 파일들로 구성되어 있습니다:
 
 | 파일명 | 역할 설명 |
 | :--- | :--- |
@@ -45,7 +45,7 @@ C 프로젝트에서 헤더를 인클루드하여 정적/동적 라이브러리�
 
 ### 라이브러리 및 CLI 빌드
 ```bash
-cd cli/postprocessor   # 또는 저장소 루트에서 make -C cli postprocessor
+cd postprocessor   # 또는 저장소 루트에서 make postprocessor
 make
 ```
 
@@ -95,7 +95,7 @@ int main(void) {
 
 ### 컴파일 명령:
 ```bash
-gcc -std=c11 -O2 my_code.c -Icli/postprocessor cli/postprocessor/libpostprocessor.a -lm -o my_code
+gcc -std=c11 -O2 my_code.c -Ipostprocessor postprocessor/libpostprocessor.a -lm -o my_code
 ```
 
 ---

@@ -1,0 +1,13 @@
+# Build outputs
+build/
+*.o
+*.a
+*.exe
+postprocessor/postprocessor
+postprocessor/test_postprocessor
+
+# Downloaded release files (scripts/fetch-model)
+models/
+
+# Semantic embedding caches used by the postprocessor
+data/

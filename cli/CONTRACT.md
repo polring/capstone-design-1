@@ -1,6 +1,7 @@
 # capstone_sql GGUF 계약 (버전 2)
 
-학습 저장소의 exporter(`src/exporter.py`)가 쓰는 GGUF 파일과, 이 C 엔진이 그 파일로 하는 계산의 약속이다.
+학습 저장소([polring/capstone-design-1](https://github.com/polring/capstone-design-1))의 exporter(`src/exporter.py`)가
+쓰는 GGUF 파일과, 이 C 엔진이 그 파일로 하는 계산의 약속이다.
 구조 하이퍼파라미터와 토크나이저 데이터는 파일 안에 있으므로 엔진은 설정 파일을 따로 두지 않는다. 파일에 담을 수
 없는 **계산 규칙**은 이 문서와 `fixtures/v<N>/`의 기대값으로 고정한다.
 

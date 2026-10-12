@@ -1,0 +1,20 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # ubuntu-latest ships gcc, make and clang-format.
+      - name: Build and test
+        run: make all test
+
+      - name: Check engine formatting
+        run: clang-format --dry-run --Werror engine/loader.c tests/fixture_test.c tests/error_test.c
