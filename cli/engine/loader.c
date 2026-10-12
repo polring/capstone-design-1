@@ -1286,21 +1286,21 @@ static int select_next_token(const Model *model, const float *logits) {
     return next_token_id;
 }
 
-static const char *generate_tokens(const Model *model, int *token_ids, int token_count,
+/* Appends generated IDs after the prompt; printing is left to the caller so the
+ * contract fixture test can check the same IDs without capturing stdout. */
+static const char *generate_tokens(const Model *model, int *token_ids, int *token_count,
                                    int max_new_tokens) {
     for (int step = 0; step < max_new_tokens; step++) {
-        if (token_count >= model->config.context_length) {
+        if (*token_count >= model->config.context_length) {
             return "context";
         }
-        float *logits = forward(model, token_ids, token_count);
+        float *logits = forward(model, token_ids, *token_count);
         int next_token_id = select_next_token(model, logits);
         free(logits);
         if (next_token_id == (int)model->tokenizer.eos_id) {
             return "eos";
         }
-        fwrite(model->tokenizer.token_bytes[next_token_id], 1,
-               model->tokenizer.token_byte_lengths[next_token_id], stdout);
-        append_token_id(token_ids, &token_count, model->config.context_length,
+        append_token_id(token_ids, token_count, model->config.context_length,
                         next_token_id);
     }
     return "max_new_tokens";
@@ -1308,9 +1308,15 @@ static const char *generate_tokens(const Model *model, int *token_ids, int token
 
 static void run_generation_command(const Model *model, const CliOptions *options) {
     int *token_ids = allocate_array(model->config.context_length, sizeof(int));
-    int token_count = prepare_prompt_tokens(model, options->text, token_ids);
+    int prompt_count = prepare_prompt_tokens(model, options->text, token_ids);
+    int token_count = prompt_count;
     const char *stop_reason =
-        generate_tokens(model, token_ids, token_count, options->max_new_tokens);
+        generate_tokens(model, token_ids, &token_count, options->max_new_tokens);
+    for (int index = prompt_count; index < token_count; index++) {
+        int token_id = token_ids[index];
+        fwrite(model->tokenizer.token_bytes[token_id], 1,
+               model->tokenizer.token_byte_lengths[token_id], stdout);
+    }
     puts("");
     fprintf(stderr, "stop=%s (untrained weights produce arbitrary text)\n",
             stop_reason);

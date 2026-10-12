@@ -109,6 +109,83 @@ def export_model(model, output, merges, tokenizer_config=None):
         stream.write(tensor_data)
 
 
+def read_gguf(path):
+    """Read a file written by export_model back into (model, tokenizer, metadata).
+
+    Only the subset of GGUF that export_model writes is supported; the contract
+    fixtures use it to recompute expected values from the committed model file.
+    """
+    raw = Path(path).read_bytes()
+    position = 0
+
+    def take(fmt):
+        nonlocal position
+        values = struct.unpack_from(fmt, raw, position)
+        position += struct.calcsize(fmt)
+        return values if len(values) > 1 else values[0]
+
+    def take_string():
+        nonlocal position
+        length = take("<Q")
+        position += length
+        return raw[position - length : position].decode("utf-8")
+
+    def take_value(kind):
+        if kind == 4:
+            return take("<I")
+        if kind == 6:
+            return take("<f")
+        if kind == 8:
+            return take_string()
+        element_kind, count = take("<IQ")
+        return [take_value(element_kind) for _ in range(count)]
+
+    magic, version, tensor_count, metadata_count = take("<4sIQQ")
+    if magic != b"GGUF" or version != 3:
+        raise ValueError("not a GGUF v3 file")
+    metadata = {}
+    for _ in range(metadata_count):
+        key = take_string()
+        metadata[key] = take_value(take("<I"))
+    descriptors = []
+    for _ in range(tensor_count):
+        name = take_string()
+        dims = take(f"<{take('<I')}Q")
+        dims = dims if isinstance(dims, tuple) else (dims,)
+        _, offset = take("<IQ")
+        descriptors.append((name, tuple(reversed(dims)), offset))
+    data_start = position + (-position % 32)
+
+    def field(name):
+        return metadata["capstone_sql." + name]
+
+    config = ModelConfig(
+        **{
+            name: field(name)
+            for name in ("vocab_size", "dim", "layers", "heads", "ffn_dim", "context")
+        },
+        eps=field("eps"),
+        theta=field("theta"),
+    )
+    state = {}
+    for name, shape, offset in descriptors:
+        count = 1
+        for size in shape:
+            count *= size
+        start = data_start + offset
+        values = struct.unpack_from(f"<{count}f", raw, start)
+        state[name] = torch.tensor(values, dtype=torch.float32).reshape(shape)
+    model = InferenceModel(config)
+    model.load_state_dict(state, strict=True)
+    flat = field("tokenizer.merges")
+    merges = [
+        ((flat[index], flat[index + 1]), flat[index + 2])
+        for index in range(0, len(flat), 3)
+    ]
+    tokenizer = bpe.Tokenizer(field("tokenizer.seeds"), merges)
+    return model.eval(), tokenizer, metadata
+
+
 def _checkpoint_tokenizer_path(checkpoint_path):
     """The tokenizer a training or release checkpoint was trained with, or None."""
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
