@@ -17,7 +17,7 @@ from src.inference.gguf_model import (
 )
 from src.inference.loading import tokenizer_path_for
 from src.tokenizer import bpe
-from src.tokenizer.contract import TokenizerConfig
+from src.tokenizer.contract import CONTRACT_VERSION, TokenizerConfig
 
 
 def _string(value):
@@ -48,7 +48,7 @@ def export_model(model, output, merges, tokenizer_config=None):
     metadata = [
         ("general.architecture", 8, _string("capstone_sql")),
         ("general.alignment", 4, struct.pack("<I", 32)),
-        ("capstone_sql.contract_version", 4, struct.pack("<I", 2)),
+        ("capstone_sql.contract_version", 4, struct.pack("<I", CONTRACT_VERSION)),
     ]
     for name in ("vocab_size", "dim", "layers", "heads", "ffn_dim", "context"):
         metadata.append(

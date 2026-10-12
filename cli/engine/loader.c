@@ -23,6 +23,9 @@
 #define MAX_TENSOR_COUNT 10000
 #define MAX_MERGE_ARRAY_ENTRIES 393216
 #define GGUF_VERSION 3
+/* Must match the exporter's CONTRACT_VERSION; see CONTRACT.md. */
+#define CONTRACT_VERSION 2
+#define CONTRACT_VERSION_TEXT "2"
 #define GGUF_ALIGNMENT 32
 #define REQUIRED_METADATA_COUNT 19
 #define BYTE_TOKEN_COUNT 256
@@ -504,9 +507,9 @@ static unsigned read_metadata_entry(BinaryReader *reader, Model *model, const ch
         return METADATA_ALIGNMENT;
     }
     if (!strcmp(key, "capstone_sql.contract_version")) {
-        read_expected_uint32(
-            reader, type, 2,
-            "unsupported model contract version; re-export as version 2");
+        read_expected_uint32(reader, type, CONTRACT_VERSION,
+                             "unsupported model contract version; re-export as "
+                             "version " CONTRACT_VERSION_TEXT);
         return METADATA_CONTRACT_VERSION;
     }
     if (!strcmp(key, "capstone_sql.tokenizer.seeds")) {
