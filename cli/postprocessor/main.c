@@ -76,9 +76,7 @@ int main(int argc, char *argv[]) {
     if (db_path) {
         load_dictionary_from_sqlite(db_path, &dictionary, &dict_size);
     } else {
-        if (load_dictionary_from_sqlite("data/shop.db", &dictionary, &dict_size) != 0) {
-            load_dictionary_from_sqlite("../../../data/shop.db", &dictionary, &dict_size);
-        }
+        load_dictionary_from_sqlite("data/shop.db", &dictionary, &dict_size);
     }
 
     char *fixed_sql = process_sql(

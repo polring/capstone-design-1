@@ -19,8 +19,10 @@ ifeq ($(OS),Windows_NT)
 	TARGET_CLI := postprocessor.exe
 	TEST_BIN := test_postprocessor.exe
 	RM = del /Q /F
+	NULL_DEVICE = nul
 else
 	RM = rm -f
+	NULL_DEVICE = /dev/null
 endif
 
 .PHONY: all clean test
@@ -43,4 +45,4 @@ $(TEST_BIN): test_postprocessor.c $(LIB_STATIC)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	$(RM) $(OBJS) $(LIB_STATIC) $(TARGET_CLI) $(TEST_BIN) 2>nul || true
+	$(RM) $(OBJS) $(LIB_STATIC) $(TARGET_CLI) $(TEST_BIN) 2>$(NULL_DEVICE) || true

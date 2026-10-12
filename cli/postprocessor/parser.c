@@ -30,17 +30,6 @@ static const char *EXTENDED_KEYWORDS[] = {
 static const size_t EXTENDED_KEYWORDS_COUNT =
     sizeof(EXTENDED_KEYWORDS) / sizeof(EXTENDED_KEYWORDS[0]);
 
-/* Helper: string duplicate */
-static char *my_strdup(const char *s) {
-    if (!s) return NULL;
-    size_t len = strlen(s);
-    char *res = (char *)malloc(len + 1);
-    if (res) {
-        memcpy(res, s, len + 1);
-    }
-    return res;
-}
-
 /* Helper: uppercase copy */
 static void to_upper_str(const char *src, char *dst, size_t max_len) {
     size_t i = 0;

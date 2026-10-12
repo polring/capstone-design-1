@@ -308,11 +308,9 @@ static int ensure_semantic_cache(int dim) {
 
     char path_buf[512];
 
-    /* Candidate paths for binary cache */
+    /* Binary cache relative to the working directory */
     const char *bin_patterns[] = {
-        "data/semantic_dict_%dd.bin",
-        "../../../data/semantic_dict_%dd.bin",
-        "..\\..\\..\\data\\semantic_dict_%dd.bin"
+        "data/semantic_dict_%dd.bin"
     };
 
     for (size_t i = 0; i < sizeof(bin_patterns) / sizeof(bin_patterns[0]); i++) {
