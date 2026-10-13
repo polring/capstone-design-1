@@ -65,11 +65,7 @@ jobs:
       - name: Smoke test with the C engine
         run: |
           make -C engine engine
-          ENGINE_BIN="./engine/build/sql-cli"
-          if [ ! -f "$ENGINE_BIN" ]; then
-            ENGINE_BIN="./engine/build/loader"
-          fi
-          $ENGINE_BIN dist/model.gguf --generate "what city does ashley live in?" 64 | tee /tmp/sql.txt
+          ./engine/build/sql-cli dist/model.gguf --generate "what city does ashley live in?" 64 | tee /tmp/sql.txt
           grep -q '^SELECT ' /tmp/sql.txt
 
       - name: Publish GitHub release
