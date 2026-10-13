@@ -51,6 +51,9 @@ jobs:
           python -m src.exporter --checkpoint "models/stage$STAGE/model.pt" --output dist/model.gguf
           cp "models/stage$STAGE/model_info.json" dist/
           cp "data/stage$STAGE/db/shop.db" dist/
+          python src/postprocessor/python/build_semantic_dict.py --dim 300 --threshold 0.5 --db "data/stage$STAGE/db/shop.db"
+          python src/postprocessor/python/export_embeddings.py --dim 300
+          cp "data/semantic_dict_300d.bin" dist/
           (cd dist && sha256sum * > SHA256SUMS)
 
       # The engine must already support this contract version (its main branch).
@@ -62,7 +65,11 @@ jobs:
       - name: Smoke test with the C engine
         run: |
           make -C engine engine
-          ./engine/build/loader dist/model.gguf --generate "what city does ashley live in?" 64 | tee /tmp/sql.txt
+          ENGINE_BIN="./engine/build/sql-cli"
+          if [ ! -f "$ENGINE_BIN" ]; then
+            ENGINE_BIN="./engine/build/loader"
+          fi
+          $ENGINE_BIN dist/model.gguf --generate "what city does ashley live in?" 64 | tee /tmp/sql.txt
           grep -q '^SELECT ' /tmp/sql.txt
 
       - name: Publish GitHub release
