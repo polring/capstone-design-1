@@ -14,7 +14,7 @@
 ```powershell
 python -m src.exporter --checkpoint models/stage1/model.pt --output runs/stage1/model.gguf
 python -m src.exporter --dummy --output dummy.gguf
-python -m pytest tests/test_inference.py tests/test_contract_fixtures.py -q
+python -m pytest tests/inference/test_gguf_model.py tests/test_contract_fixtures.py -q
 ```
 
 `--dummy`는 dim=16, heads=2, layers=2, ffn_dim=32의 무작위 모델이다.
@@ -113,7 +113,7 @@ C 엔진은 `tests/fixtures/contract/v<N>/`의 사본으로만 검증되므로, 
 
 ## 검증
 
-`tests/test_inference.py`는 내보낸 GGUF를 `exporter.read_gguf`로 다시 읽어 가중치·병합 규칙·logits가 원래 모델과
+`tests/inference/test_gguf_model.py`는 내보낸 GGUF를 `exporter.read_gguf`로 다시 읽어 가중치·병합 규칙·logits가 원래 모델과
 같은지 확인한다. 배포 모델(`models/stage1/model.pt`)은 계약 규칙의 greedy 생성(`export_fixtures.reference_generate`)이
 학습 모델과 같은 SQL을 내는지 확인한다.
 선택적 `gguf.GGUFReader` 검사로 모든 텐서 값의 파일 호환성을 독립 확인한다.
