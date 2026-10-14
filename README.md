@@ -8,11 +8,14 @@
 
 ## 🚀 바로 써 보기
 
-학습된 배포 모델(`models/stage1/`)이 저장소에 포함되어 있어 학습 없이 바로 실행할 수 있습니다.
+학습된 배포 모델(`models/stage2/`, 1단계는 `models/stage1/`)이 저장소에 포함되어 있어 학습 없이 바로 실행할 수 있습니다.
+기본은 2단계 모델이고, 1단계 모델은 `--stage 1`을 붙입니다.
 
 ```bash
 pip install -r requirements.txt
 python -m src.run --input "what city does ashley live in?"   # 질문 → SQL → DB 실행 결과
+python -m src.run --input "the 3 cheapest kitchen items with more than 10 in stock"
+python -m src.run --stage 1 --input "what city does ashley live in?"   # 1단계 모델
 python -m src.run                                            # 대화형
 python -m src.run --evaluation                               # 평가셋 전부 채점
 python -m src.demo all                                       # 예시 하나로 파이프라인 각 단계의 입력 → 출력 보기
@@ -30,69 +33,30 @@ pytest tests/ -v                                             # 단위 테스트
 
 ```text
 capstone-design-1/
-├── src/
-│   ├── config.py                         # 단계별 모델 구조, 학습 설정, 데이터·모델 경로 (STAGE 하나로 전환)
-│   ├── train.py                          # 학습 루프 → runs/stage<N>/<run>/
-│   ├── release.py                        # 학습 체크포인트 → 배포 모델 폴더 models/stage<N>/
-│   ├── run.py                            # 추론·평가 통합 명령 (단건 / JSON 배치 / 대화형, --test / --evaluation)
-│   ├── demo.py                           # 파이프라인 단계별 입력 → 출력 보기
-│   ├── exporter.py                       # 체크포인트 → GGUF (C 엔진용), GGUF 읽기
-│   ├── export_fixtures.py                # GGUF 계약 fixture 생성 → tests/fixtures/contract/v<N>/
-│   ├── models/
-│   │   ├── embedding.py                  # TokenEmbedding, RoPE
-│   │   ├── transformer.py                # RMSNorm, Attention, SwiGLU FFN, 디코더 블록
-│   │   └── model.py                      # 전체 모델 조립, greedy 생성
-│   ├── tokenizer/
-│   │   ├── bpe.py                        # 바이트 레벨 BPE 토크나이저 (Tokenizer)
-│   │   └── contract.py                   # GGUF 계약 버전(CONTRACT_VERSION), 토큰 ID 배치
-│   ├── postprocessor/python/             # 생성 SQL 오타 교정 (Python), semantic dict 생성
-│   ├── inference/                        # 학습된 모델 쓰기
-│   │   ├── loading.py                    # 체크포인트·배포 모델 불러오기, 짝이 맞는 토크나이저 찾기
-│   │   ├── generate.py                   # 질문 → SQL greedy 생성 (배치), 디코딩
-│   │   └── gguf_model.py                 # GGUF export 용 체크포인트 계약 모델 (exporter.py 가 사용)
-│   ├── evaluation/                       # 평가
-│   │   ├── scoring.py                    # 채점·집계: EM, 다중 정답 EM, 규칙 일치 EM, 실행 정확도, 신뢰구간
-│   │   └── eval_sets.py                  # 평가셋 폴더(pairs.json + sql.json), 평가 결과 위치
-│   └── data/
-│       ├── dataset.py                    # <bos> 질문 <sep> SQL <eos> 토큰화, loss_mask, collate_fn
-│       ├── db_gen.py                     # SQLite DB·미등장 값 생성 (스키마가 같은 단계 공통)
-│       └── stage1/                       # 1단계 전용
-│           ├── sql_gen.py                # SQL 생성 (학습 / 분포 내 / 미등장 값)
-│           ├── question_gen.py           # LLM 질문 생성 v1 (수동 전달) · 검증
-│           ├── question_gen_auto.py      # v2 — 로컬 Ollama 모델 호출 자동화
-│           ├── clean_ambiguous.py        # 라벨 규칙(L2~L4) 위반 학습 쌍 제거
-│           ├── name_swap.py              # 이름 교체 (가짜 이름 생성, 기본 학습에 사용)
-│           └── sql_rules.py              # 1단계 채점 규칙 (SQL 분해, 오답 분류, 다중 정답, 규칙 일치)
-├── data/
-│   ├── stage1/
-│   │   ├── db/                           # shop.db, holdout.json (미등장 값)
-│   │   ├── sql/                          # train.json, eval_indist.json, eval_holdout.json, gen_report.json
-│   │   ├── train/                        # 학습 (질문, SQL) 쌍 — 이 폴더의 *.json 전부가 학습 데이터·BPE 코퍼스
-│   │   ├── eval/                         # 평가셋마다 폴더 하나: indist/, holdout/, holdout_qwen/ (pairs.json + sql.json)
-│   │   └── tokenizer/                    # seed_tokens.json (seed 토큰), tokenizer.json (BPE 학습 결과)
-│   └── wordnet/                          # 이름 교체용 영단어 목록 (WordNet 3.0, 라이선스 포함)
-├── models/
-│   └── stage1/                           # 배포 모델: model.pt, tokenizer.json, model_info.json
-├── tests/                                # pytest — src/ 와 같은 구조 (tests/inference/, tests/evaluation/, tests/data/stage1/, ...)
-│   └── fixtures/contract/v<N>/           # GGUF 계약 fixture (C 엔진 저장소가 복사해 검증)
-├── docs/
-│   ├── CONVENTION.md                     # 팀 협업 규칙 및 커밋 컨벤션
-│   ├── SETUP.md                          # 환경 설정, 각 단계 실행·재현 방법, 인자 설명
-│   ├── exporter-loader.md                # GGUF 내보내기, 계약 버전 변경 절차, release 배포
-│   ├── repo-split-plan.md                # C 엔진 저장소 분리 계획과 결과
-│   ├── text-to-sql-llm-project-plan.md   # 전체 프로젝트 설계서
-│   └── text-to-sql-stage1-report.md      # 1단계 진행 보고서
-├── CLAUDE.md                             # Claude Code 작업 규칙
-├── pytest.ini                            # pytest 마커·옵션
-├── requirements.txt                      # 프로젝트 통합 의존성
-└── README.md
+├── src/                    # 코드. 실행 명령(config, train, release, run, demo, exporter)은 src/ 바로 아래
+│   ├── models/             # Transformer 모델 (임베딩·RoPE, 디코더 블록, 조립)
+│   ├── tokenizer/          # BPE 토크나이저
+│   ├── inference/          # 학습된 모델 불러오기, SQL 생성
+│   ├── evaluation/         # 채점·평가셋 (단계 공통)
+│   ├── data/               # 데이터 생성 — 단계 공통 + stage1/, stage2/ (단계 전용)
+│   └── postprocessor/      # SQL 후처리 (python/)
+├── data/                   # 커밋되는 데이터
+│   ├── stage<N>/           # 단계별: db, sql, train, eval, tokenizer (+ 2단계 composer, handout)
+│   └── wordnet/            # 이름 교체용 영단어 목록
+├── models/stage<N>/        # 배포 모델 (model.pt, tokenizer.json, model_info.json)
+├── tests/                  # pytest — src/ 와 같은 구조
+└── docs/                   # 설계서, 단계별 보고서, 라벨 규칙, 실행 방법, 협업 규칙
+
 ```
 
-커밋하지 않는 폴더: `data_raw/`(질문 생성 라운드·중간 산출물), `runs/`(학습·평가·추론 결과).
+파일 단위 설명은 [docs/SETUP.md](docs/SETUP.md) 3절에 있습니다.
+
+커밋하지 않는 폴더: `data_raw/`(질문 생성 라운드·중간 산출물), `runs/`(학습·평가·추론 결과),
+`experiments/`(단계 전환 전 실험 코드·데이터·체크포인트).
 
 ---
 
 ## 📜 협업 규칙 및 문서
 - 팀 협업 및 Git 커밋/PR 규칙은 [docs/CONVENTION.md](docs/CONVENTION.md)를 확인하세요.
 - 데이터셋 구조와 모델 아키텍처 설계는 [docs/text-to-sql-llm-project-plan.md](docs/text-to-sql-llm-project-plan.md)를 참고하세요.
-- 현재 진행 상황과 결과는 [docs/text-to-sql-stage1-report.md](docs/text-to-sql-stage1-report.md), 실행·재현 방법은 [docs/SETUP.md](docs/SETUP.md)에 있습니다.
+- 현재 진행 상황과 결과는 [1단계 보고서](docs/text-to-sql-stage1-report.md)·[2단계 보고서](docs/text-to-sql-stage2-report.md), 실행·재현 방법은 [docs/SETUP.md](docs/SETUP.md)에 있습니다.
