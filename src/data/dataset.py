@@ -5,7 +5,7 @@ from pathlib import Path
 import torch
 from torch.utils.data import Dataset
 
-from src.config import TRAIN_DIR, EVAL_DIR, PAIRS_FILE
+from src.config import TRAIN_DIR, EVAL_DIR
 from src.tokenizer import bpe
 
 BOS_ID = bpe.SPECIAL_BASE + bpe.SPECIAL_TOKENS.index("<bos>")
@@ -36,8 +36,9 @@ def load_train_pairs(files: list[str | Path] | None = None, train_dir: str | Pat
     return pairs
 
 def load_eval_pairs(name: str, eval_dir: str | Path = EVAL_DIR) -> list[Pair]:
-    """평가셋 <eval_dir>/<name>/pairs.json"""
-    return load_pairs(Path(eval_dir) / name, PAIRS_FILE)
+    """평가셋 name 의 쌍 (폴더 방식 <eval_dir>/<name>/pairs.json, 합친 방식 <eval_dir>/pairs.json 의 set — eval_sets)"""
+    from src.evaluation.eval_sets import load_eval_set
+    return load_eval_set(name, eval_dir)[0]
 
 def encode_pair(question: str, sql: str, tok: bpe.Tokenizer) -> list[int]:
     q_ids = tok.encode(question)

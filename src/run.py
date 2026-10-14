@@ -261,7 +261,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--no-amp", action="store_true", help="bf16 autocast 끄기")
     ap.add_argument("--list-sets", action="store_true", help="평가셋 목록과 쌍·SQL 수를 출력하고 끝낸다")
     ap.add_argument("--build-sql", metavar="NAME", help="평가셋 NAME 의 sql.json 을 --sql 파일에서 만들고 끝낸다")
-    ap.add_argument("--sql", help="--build-sql 용 sql_gen 출력 파일 (예: data/stage1/sql/eval_indist.json)")
+    ap.add_argument("--sql", nargs="+", help="--build-sql 용 sql_gen 출력 파일 (여러 개 가능, 예: data/stage1/sql/eval_indist.json)")
     args = ap.parse_args(argv)
 
     stage = args.stage or config.STAGE

@@ -39,8 +39,10 @@ import random
 import sqlite3
 from dataclasses import asdict, dataclass
 
-from src import config
+from src.config import stage_paths
 from src.data import db_gen
+
+PATHS = stage_paths(1)  # 1단계 데이터 스크립트라 config.STAGE 와 무관하게 1단계 경로를 쓴다
 
 
 # ---------------------------------------------------------------------------
@@ -252,12 +254,12 @@ def generate(con: sqlite3.Connection, bans: dict, cfg: SqlGenConfig
 def _paths(out_dir: str, db_dir: str) -> dict[str, str]:
     """out_dir = SQL 출력 폴더, db_dir = db_gen 출력 폴더. 파일 이름은 config 의 경로와 같다."""
     return {
-        "db": os.path.join(db_dir, config.DB_PATH.name),
-        "holdout": os.path.join(db_dir, config.HOLDOUT_PATH.name),
-        "train": os.path.join(out_dir, config.SQL_TRAIN_PATH.name),
-        "eval": os.path.join(out_dir, config.SQL_EVAL_INDIST_PATH.name),
-        "holdout_eval": os.path.join(out_dir, config.SQL_EVAL_HOLDOUT_PATH.name),
-        "report": os.path.join(out_dir, config.SQL_REPORT_PATH.name),
+        "db": os.path.join(db_dir, "shop.db"),
+        "holdout": os.path.join(db_dir, "holdout.json"),
+        "train": os.path.join(out_dir, "train.json"),
+        "eval": os.path.join(out_dir, "eval_indist.json"),
+        "holdout_eval": os.path.join(out_dir, "eval_holdout.json"),
+        "report": os.path.join(out_dir, "gen_report.json"),
     }
 
 
@@ -521,8 +523,8 @@ def main() -> int:
     ap.add_argument("command", choices=["build", "verify", "test", "summary", "holdout"])
     ap.add_argument("--preset", default="large", choices=list(db_gen.PRESETS))
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--out", default=str(config.SQL_DIR), help=f"SQL 출력 폴더 (기본 {config.SQL_DIR})")
-    ap.add_argument("--db-dir", default=str(config.DB_DIR), help=f"shop.db·holdout.json 폴더 (기본 {config.DB_DIR})")
+    ap.add_argument("--out", default=str(PATHS.sql_dir), help=f"SQL 출력 폴더 (기본 {PATHS.sql_dir})")
+    ap.add_argument("--db-dir", default=str(PATHS.db_dir), help=f"shop.db·holdout.json 폴더 (기본 {PATHS.db_dir})")
     ap.add_argument("--cap-nonid", type=int, default=40)
     ap.add_argument("--cap-id", type=int, default=40)
     ap.add_argument("--id-ratio-max", type=float, default=0.30)
@@ -537,8 +539,8 @@ def main() -> int:
 
     if args.command == "build":
         report = build(args.out, args.db_dir, cfg)
-        print(f"생성  {os.path.join(args.out, config.SQL_TRAIN_PATH.name)} ({report['n_train']}개)")
-        print(f"      {os.path.join(args.out, config.SQL_EVAL_INDIST_PATH.name)} ({report['n_eval']}개)")
+        print(f"생성  {os.path.join(args.out, 'train.json')} ({report['n_train']}개)")
+        print(f"      {os.path.join(args.out, 'eval_indist.json')} ({report['n_eval']}개)")
         fails = verify(args.out, args.db_dir)
         print("검증 ", "통과" if not fails else "실패\n  - " + "\n  - ".join(fails))
         print(f"ID 조건 비중  {report['id_ratio']:.1%}")
@@ -546,7 +548,7 @@ def main() -> int:
 
     if args.command == "holdout":
         rows = build_holdout_eval(args.out, args.db_dir, args.seed, args.selects_per_literal)
-        print(f"생성  {os.path.join(args.out, config.SQL_EVAL_HOLDOUT_PATH.name)} ({len(rows)}개)")
+        print(f"생성  {os.path.join(args.out, 'eval_holdout.json')} ({len(rows)}개)")
         holdout_summary(rows)
         fails = verify_holdout_eval(args.out, args.db_dir)
         print("검증 ", "통과" if not fails else "실패\n  - " + "\n  - ".join(fails))

@@ -8,7 +8,7 @@ evaluation/scoring.py 가 평가 단계(config.STAGE 또는 체크포인트의 s
     error_parts(gold, pred) -> list[str]       오답에서 틀린 부분 이름 목록
     select_ambiguous(question, gold) -> bool   질문만으로 정답이 하나로 정해지지 않아 다중 정답을 인정하는 문항인가
     multi_match(question, gold, pred) -> bool  다중 정답 EM 기준으로 맞았는가
-    label_mismatch(question, gold) -> bool     정답 라벨이 라벨 규칙(계획서 4-5)과 다른 문항인가 (규칙 일치 EM 에서 제외)
+    label_mismatch(question, gold) -> bool     정답 라벨이 라벨 규칙(docs/text-to-sql-label-rules.md)과 다른 문항인가 (규칙 일치 EM 에서 제외)
     STAGE, MULTI_NOTE                          단계 번호, 리포트에 쓰는 다중 정답 설명
 
 clean_ambiguous.py(라벨 규칙 정제)도 같은 규칙을 쓴다.

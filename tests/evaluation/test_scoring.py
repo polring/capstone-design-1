@@ -130,6 +130,16 @@ def test_load_rules_provides_stage_interface():
 
 
 @pytest.mark.unit
+def test_load_rules_stage2_interface():
+    """2단계 규칙 모듈도 같은 이름에 EM 판정(same_sql)과 집계 기준(breakdowns)을 제공한다"""
+    rules = scoring.load_rules(2)
+    assert rules.STAGE == 2
+    for name in ("parse_sql", "error_parts", "select_ambiguous", "multi_match", "label_mismatch", "same_sql",
+                 "breakdowns", "BREAKDOWNS", "MULTI_NOTE"):
+        assert hasattr(rules, name), name
+
+
+@pytest.mark.unit
 def test_label_mismatch_follows_label_rules():
     """규칙 일치 EM 의 제외 판정: 라벨 규칙(L2~L4)과 다른 정답만 True"""
     rules = scoring.load_rules(1)

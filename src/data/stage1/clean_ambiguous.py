@@ -1,7 +1,7 @@
-"""학습 쌍 중 라벨 규칙(계획서 4-5)과 어긋나는 쌍을 제거한다 (라벨 통일).
+"""학습 쌍 중 라벨 규칙(docs/text-to-sql-label-rules.md)과 어긋나는 쌍을 제거한다 (라벨 통일).
 
-질문만으로 정답 SQL 이 하나로 정해지도록, 규칙과 다른 라벨이 붙은 쌍을 지운다. 규칙의 근거와 예시는
-계획서 4-5 에 있고, 여기서는 그중 코드로 판정하는 세 가지를 적용한다.
+질문만으로 정답 SQL 이 하나로 정해지도록, 규칙과 다른 라벨이 붙은 쌍을 지운다. 규칙의 근거·예시·단서 목록은
+docs/text-to-sql-label-rules.md 에 있고, 여기서는 그중 코드로 판정하는 세 가지를 적용한다.
   L2 SELECT `*` / 식별 컬럼 — 단서가 없으면(`sql_rules.select_ambiguous`) `select_label` 순서로 정한다
   L3 ID / 이름 — 상품·고객 자신의 ID(item_id, customer_id)는 질문이 ID 를 요구할 때만 SELECT 한다
   L4 테이블 — customers/items 로도 성립하는 orders SQL 은 질문에 주문 단서가 있을 때만 쓴다
@@ -12,7 +12,7 @@
     python -m src.data.stage1.clean_ambiguous --apply    # 학습 쌍 파일에서 제거, 제거 목록을 data_raw/stage<N>/ 에 누적 저장
     python -m src.data.stage1.clean_ambiguous --train-files a.json --removed-out r.json --apply   # 파일 지정
 
---train-files 를 생략하면 학습 폴더(config.TRAIN_DIR)의 *.json 전부를 대상으로 하고, 파일마다 따로 고쳐 쓴다.
+--train-files 를 생략하면 학습 폴더(PATHS.train_dir)의 *.json 전부를 대상으로 하고, 파일마다 따로 고쳐 쓴다.
 """
 
 from __future__ import annotations
@@ -23,10 +23,12 @@ import re
 from collections import Counter
 from pathlib import Path
 
-from src import config
+from src.config import stage_paths
 from src.data.stage1.sql_rules import ID_COL, parse_sql, select_ambiguous
 
-REMOVED_FILE = config.RAW_DIR / "clean_ambiguous_removed.json"
+PATHS = stage_paths(1)  # 1단계 데이터 스크립트라 config.STAGE 와 무관하게 1단계 경로를 쓴다
+
+REMOVED_FILE = PATHS.raw_dir / "clean_ambiguous_removed.json"
 
 REASONS = {"select": "L2 SELECT 모호", "id": "L3 ID/이름", "table": "L4 테이블 모호"}
 
@@ -78,12 +80,12 @@ def drop_reason(pair: dict) -> str | None:
 def main() -> int:
     ap = argparse.ArgumentParser(description="라벨 규칙과 어긋나는 학습 쌍 제거")
     ap.add_argument("--train-files", nargs="+", default=None,
-                    help=f"검사·정제할 학습 쌍 파일들 (기본: {config.TRAIN_DIR}/*.json)")
+                    help=f"검사·정제할 학습 쌍 파일들 (기본: {PATHS.train_dir}/*.json)")
     ap.add_argument("--removed-out", default=str(REMOVED_FILE), help=f"제거 목록 누적 저장 위치 (기본 {REMOVED_FILE})")
     ap.add_argument("--apply", action="store_true", help="실제로 학습 파일을 고쳐 쓴다")
     args = ap.parse_args()
 
-    files = [Path(f) for f in args.train_files] if args.train_files else sorted(config.TRAIN_DIR.glob("*.json"))
+    files = [Path(f) for f in args.train_files] if args.train_files else sorted(PATHS.train_dir.glob("*.json"))
     removed_out = Path(args.removed_out)
     all_removed = []
     for train_file in files:

@@ -1,11 +1,13 @@
 # config.py — 모델 구조, 학습 설정, 데이터·모델 저장 경로
 # 표준 라이브러리만 쓴다 (torch 없이 도는 질문 생성 스크립트도 import 한다)
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
-# 현재 학습 단계 — 단계를 바꿀 때는 이 값만 수정한다 (모델 구조와 아래 경로가 함께 바뀐다)
-STAGE = 1
+# 현재 학습 단계 — 단계를 바꿀 때는 이 값만 수정한다 (모델 구조와 아래 경로가 함께 바뀐다).
+# 다른 단계는 환경 변수로 명령 하나만 바꿔 실행한다: TEXT_TO_SQL_STAGE=1 python -m src.train (run.py 는 --stage)
+STAGE = int(os.environ.get("TEXT_TO_SQL_STAGE", 2))
 
 # 단계별 모델 구조 (계획서 3-2 단계별 자원 계획, 5 = 상한)
 STAGE_PRESETS = {
@@ -34,6 +36,10 @@ PAIRS_FILE = "pairs.json"                          # 평가셋 폴더의 (질문
 EVAL_SQL_FILE = "sql.json"                         # 평가셋 폴더의 SQL 메타데이터 파일 이름
 
 
+# 스키마가 같아 앞 단계의 DB·미등장 값(holdout.json)을 그대로 쓰는 단계 (계획서 3-1: 4단계에서 스키마 확장)
+DB_STAGE = {2: 1, 3: 1}
+
+
 @dataclass(frozen=True)
 class StagePaths:
     """단계 하나의 데이터·모델 경로. 아래 모듈 상수는 현재 STAGE 의 값이고,
@@ -43,7 +49,7 @@ class StagePaths:
     @property
     def data_dir(self) -> Path: return Path("data") / f"stage{self.stage}"        # 이 단계의 커밋되는 데이터
     @property
-    def db_dir(self) -> Path: return self.data_dir / "db"
+    def db_dir(self) -> Path: return Path("data") / f"stage{DB_STAGE.get(self.stage, self.stage)}" / "db"  # 스키마가 같은 단계는 DB 공유
     @property
     def db_path(self) -> Path: return self.db_dir / "shop.db"                     # SQLite DB
     @property

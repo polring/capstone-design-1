@@ -55,6 +55,17 @@ def test_split_by_sql_uses_original_pair_for_swapped_data():
     assert all(p.get("orig_sql", p["sql"]) not in {v["sql"] for v in val_sw} for p in train_sw)
 
 
+@pytest.mark.unit
+def test_split_by_sql_groups_by_sql_group():
+    """같은 sql_group(OR 값 순서만 다른 표기)은 한쪽에만 들어가고, val 의 정답은 그 쌍의 SQL 표기 그대로다"""
+    pairs = [{"question": f"q{i}{k}", "sql": f"S{i} {'ab' if k else 'ba'}", "sql_group": f"S{i} ab"}
+             for i in range(50) for k in range(2)]
+    train, val = split_by_sql(pairs, 0.2, 0)
+    val_groups = {p["sql_group"] for p in pairs if p["question"] in {v["question"] for v in val}}
+    assert val and not val_groups & {p["sql_group"] for p in train}
+    assert {v["sql"] for v in val} == {p["sql"] for p in pairs if p["sql_group"] in val_groups}
+
+
 # ===========================================================================
 # masked_loss
 # ===========================================================================
