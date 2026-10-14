@@ -1,0 +1,404 @@
+{
+  "config": {
+    "seed": 0,
+    "n_train": 40000,
+    "n_eval_indist": 2000,
+    "n_eval_struct": 2000,
+    "holdout_shapes_unique": [
+      "single",
+      "in2",
+      "in3"
+    ],
+    "holdout_shapes_fk": [
+      "single",
+      "in2",
+      "in3",
+      "and2",
+      "and3",
+      "order",
+      "order_limit",
+      "and2_order",
+      "in2_and"
+    ],
+    "n_cond_weights": {
+      "0": 5,
+      "1": 35,
+      "2": 40,
+      "3": 20
+    },
+    "table_weights": {
+      "customers": 1.0,
+      "items": 1.0,
+      "orders": 1.6
+    },
+    "in_ratio": 0.1,
+    "in_ratio_unique": 0.5,
+    "in3_ratio": 0.4,
+    "or_ratio": 0.04,
+    "order_ratio": 0.5,
+    "limit_ratio": 0.85,
+    "id_col_weight": 0.5,
+    "id_nonexistent_ratio": 0.2,
+    "price_int_ratio": 0.5,
+    "id_ratio_max": 0.3,
+    "empty_ratio_max": 0.1,
+    "stage1_ratio_max": 0.05,
+    "cell_floor": 200,
+    "cell_floor_train": 150,
+    "struct_holdout": [
+      [
+        [
+          "n",
+          3
+        ],
+        [
+          "limit",
+          true
+        ]
+      ],
+      [
+        [
+          "op",
+          "LIKE"
+        ],
+        [
+          "order",
+          true
+        ]
+      ],
+      [
+        [
+          "op",
+          "LIKE"
+        ],
+        [
+          "op",
+          "BETWEEN"
+        ]
+      ],
+      [
+        [
+          "op",
+          "LIKE"
+        ],
+        [
+          "op",
+          "!="
+        ],
+        [
+          "table",
+          "items"
+        ]
+      ],
+      [
+        [
+          "op",
+          "BETWEEN"
+        ],
+        [
+          "op",
+          "!="
+        ]
+      ]
+    ],
+    "stage1_data_dir": "data\\stage1",
+    "value_floors": {
+      "items.stock = 0": 1000,
+      "items.stock > 0": 1000
+    },
+    "value_floor_train": 800,
+    "exists_floor": 1000,
+    "exists_floor_train": 850
+  },
+  "db_dir": "data\\stage1\\db",
+  "stats": {
+    "indist": {
+      "n": 2000,
+      "n_skeletons": 1114,
+      "n_conds": {
+        "0": 20,
+        "1": 897,
+        "2": 865,
+        "3": 218
+      },
+      "conn": {
+        "-": 917,
+        "AND": 984,
+        "OR": 99
+      },
+      "order": {
+        "false": 1396,
+        "true": 604
+      },
+      "limit": {
+        "-": 1533,
+        "1": 153,
+        "n": 314
+      },
+      "table": {
+        "customers": 371,
+        "items": 809,
+        "orders": 820
+      },
+      "select_kind": {
+        "*": 422,
+        "attr": 681,
+        "cond_col": 368,
+        "ident": 304,
+        "own_id": 225
+      },
+      "ops": {
+        "!=": 406,
+        "<": 214,
+        "<=": 219,
+        "=": 1021,
+        ">": 245,
+        ">=": 194,
+        "BETWEEN": 195,
+        "IN": 535,
+        "LIKE": 252
+      },
+      "id_ratio": 0.2675,
+      "empty_ratio": 0.11,
+      "stage1_ratio": 0.0245,
+      "exists_ratio": 0.0205
+    },
+    "train": {
+      "n": 40000,
+      "n_skeletons": 5311,
+      "n_conds": {
+        "0": 339,
+        "1": 19085,
+        "2": 16943,
+        "3": 3633
+      },
+      "conn": {
+        "-": 19424,
+        "AND": 18604,
+        "OR": 1972
+      },
+      "order": {
+        "false": 28332,
+        "true": 11668
+      },
+      "limit": {
+        "-": 30791,
+        "1": 3406,
+        "n": 5803
+      },
+      "table": {
+        "customers": 7373,
+        "items": 16235,
+        "orders": 16392
+      },
+      "select_kind": {
+        "*": 7778,
+        "attr": 14173,
+        "cond_col": 7684,
+        "ident": 6132,
+        "own_id": 4233
+      },
+      "ops": {
+        "!=": 7624,
+        "<": 3858,
+        "<=": 3878,
+        "=": 21464,
+        ">": 4906,
+        ">=": 3927,
+        "BETWEEN": 3412,
+        "IN": 10204,
+        "LIKE": 4597
+      },
+      "id_ratio": 0.2829,
+      "empty_ratio": 0.0995,
+      "stage1_ratio": 0.0513,
+      "exists_ratio": 0.0386
+    },
+    "struct": {
+      "n": 2000,
+      "n_skeletons": 924,
+      "n_conds": {
+        "1": 91,
+        "2": 958,
+        "3": 951
+      },
+      "conn": {
+        "-": 91,
+        "AND": 1537,
+        "OR": 372
+      },
+      "order": {
+        "false": 1045,
+        "true": 955
+      },
+      "limit": {
+        "-": 1326,
+        "1": 328,
+        "n": 346
+      },
+      "table": {
+        "items": 1786,
+        "orders": 214
+      },
+      "select_kind": {
+        "*": 328,
+        "attr": 466,
+        "cond_col": 768,
+        "ident": 120,
+        "own_id": 318
+      },
+      "ops": {
+        "!=": 1116,
+        "<": 250,
+        "<=": 239,
+        "=": 391,
+        ">": 318,
+        ">=": 249,
+        "BETWEEN": 969,
+        "IN": 102,
+        "LIKE": 1226
+      },
+      "id_ratio": 0.04,
+      "empty_ratio": 0.051,
+      "stage1_ratio": 0.0,
+      "exists_ratio": 0.0
+    },
+    "holdout": {
+      "n": 2049,
+      "n_skeletons": 281,
+      "n_conds": {
+        "1": 1516,
+        "2": 383,
+        "3": 150
+      },
+      "conn": {
+        "-": 1516,
+        "AND": 533
+      },
+      "order": {
+        "false": 1800,
+        "true": 249
+      },
+      "limit": {
+        "-": 1966,
+        "1": 71,
+        "n": 12
+      },
+      "table": {
+        "customers": 450,
+        "items": 300,
+        "orders": 1299
+      },
+      "select_kind": {
+        "*": 424,
+        "attr": 1049,
+        "cond_col": 191,
+        "ident": 317,
+        "own_id": 68
+      },
+      "ops": {
+        "!=": 270,
+        "<": 70,
+        "<=": 53,
+        "=": 1122,
+        ">": 59,
+        ">=": 69,
+        "BETWEEN": 39,
+        "IN": 1050
+      },
+      "id_ratio": 0.8536,
+      "empty_ratio": 0.0,
+      "stage1_ratio": 0.1845,
+      "exists_ratio": 0.0351
+    }
+  },
+  "train_cells": {
+    "customers.customer_id =": 470,
+    "customers.customer_id IN": 803,
+    "customers.name =": 432,
+    "customers.name LIKE": 3164,
+    "customers.name IN": 1377,
+    "customers.city =": 1090,
+    "customers.city !=": 1015,
+    "customers.city IN": 538,
+    "customers.membership =": 1081,
+    "customers.membership !=": 1035,
+    "customers.membership IN": 470,
+    "items.item_id =": 327,
+    "items.item_id IN": 451,
+    "items.item_name =": 322,
+    "items.item_name LIKE": 1433,
+    "items.item_name IN": 707,
+    "items.category =": 2446,
+    "items.category !=": 2221,
+    "items.category IN": 723,
+    "items.price =": 853,
+    "items.price <": 1311,
+    "items.price >": 1418,
+    "items.price <=": 1327,
+    "items.price >=": 1385,
+    "items.price BETWEEN": 1115,
+    "items.stock =": 1660,
+    "items.stock <": 1072,
+    "items.stock >": 2019,
+    "items.stock <=": 1083,
+    "items.stock >=": 1050,
+    "items.stock BETWEEN": 890,
+    "items.stock IN": 638,
+    "orders.order_id =": 543,
+    "orders.order_id IN": 684,
+    "orders.customer_id =": 3612,
+    "orders.customer_id IN": 696,
+    "orders.item_id =": 3818,
+    "orders.item_id IN": 717,
+    "orders.quantity =": 1219,
+    "orders.quantity <": 1475,
+    "orders.quantity >": 1469,
+    "orders.quantity <=": 1468,
+    "orders.quantity >=": 1492,
+    "orders.quantity BETWEEN": 1407,
+    "orders.quantity IN": 1336,
+    "orders.status =": 3591,
+    "orders.status !=": 3353,
+    "orders.status IN": 1064
+  },
+  "struct_per_combo": {
+    "0": 400,
+    "1": 400,
+    "2": 400,
+    "3": 400,
+    "4": 400
+  },
+  "holdout_per_tier": {
+    "unseen_entity": 1368,
+    "unseen_id": 531,
+    "unseen_order_id": 150
+  },
+  "value_counts": {
+    "items.stock = 0": 950,
+    "items.stock > 0": 989
+  },
+  "holdout_tier_shape": {
+    "unseen_entity|and2": 100,
+    "unseen_entity|and2_order": 56,
+    "unseen_entity|and3": 100,
+    "unseen_entity|in2": 300,
+    "unseen_entity|in2_and": 100,
+    "unseen_entity|in3": 300,
+    "unseen_entity|order": 56,
+    "unseen_entity|order_limit": 56,
+    "unseen_entity|single": 300,
+    "unseen_id|and2": 50,
+    "unseen_id|and2_order": 27,
+    "unseen_id|and3": 50,
+    "unseen_id|in2": 100,
+    "unseen_id|in2_and": 50,
+    "unseen_id|in3": 100,
+    "unseen_id|order": 27,
+    "unseen_id|order_limit": 27,
+    "unseen_id|single": 100,
+    "unseen_order_id|in2": 50,
+    "unseen_order_id|in3": 50,
+    "unseen_order_id|single": 50
+  }
+}
