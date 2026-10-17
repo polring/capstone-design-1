@@ -36,10 +36,6 @@ PAIRS_FILE = "pairs.json"                          # 평가셋 폴더의 (질문
 EVAL_SQL_FILE = "sql.json"                         # 평가셋 폴더의 SQL 메타데이터 파일 이름
 
 
-# 스키마가 같아 앞 단계의 DB·미등장 값(holdout.json)을 그대로 쓰는 단계 (계획서 3-1: 4단계에서 스키마 확장)
-DB_STAGE = {2: 1, 3: 1}
-
-
 @dataclass(frozen=True)
 class StagePaths:
     """단계 하나의 데이터·모델 경로. 아래 모듈 상수는 현재 STAGE 의 값이고,
@@ -49,7 +45,7 @@ class StagePaths:
     @property
     def data_dir(self) -> Path: return Path("data") / f"stage{self.stage}"        # 이 단계의 커밋되는 데이터
     @property
-    def db_dir(self) -> Path: return Path("data") / f"stage{DB_STAGE.get(self.stage, self.stage)}" / "db"  # 스키마가 같은 단계는 DB 공유
+    def db_dir(self) -> Path: return Path("data") / f"stage{self.stage}" / "db"  # DB 경로
     @property
     def db_path(self) -> Path: return self.db_dir / "shop.db"                     # SQLite DB
     @property
