@@ -40,7 +40,10 @@ import re
 from pathlib import Path
 
 from src import config
+from src.config import stage_paths
 from src.data.stage1 import sql_gen
+
+PATHS = stage_paths(1)  # 1단계 데이터 스크립트라 config.STAGE 와 무관하게 1단계 경로를 쓴다
 
 # ---------------------------------------------------------------------------
 # 1. SQL 샘플링 (sql_train.json 의 (table, where_col) 분포를 유지한 채 n개 축소)
@@ -587,14 +590,14 @@ def template_check(out_dir: str, threshold: float = 0.3) -> dict:
 # 5. 전역 코퍼스 검사 (라운드를 넘나드는 충돌 탐지)
 # ---------------------------------------------------------------------------
 
-DEFAULT_CORPUS_EVAL_FILES = [config.EVAL_DIR / "indist" / config.PAIRS_FILE]
+DEFAULT_CORPUS_EVAL_FILES = [PATHS.eval_dir / "indist" / config.PAIRS_FILE]
 
 
 def load_all_merged_pairs(train_files: list[str | Path] | None = None,
                           eval_files: list[str | Path] | None = None) -> list[dict]:
     """병합된 학습 쌍과 평가 쌍을 합쳐서 반환. 기본: 학습 폴더의 *.json + 분포 내 평가셋 pairs.json
     (dataset.py 의 load_train_pairs / load_eval_pairs("indist") 와 같은 파일)."""
-    files = [Path(f) for f in train_files] if train_files else sorted(config.TRAIN_DIR.glob("*.json"))
+    files = [Path(f) for f in train_files] if train_files else sorted(PATHS.train_dir.glob("*.json"))
     files += [Path(f) for f in (eval_files or DEFAULT_CORPUS_EVAL_FILES)]
     pairs: list[dict] = []
     for pf in files:
@@ -605,7 +608,7 @@ def load_all_merged_pairs(train_files: list[str | Path] | None = None,
 
 
 def corpus_check(train_files: list[str | Path] | None = None, eval_files: list[str | Path] | None = None,
-                 out_path: str | Path = config.RAW_DIR / "corpus_check_report.json") -> dict:
+                 out_path: str | Path = PATHS.raw_dir / "corpus_check_report.json") -> dict:
     pairs = load_all_merged_pairs(train_files, eval_files)
     conflicts = find_cross_sql_question_conflicts(pairs)
     report = {
@@ -625,8 +628,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="1단계 LLM 질문 생성 파이프라인 (수동 호출)")
     ap.add_argument("command", choices=["make-prompts", "make-prompts-small", "validate",
                                          "template-check", "corpus-check"])
-    ap.add_argument("--out", default=str(config.RAW_DIR / "pilot"), help="라운드 폴더 (기본 data_raw/stage<N>/pilot)")
-    ap.add_argument("--train", default=str(config.SQL_TRAIN_PATH), help=f"샘플링할 SQL 파일 (기본 {config.SQL_TRAIN_PATH})")
+    ap.add_argument("--out", default=str(PATHS.raw_dir / "pilot"), help="라운드 폴더 (기본 data_raw/stage<N>/pilot)")
+    ap.add_argument("--train", default=str(PATHS.sql_dir / "train.json"), help=f"샘플링할 SQL 파일 (기본 {PATHS.sql_dir}/train.json)")
     ap.add_argument("--n", type=int, default=200)
     ap.add_argument("--batch-size", type=int, default=None,
                      help="한 프롬프트에 담을 SQL 개수 (기본값: make-prompts=25, make-prompts-small=8)")
@@ -636,10 +639,10 @@ def main() -> int:
     ap.add_argument("--threshold", type=float, default=0.3,
                      help="template-check: 이 비율 이상 틀이 재사용되면 그 (select,where_col) 조합을 flag")
     ap.add_argument("--train-files", nargs="+", default=None,
-                     help=f"corpus-check: 학습 쌍 파일들 (기본: {config.TRAIN_DIR}/*.json)")
+                     help=f"corpus-check: 학습 쌍 파일들 (기본: {PATHS.train_dir}/*.json)")
     ap.add_argument("--eval-files", nargs="+", default=None,
                      help=f"corpus-check: 함께 검사할 평가 쌍 파일들 (기본: {DEFAULT_CORPUS_EVAL_FILES[0]})")
-    ap.add_argument("--report", default=str(config.RAW_DIR / "corpus_check_report.json"),
+    ap.add_argument("--report", default=str(PATHS.raw_dir / "corpus_check_report.json"),
                      help="corpus-check: 리포트 저장 위치")
     ap.add_argument("--questions-per-sql", type=int, default=5,
                      help="make-prompts-small: SQL 하나당 요구할 질문 개수 (기본 5, 최대 %d)"

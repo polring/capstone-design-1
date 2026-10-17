@@ -12,11 +12,13 @@ run.py --evaluation 이 이 파일의 함수를 쓴다. 평가셋 폴더는 eval
   신뢰구간(Wilson)을 붙인다. 틀린 사례는 어느 부분(테이블·WHERE 컬럼·SELECT·리터럴)이 틀렸는지 분류한다.
 - 다중 정답 EM(multi): 질문만으로 정답이 하나로 정해지지 않는 문항은 다른 답도 정답으로 본다. 기존 EM 과
   별도로 보고한다.
-- 규칙 일치 EM(rule_consistent): 정답 라벨이 라벨 규칙(계획서 4-5)과 다른 문항을 뺀 EM. 평가셋은 정제하지 않아
+- 규칙 일치 EM(rule_consistent): 정답 라벨이 라벨 규칙(계획서 4-5, 단계 보고서)과 다른 문항을 뺀 EM. 평가셋은 정제하지 않아
   이런 문항에서는 규칙대로 답한 모델이 오답 처리된다. 판정은 단계 규칙의 label_mismatch(질문, 정답)로 하며
   모델 출력은 보지 않는다. 기존 EM 과 함께 보고한다.
 - 단계마다 다른 규칙(SQL 분해, 오답 부분 분류, 다중 정답 판정)은 src/data/stage<N>/sql_rules.py 에 있고
-  load_rules(stage) 로 고른다. 이 파일에는 단계 공통 부분만 둔다.
+  load_rules(stage) 로 고른다. 이 파일에는 단계 공통 부분만 둔다. 규칙 모듈이 same_sql 을 주면 EM 을 그것으로 판정하고
+  (2단계: IN 값·조건 순서 무시), breakdowns 를 주면 그 기준들로 나눠 집계한다(없으면 WHERE 컬럼별).
+- 쌍에 sql_group(정규형 SQL)이 있으면 SQL 메타데이터를 그것으로 찾는다 (2단계 쌍의 sql 은 IN 값이 질문 순서다).
 - 제약 디코더는 아직 없으므로 지금 수치는 계획서의 "제약 디코더 미적용" 수치(게이트 판정용)다.
 """
 
@@ -30,7 +32,7 @@ from pathlib import Path
 
 from src import config
 from src.data.dataset import tokenize_pairs
-from src.evaluation.eval_sets import load_eval_set
+from src.evaluation.eval_sets import load_eval_set, sql_key
 from src.inference.generate import generate_batch, safe_decode, split_example
 from src.tokenizer import bpe
 
@@ -103,6 +105,8 @@ def evaluate_pairs(model, pairs: list[dict], tok: bpe.Tokenizer, device, amp_dty
     rules: 단계별 SQL 규칙 모듈 (기본: config.STAGE 의 load_rules())."""
     rules = rules or load_rules()
     label_mismatch = getattr(rules, "label_mismatch", lambda q, s: False)
+    same_sql = getattr(rules, "same_sql", lambda gold, pred: pred == gold)
+    labels = getattr(rules, "BREAKDOWNS", {"where_col": "WHERE 컬럼"})
     meta = meta or {}
     examples = tokenize_pairs(pairs, tok)
     preds = generate_batch(model, examples, device, amp_dtype, batch_size)
@@ -111,11 +115,13 @@ def evaluate_pairs(model, pairs: list[dict], tok: bpe.Tokenizer, device, amp_dty
     records = []
     for p, ex, pred_ids in zip(pairs, examples, preds):
         pred = safe_decode(pred_ids, tok)
-        m = meta.get(p["sql"])
+        m = meta.get(sql_key(p)) or meta.get(p["sql"])
         if m is None:
             g = rules.parse_sql(p["sql"]) or {}
             m = {"table": g.get("table"), "where_col": g.get("where_col")}
-        em = pred == p["sql"]
+        em = same_sql(p["sql"], pred)
+        groups = (rules.breakdowns(p, m) if hasattr(rules, "breakdowns")
+                  else {"where_col": f"{m.get('table')}.{m.get('where_col')}"})
         gold_res = execute(con, p["sql"])
         records.append({
             "question": p["question"], "gold": p["sql"], "pred": pred, "em": em,
@@ -124,14 +130,16 @@ def evaluate_pairs(model, pairs: list[dict], tok: bpe.Tokenizer, device, amp_dty
             "label_mismatch": label_mismatch(p["question"], p["sql"]),
             "exec_match": em or (gold_res is not None and execute(con, pred) == gold_res),
             "tier": m.get("holdout_tier", name), "table": m.get("table"), "where_col": m.get("where_col"),
-            "error_parts": [] if em else rules.error_parts(p["sql"], pred),
+            "error_parts": [] if em else rules.error_parts(p["sql"], pred), "groups": groups,
         })
     con.close()
 
     def group_by(key) -> dict:
         groups: dict[str, list[dict]] = {}
         for r in records:
-            groups.setdefault(str(key(r)), []).append(r)
+            k = key(r)
+            if k is not None:
+                groups.setdefault(str(k), []).append(r)
         return {g: summarize(rs) for g, rs in sorted(groups.items())}
 
     failures = [r for r in records if not r["em"]]
@@ -141,7 +149,8 @@ def evaluate_pairs(model, pairs: list[dict], tok: bpe.Tokenizer, device, amp_dty
         "rule_consistent": summarize([r for r in records if not r["label_mismatch"]]),
         "n_label_mismatch": sum(r["label_mismatch"] for r in records),
         "by_tier": group_by(lambda r: r["tier"]),
-        "by_where_col": group_by(lambda r: f"{r['table']}.{r['where_col']}"),
+        **{f"by_{b}": group_by(lambda r, b=b: r["groups"].get(b)) for b in labels},
+        "breakdowns": dict(labels),
         "error_parts": dict(error_counts.most_common()),
         "n_select_ambiguous": sum(r["select_ambiguous"] for r in records),
         "failures": failures,
@@ -161,8 +170,10 @@ def print_report(result: dict) -> None:
         print(" 계층별")
         for g, s in result["by_tier"].items():
             print(line(g, s))
-    print(" WHERE 컬럼별")
-    for g, s in result["by_where_col"].items():
-        print(line(g, s))
+    for b, label in result.get("breakdowns", {"where_col": "WHERE 컬럼"}).items():
+        if len(result.get(f"by_{b}", {})) > 1 or b == "where_col":
+            print(f" {label}별")
+            for g, s in result[f"by_{b}"].items():
+                print(line(g, s))
     print(f" 틀린 부분 (오답 {len(result['failures'])}개, 한 오답에 여러 부분 가능): {result['error_parts']}")
     print(f" 다중 정답 인정 문항 {result['n_select_ambiguous']}개 ({result['multi_note']})")

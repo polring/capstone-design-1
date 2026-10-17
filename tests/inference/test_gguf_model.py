@@ -20,7 +20,7 @@ from src.tokenizer import bpe
 
 pytestmark = pytest.mark.integration
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def last_logits(model, ids):

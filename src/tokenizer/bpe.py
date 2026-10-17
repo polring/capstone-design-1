@@ -132,11 +132,20 @@ class Tokenizer:
             if sid is not None:
                 ids.append(sid)
             else:
-                syms = list(piece.encode("utf-8"))
-                for pair, new_id in self.merges:
-                    syms = merge_word(syms, pair, new_id)
-                ids.extend(syms)
+                ids.extend(self._encode_piece(piece))
         return ids
+
+    def _encode_piece(self, piece: str) -> list[int]:
+        """seed 가 아닌 조각 하나를 병합 규칙으로 인코딩한다. 같은 조각은 결과가 같아 캐시한다
+        (병합 규칙 전체를 조각마다 훑으므로, 학습 쌍 수십만 개를 토큰화할 때 캐시 없이는 수십 분 걸린다)."""
+        cache = self.__dict__.setdefault("_piece_cache", {})
+        out = cache.get(piece)
+        if out is None:
+            syms = list(piece.encode("utf-8"))
+            for pair, new_id in self.merges:
+                syms = merge_word(syms, pair, new_id)
+            out = cache[piece] = syms
+        return list(out)
 
     def decode(self, ids: list[int]) -> str:
         """특수 토큰은 태그 문자열(<bos> 등)로 복원한다. 모르는 ID 는 KeyError, 깨진 UTF-8 은 UnicodeDecodeError."""

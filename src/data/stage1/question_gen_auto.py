@@ -237,13 +237,13 @@ def run_pipeline(model: str, train_path: str, n: int, batch_size: int, n_questio
 def main() -> int:
     ap = argparse.ArgumentParser(description="로컬 LLM(Ollama) 질문 생성 파이프라인 (완전 자동화)")
     ap.add_argument("--model", default="qwen3:14b", help="ollama에 받아져 있는 모델 이름")
-    ap.add_argument("--train", default=str(qg.config.SQL_TRAIN_PATH))
+    ap.add_argument("--train", default=str(qg.PATHS.sql_dir / "train.json"))
     ap.add_argument("--n", type=int, default=128, help="샘플링할 SQL 개수")
     ap.add_argument("--batch-size", type=int, default=8, help="호출 1회당 SQL 개수")
     ap.add_argument("--questions-per-sql", type=int, default=5,
                      help="SQL 하나당 요구할 질문 개수 (최대 %d)" % len(qg.QUESTION_STYLE_SLOTS))
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--out", default=str(qg.config.RAW_DIR / "auto_pilot"),
+    ap.add_argument("--out", default=str(qg.PATHS.raw_dir / "auto_pilot"),
                      help="결과 저장 위치. data_raw/ 밑이 기본값 -- 검토·채택 전 실험 데이터는 "
                           "여기 두는 게 프로젝트 관례(.gitignore로 커밋 안 됨). 정식 채택 시에만 "
                           "data/stage<N>/train/ 에 파일로 수동으로 옮긴다.")

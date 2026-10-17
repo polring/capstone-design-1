@@ -9,6 +9,7 @@ train.py — 1단계 Text-to-SQL 모델 학습 루프 (계획서 3-3 1단계 6�
     python -m src.train --ffn-dim 704 --run-name ffn704   # config 를 건드리지 않고 FFN 크기만 바꿔 비교
     python -m src.train --train-files data_raw/stage1/name_swap_30/train_pairs.json --run-name name_swap_30
     python -m src.train --name-swap-ratio 0.3    # 교체 비율 바꾸기
+    python -m src.train --llm-repeat 3           # 2단계: LLM 학습 질문을 3번씩 넣기 (유의어 교체가 epoch 마다 사본을 다르게 바꾼다)
     python -m src.train --train-files a.json b.json --tokenizer t.json --eval-dir <폴더> --db <shop.db>   # 입력 바꾸기
     python -m src.train --eval-sets indist holdout --out <폴더>   # 최종 평가할 평가셋 고르기, 실행 폴더 직접 지정
 
@@ -38,7 +39,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from src import config
 from src.data.dataset import PAD_ID, TextToSQLDataset, collate_fn, load_train_pairs, tokenize_pairs
-from src.data.stage1.name_swap import NameSwapper, load_english_words
+from src.data.stage1.name_swap import load_english_words
 from src.evaluation.eval_sets import list_sets
 from src.evaluation.scoring import evaluate_set, greedy_exact_match, print_report
 from src.models.model import TextToSQLModel
@@ -56,13 +57,15 @@ def split_by_sql(pairs: list[dict], val_ratio: float, seed: int) -> tuple[list[d
 
     이름 교체 데이터(name_swap.py)는 바꾸기 전 SQL(orig_sql)을 기준으로 나누고, 검증에는 원래 쌍을 쓴다.
     그래서 어떤 학습 파일을 쓰든 검증셋은 원본 데이터 기준 실행과 같다.
+    2단계 조합기 쌍은 OR 값을 질문에 나온 순서로 쓰므로 같은 SQL 이 여러 표기로 나온다. 이런 쌍은 sql_group
+    (정규형 SQL)으로 묶어 나눈다.
     """
-    key = lambda p: p.get("orig_sql", p["sql"])
+    key = lambda p: p.get("sql_group", p.get("orig_sql", p["sql"]))
     sqls = sorted({key(p) for p in pairs})
     random.Random(seed).shuffle(sqls)
     val_sqls = set(sqls[: int(len(sqls) * val_ratio)])
     train = [p for p in pairs if key(p) not in val_sqls]
-    val = [{"question": p.get("orig_question", p["question"]), "sql": key(p)}
+    val = [{"question": p.get("orig_question", p["question"]), "sql": p.get("orig_sql", p["sql"])}
            for p in pairs if key(p) in val_sqls]
     return train, val
 
@@ -139,8 +142,16 @@ def main() -> int:
                     help="epoch 마다 이름 조건 쌍의 이 비율을 새 가짜 이름으로 바꿔 학습 (name_swap.py). 0 이면 끔. "
                          f"기본 {DEFAULT_NAME_SWAP_RATIO} (이미 이름을 바꾼 파일이거나 --overfit 이면 0)")
     ap.add_argument("--wordlist", default=str(config.WORDLIST_PATH), help="--name-swap-ratio 용 영단어 목록")
+    ap.add_argument("--llm-synonym-prob", type=float, default=None,
+                    help="2단계: epoch 마다 LLM 학습 질문의 일상 단어를 조합기 유사어로 바꾸는 확률 (synonym_swap.py). 0 이면 끔. "
+                         "기본: synonyms.json 의 prob (--overfit 이면 0)")
+    ap.add_argument("--llm-repeat", type=int, default=1, help="2단계: LLM 학습 질문(source llm:*)을 학습 쌍에 넣는 횟수")
     ap.add_argument("--run-name", default=None, help=f"{config.RUNS_DIR}/<run-name>/ 에 저장 (기본: 설정에서 자동 생성)")
-    ap.add_argument("--ffn-dim", type=int, default=config.FFN_DIM)
+    ap.add_argument("--ffn-dim", type=int, default=None, help="기본: round(8 * dim / 3) (config.FFN_DIM)")
+    # 모델 크기 실험용 (기본값은 config 의 단계 프리셋)
+    ap.add_argument("--layers", type=int, default=config.NUM_LAYERS)
+    ap.add_argument("--dim", type=int, default=config.HIDDEN_DIM)
+    ap.add_argument("--heads", type=int, default=config.NUM_HEADS)
     ap.add_argument("--epochs", type=int, default=25, help="상한 (조기 종료 가능, 계획서 3-2)")
     ap.add_argument("--batch-size", type=int, default=config.BATCH_SIZE)
     ap.add_argument("--lr", type=float, default=1e-3)
@@ -149,10 +160,14 @@ def main() -> int:
     ap.add_argument("--val-ratio", type=float, default=0.05)
     ap.add_argument("--val-em-samples", type=int, default=0, help="epoch 마다 EM 을 볼 val 예시 수 (0 = 전부)")
     ap.add_argument("--patience", type=int, default=10, help="val EM 개선 없는 epoch 수 한도")
+    ap.add_argument("--save-every", type=int, default=0,
+                    help="N>0 이면 N epoch 마다 epoch<N>.pt 도 저장 (학습량에 따른 평가 추이 확인용)")
     ap.add_argument("--overfit", type=int, default=0, help="N>0 이면 학습 예시 N개로 과적합 테스트")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--no-amp", action="store_true", help="bf16 autocast 끄기")
     args = ap.parse_args()
+    if args.ffn_dim is None:
+        args.ffn_dim = round(args.dim * 8 / 3)
     if args.eval_sets:  # 10분 학습 뒤에 실패하지 않도록 평가셋 이름을 먼저 확인한다
         unknown = sorted(set(args.eval_sets) - set(list_sets(args.eval_dir)))
         if unknown:
@@ -164,6 +179,8 @@ def main() -> int:
         args.name_swap_ratio = 0.0 if (pre_swapped or args.overfit) else DEFAULT_NAME_SWAP_RATIO
     elif args.name_swap_ratio and (pre_swapped or args.overfit):
         ap.error("--name-swap-ratio 는 이미 이름을 바꾼 학습 파일 / --overfit 과 함께 쓰지 않는다")
+    if config.STAGE < 2 and (args.llm_synonym_prob or args.llm_repeat != 1):
+        ap.error("--llm-synonym-prob / --llm-repeat 는 2단계부터 쓴다")
 
     torch.manual_seed(args.seed)
     random.seed(args.seed)
@@ -183,8 +200,20 @@ def main() -> int:
         args.epochs = args.epochs if args.epochs != 25 else 2000
     else:
         train_pairs, val_pairs = split_by_sql(all_train, args.val_ratio, args.seed)
+        if args.llm_repeat > 1:  # 검증셋을 뗀 뒤 늘린다 (같은 SQL 의 사본이 val 에 들어가지 않게)
+            from src.data.stage2.synonym_swap import is_llm
+            train_pairs += [p for p in train_pairs if is_llm(p)] * (args.llm_repeat - 1)
         train_ex = tokenize_pairs(train_pairs, tok)
         val_ex = tokenize_pairs(val_pairs, tok)
+        # 모델 최대 길이를 넘는 쌍은 위치 임베딩이 없어 학습할 수 없다 (2단계 조합기 문장 중 극소수)
+        too_long = lambda ex: len(ex["ids"]) - 1 > config.SEQ_LEN
+        n_long = sum(map(too_long, train_ex)) + sum(map(too_long, val_ex))
+        if n_long:
+            print(f"최대 길이 {config.SEQ_LEN} 을 넘는 쌍 {n_long}개 제외")
+            keep = [not too_long(ex) for ex in train_ex]
+            train_pairs = [p for p, k in zip(train_pairs, keep) if k]
+            train_ex = [ex for ex, k in zip(train_ex, keep) if k]
+            val_ex = [ex for ex in val_ex if not too_long(ex)]
         eval_every = 1
 
     def make_loader(examples):
@@ -193,8 +222,20 @@ def main() -> int:
 
     # epoch 마다 이름 교체: 검증셋은 위에서 원본 기준으로 이미 떼었고, 학습 쌍만 매 epoch 새로 바꾼다.
     # 쌍 수가 그대로라 epoch 당 step 수(= lr 스케줄)는 바뀌지 않는다.
+    syn_swapper = None
+    if config.STAGE >= 2 and not args.overfit and args.llm_synonym_prob != 0:
+        from src.data.stage2.synonym_swap import SynonymSwapper
+        syn_swapper = SynonymSwapper()
+        if args.llm_synonym_prob is None:
+            args.llm_synonym_prob = syn_swapper.prob
+        syn_rng = random.Random(args.seed + 1)
     swapper = None
     if args.name_swap_ratio:
+        # 2단계부터는 OR 그룹의 모든 이름과 LIKE 조각까지 바꾼다 (src/data/stage2/name_swap.py)
+        if config.STAGE >= 2:
+            from src.data.stage2.name_swap import NameSwapper
+        else:
+            from src.data.stage1.name_swap import NameSwapper
         swapper = NameSwapper(all_train, load_english_words(args.wordlist))
         swap_rng = random.Random(args.seed)
     loader = make_loader(train_ex)
@@ -205,7 +246,8 @@ def main() -> int:
         em_examples = random.Random(args.seed).sample(val_ex, args.val_em_samples)
 
     # --- 모델 ---
-    model = TextToSQLModel(ffn_dim=args.ffn_dim, padding_idx=PAD_ID).to(device)
+    model = TextToSQLModel(dim=args.dim, num_layers=args.layers, num_heads=args.heads, ffn_dim=args.ffn_dim,
+                           padding_idx=PAD_ID).to(device)
     n_params = model.num_params()
     opt = make_optimizer(model, args.lr, args.weight_decay)
     total_steps = args.epochs * len(loader)
@@ -219,8 +261,8 @@ def main() -> int:
     tokenizer_copy = run_dir / "tokenizer.json"
     tok.save(tokenizer_copy)
     writer = SummaryWriter(str(run_dir / "tb"))
-    model_cfg = dict(vocab_size=config.VOCAB_SIZE, dim=config.HIDDEN_DIM, num_layers=config.NUM_LAYERS,
-                     num_heads=config.NUM_HEADS, ffn_dim=args.ffn_dim, max_seq_len=config.SEQ_LEN,
+    model_cfg = dict(vocab_size=config.VOCAB_SIZE, dim=args.dim, num_layers=args.layers,
+                     num_heads=args.heads, ffn_dim=args.ffn_dim, max_seq_len=config.SEQ_LEN,
                      padding_idx=PAD_ID)
 
     print(f"device={device} ({torch.cuda.get_device_name(0) if device.type == 'cuda' else 'cpu'}) "
@@ -240,13 +282,24 @@ def main() -> int:
             torch.cuda.synchronize()
         t0 = time.time()
         epoch_tokens = 0
-        if swapper:
-            swapped, swap_stats = swapper.swap(train_pairs, args.name_swap_ratio, swap_rng)
-            # 바뀐 쌍만 다시 토큰화한다 (순수 Python BPE 라 전체를 다시 하면 epoch 당 1분 넘게 걸린다)
-            loader = make_loader([tokenize_pairs([p], tok)[0] if p["swapped"] else ex
-                                  for p, ex in zip(swapped, train_ex)])
-            if epoch == 1:
-                print(f"name swap (epoch 마다): {swap_stats}")
+        if syn_swapper or swapper:
+            epoch_pairs = train_pairs
+            if syn_swapper:  # 유의어 교체 → 이름 교체 순서 (이름 교체는 질문의 이름만 바꾼다)
+                epoch_pairs, syn_stats = syn_swapper.swap(epoch_pairs, args.llm_synonym_prob, syn_rng)
+                if epoch == 1:
+                    print(f"LLM 질문 유의어 교체 (epoch 마다, 확률 {args.llm_synonym_prob}): {syn_stats}")
+            if swapper:
+                epoch_pairs, swap_stats = swapper.swap(epoch_pairs, args.name_swap_ratio, swap_rng)
+                if epoch == 1:
+                    print(f"name swap (epoch 마다): {swap_stats}")
+            # 바뀐 쌍만 다시 토큰화한다 (순수 Python BPE 라 전체를 다시 하면 epoch 당 1분 넘게 걸린다).
+            # 바꾼 문장이 최대 길이를 넘으면 원래 쌍을 쓴다
+            def retok(p, ex):
+                if not (p.get("swapped") or p.get("synonym_swapped")):
+                    return ex
+                new = tokenize_pairs([p], tok)[0]
+                return ex if len(new["ids"]) - 1 > config.SEQ_LEN else new
+            loader = make_loader([retok(p, ex) for p, ex in zip(epoch_pairs, train_ex)])
         for batch in loader:
             batch = {k: v.to(device, non_blocking=True) for k, v in batch.items()}
             lr = lr_at(step, args.lr, args.warmup, total_steps)
@@ -289,13 +342,15 @@ def main() -> int:
               f"tok_acc {val_tok_acc:.4f} EM {val_em:.4f} | {tok_per_s / 1e3:.0f}k tok/s "
               f"({flops_per_s:.2e} FLOPs/s) {dt:.1f}s/epoch")
 
+        ckpt = {"model": model.state_dict(), "model_cfg": model_cfg, "stage": config.STAGE,
+                "tokenizer_path": str(tokenizer_copy), "epoch": epoch, "step": step,
+                "val_em": val_em, "val_loss": val_loss, "args": vars(args)}
+        if args.save_every and epoch % args.save_every == 0:
+            torch.save(ckpt, run_dir / f"epoch{epoch}.pt")
         improved = val_em > best_em or (val_em == best_em and val_loss < best_val_loss)
         if improved:
             best_em, best_val_loss, bad_epochs = val_em, val_loss, 0
-            torch.save({"model": model.state_dict(), "model_cfg": model_cfg, "stage": config.STAGE,
-                        "tokenizer_path": str(tokenizer_copy), "epoch": epoch, "step": step,
-                        "val_em": val_em, "val_loss": val_loss, "args": vars(args)},
-                       run_dir / "best.pt")
+            torch.save(ckpt, run_dir / "best.pt")
         else:
             bad_epochs += 1
         if args.overfit and val_em == 1.0:

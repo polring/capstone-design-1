@@ -28,7 +28,7 @@
   * 무거운 GloVe(6B) 원본 모델을 런타임에 매번 로드하는 것을 방지하기 위해, `shop.db`의 식별자들과 코사인 유사도가 높은 핵심 단어들의 임베딩만 추려내어 가벼운 `.pkl` 캐시 파일로 압축 생성해 주는 독립 실행 스크립트입니다.
 * **`reconstruction.py`**
   * 교정이 완료된 AST 객체를 다시 **유효한 SQL 문자열로 재생성**하여 반환하는 역할을 합니다.
-* **`tests/test_postprocessor_python.py`**
+* **`tests/postprocessor/python/test_postprocessor.py`**
   * `pytest`를 활용하여 각 파이프라인(예약어 교정, 식별자 교정, Chaining 등)이 정상 작동하는지 검증하는 단위 테스트 파일입니다.
 
 ---
@@ -213,7 +213,7 @@ SELECT client FROM orders
 ### 5.3. 단위 테스트 결과 (`pytest`)
 
 **테스트 목적 및 항목:**
-`tests/test_postprocessor_python.py` 파일 내에는 후처리기 모듈들이 개별적으로 잘 작동하는지 검증하기 위한 8개의 단위 테스트가 작성되어 있습니다.
+`tests/postprocessor/python/test_postprocessor.py` 파일 내에는 후처리기 모듈들이 개별적으로 잘 작동하는지 검증하기 위한 8개의 단위 테스트가 작성되어 있습니다.
 1. `test_pre_correct_keywords`: 파서 진입 전 SQL 예약어 오타(`SELETC`, `FRMO`) 사전 교정 기능 테스트
 2. `test_typo_correction_keywords`: Typo 교정기를 통한 예약어 교정 및 파이프라인 통과 여부 검증
 3. `test_typo_correction_identifiers`: `usr_name` $\rightarrow$ `user_name` 등 단순 오타 교정 검증
@@ -225,7 +225,7 @@ SELECT client FROM orders
 
 **테스트 실행 및 결과:**
 ```cmd
-$ .\.venv\Scripts\pytest tests/test_postprocessor_python.py -v
+$ .\.venv\Scripts\pytest tests/postprocessor/python/test_postprocessor.py -v
 ============================= test session starts =============================
 platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\issil\Desktop\capstone\capstone-design-1\.venv\Scripts\python.exe
 cachedir: .pytest_cache
@@ -234,14 +234,14 @@ configfile: pytest.ini
 plugins: anyio-4.15.1, platformdirs-4.12.4
 collecting ... collected 8 items
 
-tests/test_postprocessor_python.py::test_pre_correct_keywords PASSED     [ 12%]
-tests/test_postprocessor_python.py::test_typo_correction_keywords PASSED [ 25%]
-tests/test_postprocessor_python.py::test_typo_correction_identifiers PASSED [ 37%]
-tests/test_postprocessor_python.py::test_typo_correction_complex PASSED  [ 50%]
-tests/test_postprocessor_python.py::test_get_ngrams PASSED               [ 62%]
-tests/test_postprocessor_python.py::test_ngram_correction PASSED         [ 75%]
-tests/test_postprocessor_python.py::test_strategy_chaining PASSED        [ 87%]
-tests/test_postprocessor_python.py::test_semantic_correction_pipeline PASSED [100%]
+tests/postprocessor/python/test_postprocessor.py::test_pre_correct_keywords PASSED     [ 12%]
+tests/postprocessor/python/test_postprocessor.py::test_typo_correction_keywords PASSED [ 25%]
+tests/postprocessor/python/test_postprocessor.py::test_typo_correction_identifiers PASSED [ 37%]
+tests/postprocessor/python/test_postprocessor.py::test_typo_correction_complex PASSED  [ 50%]
+tests/postprocessor/python/test_postprocessor.py::test_get_ngrams PASSED               [ 62%]
+tests/postprocessor/python/test_postprocessor.py::test_ngram_correction PASSED         [ 75%]
+tests/postprocessor/python/test_postprocessor.py::test_strategy_chaining PASSED        [ 87%]
+tests/postprocessor/python/test_postprocessor.py::test_semantic_correction_pipeline PASSED [100%]
 
 ============================== 8 passed in 0.17s ==============================
 ```

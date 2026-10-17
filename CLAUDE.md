@@ -1,18 +1,21 @@
 # CLAUDE.md
 
 Guidance for Claude Code in this repository. Keep only rules and traps here; progress, numbers, and
-how-to live in `docs/` (Korean). When work changes progress or numbers, update the stage-1 report (the
+how-to live in `docs/` (Korean). When work changes progress or numbers, update that stage's report (the
 plan holds only design and completion criteria), not this file.
 
 From-scratch Text-to-SQL Transformer (4-person capstone): English question → SQLite SQL. Stage 1 scope:
-single table, `SELECT` one column or `*`, single `WHERE` equality.
+single table, `SELECT` one column or `*`, single `WHERE` equality. Stage 2 (in progress): 0–3 `WHERE` conditions
+(AND, or OR across columns — never mixed), same-column value lists as `IN`, comparisons, `BETWEEN`, name `LIKE`,
+`ORDER BY`, `LIMIT`.
 
 ## Where things are
 
 | Need | Read |
 |---|---|
 | Design rationale, stage plan, eval metrics & gate thresholds — read before architectural changes | [docs/text-to-sql-llm-project-plan.md](docs/text-to-sql-llm-project-plan.md) |
-| Current status, data/model numbers, dated activity log | [docs/text-to-sql-stage1-report.md](docs/text-to-sql-stage1-report.md) |
+| Label rules L1–L17 (one question → one SQL) and the code that judges them | [docs/text-to-sql-label-rules.md](docs/text-to-sql-label-rules.md) |
+| Current status, data/model numbers, dated activity log | [stage-1 report](docs/text-to-sql-stage1-report.md), [stage-2 report](docs/text-to-sql-stage2-report.md) |
 | How to run / reproduce each step, what gets committed | [docs/SETUP.md](docs/SETUP.md) |
 | Branch / commit / PR rules | [docs/CONVENTION.md](docs/CONVENTION.md) |
 | Directory tree | [README.md](README.md) |
@@ -31,19 +34,29 @@ project.
 
 ## Data layout and paths
 
-All paths live in `src/config.py` and follow `STAGE` (`config.stage_paths(N)` for another stage). Every command
+All paths live in `src/config.py` and follow `STAGE` (`config.stage_paths(N)` for another stage). `STAGE` defaults to 2;
+run stage-1 commands with `TEXT_TO_SQL_STAGE=1` (`run.py --stage 1`). Scripts under `src/data/stage<N>/` pin their own
+stage's paths (`stage_paths(N)`), never `config.STAGE` — otherwise a stage-1 script would write into stage-2 data. Tests run
+as stage 1 (`tests/conftest.py`).
+Stages 2–3 share the stage-1 DB (`config.DB_STAGE`). Every command
 takes its input files and output location as arguments and falls back to these defaults — don't hardcode paths.
 Roles come from **folder position**, not names:
 
 - `data/stage<N>/train/*.json` — **every** JSON here is training data and BPE corpus. Never put eval pairs here.
-- `data/stage<N>/eval/<name>/` — one eval set per folder: `pairs.json` + `sql.json` (metadata of the SQL used,
-  incl. `holdout_tier`). Build `sql.json` with `python -m src.run --build-sql <name> --sql <sql file>`, never by hand;
-  loading fails if a pair's SQL is missing from it. `holdout_qwen` is the old Qwen-written set, kept for comparison only.
+- Eval sets are `pairs.json` + `sql.json` (metadata of the SQL used, incl. `holdout_tier`), never written by hand; loading
+  fails if a pair's SQL is missing from `sql.json`. Stage 1: one folder per set, `data/stage1/eval/<name>/` (build `sql.json`
+  with `python -m src.run --build-sql <name> --sql <sql file>`; `holdout_qwen` is the old Qwen-written set, comparison only).
+  Stage 2: one combined `data/stage2/eval/pairs.json` + `sql.json`, each pair tagged `set` (`src/evaluation/eval_sets.py`
+  splits by it, so sets are still scored separately). Rebuilt with `python -m src.data.stage2.eval_build [composer|ext|human]`,
+  which replaces only those sets (pairs keep `sql_group`, the canonical SQL that keys `sql.json`); to add teammates' human
+  questions, fill `data_raw/stage2/human/sql_list_<writer>.json` and re-run.
 - `data/stage<N>/tokenizer/seed_tokens.json` — seed IDs are `260 + list order`: reordering or inserting changes
   every token ID, so retrain BPE and the model after editing. `tokenizer.json` is the trained result (seeds + merges).
 - `models/stage<N>/` — the one committed release (`model.pt` + the `tokenizer.json` it was trained with +
   `model_info.json`), made by `python -m src.release`. Never write eval/prediction outputs here; they go to `runs/`.
-- `data_raw/`, `runs/` — uncommitted. Question-generation rounds are validated in `data_raw/` and moved by hand.
+- `data_raw/`, `runs/`, `experiments/` — uncommitted. `experiments/stage1/` holds the pre-stage-2 experiments
+  (regularization/EMA, pointer tokens, ensemble, new-style eval, Qwen3-14B question pilot); their results live only in the stage-1 report.
+  Question-generation rounds are validated in `data_raw/` and moved by hand.
 - Stage-specific code lives in `src/data/stage<N>/` (SQL/question generation, label cleaning, name swap,
   scoring rules `sql_rules.py`); `src/evaluation/scoring.py` keeps only stage-independent scoring.
 
@@ -57,11 +70,17 @@ Roles come from **folder position**, not names:
 - **Validation split is by SQL, not by pair**, and `eval_indist` is never used for checkpoint selection —
   otherwise scores measure memorization.
 - **Holdout literals** (`data/stage<N>/db/holdout.json`) must never appear in training SQL (`db_gen.load_bans()`).
+- **Stage-2 SQL never overlaps stage-1 data the wrong way**: stage-1 eval SQL stays out of stage-2 train/indist, and
+  stage-1 train SQL stays out of every stage-2 eval split (`src/data/stage2/sql_gen.py`, checked by `verify`). Stage-1
+  train pairs are mixed into stage-2 training and stage-1 eval sets keep being scored, so both rules are load-bearing.
 - BPE seed tokens (SQL keywords, columns, categorical values) stay single tokens; merge ties break
   deterministically.
 - Text values lowercase, SQL keywords uppercase.
-- **One question, one SQL**: labels follow the plan's 4-5 label rules (L1–L5). Training data is cleaned with
-  `python -m src.data.stage1.clean_ambiguous --apply` (re-run after adding pairs; rebuild BPE after). Eval sets are
+- **One question, one SQL**: labels follow the label rules — all stages (L1–L17) in [docs/text-to-sql-label-rules.md](docs/text-to-sql-label-rules.md)
+  (plan 4-5 holds only the principle). Training data is cleaned with
+  `python -m src.data.stage1.clean_ambiguous --apply` (re-run after adding pairs; rebuild BPE after). Stage 2 uses
+  `src/data/stage2/clean_ambiguous.drop_reason`: `compose build` drops stage-1 pairs that violate it, `compose check`
+  fails if composer sentences disagree with it, `question_gen validate` drops external eval items that violate it. Eval sets are
   left as-is for comparability. `sql_rules.select_ambiguous` is a frozen metric rule — don't edit it to match
   the label rules.
 - **Rule-consistent EM** (`rule_consistent` in eval results) drops eval items whose gold label violates the label
@@ -78,6 +97,9 @@ Roles come from **folder position**, not names:
   with `soft_flags()`.
 - After merging new pairs, run `python -m src.data.stage1.question_gen corpus-check` and remove both sides of
   any label conflict.
+- Stage 2 (`src/data/stage2/question_gen.py`): external-eval rounds (`data_raw/stage2/ext_*`) are built from eval SQL and
+  never go into training (holdout literals, eval SQL). Training questions come from `--split train` rounds with the
+  training personas; `to-train` refuses eval rounds. Keep a sealed external eval from a different platform than training.
 
 ## Commands
 

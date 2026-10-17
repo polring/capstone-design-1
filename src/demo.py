@@ -230,12 +230,16 @@ def demo_sql(args, sql: str | None = None) -> dict | None:
     return None
 
 
-def _pair_files(args) -> list[Path]:
-    """질문 쌍을 찾을 파일: --pairs, 없으면 학습 폴더 *.json + 평가셋 폴더의 pairs.json 전부."""
+def _pair_sources(args) -> list[tuple[str, list[dict], bool]]:
+    """질문 쌍을 찾을 곳 (이름, 쌍, 학습 데이터인가): --pairs 파일들, 없으면 학습 폴더 *.json + 평가셋 전부."""
+    def from_file(f: Path) -> tuple[str, list[dict], bool]:
+        source = f.parent.name if f.name == config.PAIRS_FILE else f.name   # 평가셋 폴더 이름 또는 파일 이름
+        is_train = Path(config.TRAIN_DIR).resolve() in f.resolve().parents
+        return source, json.loads(f.read_text(encoding="utf-8")), is_train
     if args.pairs:
-        return [Path(p) for p in args.pairs]
-    files = sorted(Path(config.TRAIN_DIR).glob("*.json"))
-    return files + [Path(args.eval_dir) / n / config.PAIRS_FILE for n in list_sets(args.eval_dir)]
+        return [from_file(Path(p)) for p in args.pairs]
+    return ([from_file(f) for f in sorted(Path(config.TRAIN_DIR).glob("*.json"))]
+            + [(n, load_eval_pairs(n, args.eval_dir), False) for n in list_sets(args.eval_dir)])
 
 
 def demo_questions(args, sql: str | None = None, entry: dict | None = None) -> list[str]:
@@ -246,12 +250,10 @@ def demo_questions(args, sql: str | None = None, entry: dict | None = None) -> l
     note("LLM 은 SQL 을 보고 질문만 쓴다 (SQL 정답은 고치지 않는다). 코드가 규칙을 검사해 통과한 질문만 쓴다:",
          "SQL 의 값이 질문에 그대로 들어 있는지, 소문자인지, 숫자를 단어로 풀어 쓰지 않았는지 등.",
          "[ ] 안은 그 질문이 들어 있는 파일이다 (학습 파일 이름 또는 평가셋 이름).")
-    files = _pair_files(args)
+    pair_sources = _pair_sources(args)
     by_sql: dict[str, list[tuple[str, str, bool]]] = {}
-    for f in files:
-        source = f.parent.name if f.name == config.PAIRS_FILE else f.name   # 평가셋 이름 또는 학습 파일 이름
-        is_train = Path(config.TRAIN_DIR).resolve() in f.resolve().parents
-        for p in json.loads(f.read_text(encoding="utf-8")):
+    for source, pairs, is_train in pair_sources:
+        for p in pairs:
             by_sql.setdefault(p["sql"], []).append((p["question"], source, is_train))
     if not sql:
         entries = {r["sql"]: r for r in json.loads(Path(args.sql_file).read_text(encoding="utf-8"))}
@@ -266,7 +268,7 @@ def demo_questions(args, sql: str | None = None, entry: dict | None = None) -> l
     questions = by_sql.get(sql, [])
     _print_questions(qg, sql, entry, questions)
     if not questions:
-        print(f"  이 SQL 의 질문이 질문 쌍 파일에 없다 ({len(files)}개 파일 검색).")
+        print(f"  이 SQL 의 질문이 질문 쌍 파일에 없다 ({len(pair_sources)}곳 검색).")
     else:
         sources = sorted({src for _, src, _ in questions})
         in_both = len({t for _, _, t in questions}) > 1
@@ -295,7 +297,7 @@ def demo_clean(args, question: str | None = None, sql: str | None = None) -> str
     from src.data.stage1.clean_ambiguous import REASONS, drop_reason, select_label
     from src.data.stage1.sql_rules import parse_sql, select_ambiguous
     header("라벨 정제  (clean_ambiguous: 질문만으로 정답 SQL 이 하나로 정해지는지, 라벨 규칙 L2~L4)")
-    note("같은 표현의 질문에 서로 다른 정답이 붙어 있으면 모델은 어느 쪽인지 외울 수밖에 없다. 라벨 규칙(계획서 4-5)으로",
+    note("같은 표현의 질문에 서로 다른 정답이 붙어 있으면 모델은 어느 쪽인지 외울 수밖에 없다. 라벨 규칙(docs/text-to-sql-label-rules.md)으로",
          "'질문만 보고 정답이 하나로 정해지는지' 판정해 어긋난 학습 쌍은 지운다. 평가셋은 지우지 않고 규칙 일치 EM 에서만 뺀다.")
     if question and sql:
         g = parse_sql(sql)

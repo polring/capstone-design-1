@@ -1,0 +1,436 @@
+{
+  "_doc": "질문 조합기 표현 사전. 키는 SQL 조각이고, 표현은 의미 단위로만 묶는다(< 와 <= 는 다른 키). 항목은 문자열 또는 {text | sg+pl, split}. split 생략은 train, eval 표현은 학습 문장·BPE 코퍼스에 나오지 않는다. conds 위치: pre(명사 앞), post(명사 뒤), post_or(OR 묶음, 없으면 post), pre_or, head(명사구 전체, 조건 1개일 때만). 값 자리: {v} {v2} (LIKE 키는 와일드카드 표기 {v}* / *{v} / *{v}* / % 도 쓰고, 이때 조각에 따옴표를 붙이지 않는다) (price 는 일부 $ 표기), {$v} {$v2} (항상 $), {#v} {#v2} ($ 없이, 'under 20 bucks' 처럼 단위가 뒤에 올 때). LIKE 키는 'LIKE prefix|suffix|contains'. orders 위치: sup(최상급, the 3 cheapest), post(with the lowest price), top(top 3 … by price, LIMIT 2 이상), sort(LIMIT 없는 정렬, 문장 끝, 쉼표 없이도 붙음). limits.tail 은 문장 끝 정렬 표현 뒤의 개수({n} = LIMIT n, 2 이상: 'lowest stock first, just 10', L12). limits.tail1 은 LIMIT 1 의 끝 표현('…, just the top one'). 값 전용 키 '테이블.컬럼 연산자 값'(예: items.stock = 0)은 숫자 없는 고정값 표현(L16: out of stock = stock = 0, in stock = stock > 0)이고, 같은 조건의 일반 키 표현과 함께 쓰인다. 표현과 연산자의 대응은 라벨 규칙 문서(docs/text-to-sql-label-rules.md) L6(비교)·L7(BETWEEN)·L10(부정)·L11(정렬)·L17(LIKE)을 따른다.",
+  "nouns": {
+    "items": [
+      {"sg": "item", "pl": "items"},
+      {"sg": "product", "pl": "products"},
+      {"sg": "thing", "pl": "things"},
+      {"sg": "article", "pl": "articles", "split": "eval"}
+    ],
+    "customers": [
+      {"sg": "customer", "pl": "customers"},
+      {"sg": "client", "pl": "clients"},
+      {"sg": "shopper", "pl": "shoppers"},
+      {"sg": "member", "pl": "members"},
+      {"sg": "patron", "pl": "patrons", "split": "eval"}
+    ],
+    "orders": [
+      {"sg": "order", "pl": "orders"},
+      {"sg": "purchase", "pl": "purchases"},
+      {"sg": "transaction", "pl": "transactions", "split": "eval"}
+    ]
+  },
+  "conds": {
+    "items.item_id =": {
+      "head": ["item {v}", "item #{v}", "product {v}", "item id {v}", "item number {v}", "item no. {v}", "product id {v}",
+               {"text": "product #{v}", "split": "eval"}, {"text": "item no {v}", "split": "eval"}],
+      "post": ["with id {v}", "with item id {v}", "numbered {v}", "w/ id {v}", "with item number {v}",
+               {"sg": "whose id is {v}", "pl": "whose ids are {v}"}, "with id# {v}",
+               {"text": "with the id {v}", "split": "eval"}, {"text": "id'd {v}", "split": "eval"}],
+      "post_or": ["with ids {v}", "with item ids {v}", "numbered {v}", "w/ ids {v}", "with item numbers {v}"]
+    },
+    "items.item_name =": {
+      "head": ["the {v}", "{v}", "\"{v}\"", "the item {v}", "the product {v}"],
+      "post": ["called {v}", "named {v}", "with the name {v}", "called \"{v}\"", "named '{v}'",
+               {"sg": "that's called {v}", "pl": "that are called {v}"},
+               {"sg": "that goes by {v}", "pl": "that go by {v}", "split": "eval"},
+               {"text": "by the name of {v}", "split": "eval"}]
+    },
+    "items.item_name LIKE prefix": {
+      "post": [{"sg": "whose name starts with {v}", "pl": "whose names start with {v}"},
+               "with names starting with {v}", "starting with {v}", "beginning with {v}",
+               {"sg": "that starts with {v}", "pl": "that start with {v}"},
+               {"sg": "that begins with {v}", "pl": "that begin with {v}"},
+               "with names that start with {v}",
+               {"sg": "whose name begins with {v}", "pl": "whose names begin with {v}", "split": "eval"},
+               {"text": "with names beginning in {v}", "split": "eval"},
+               {"sg": "whose name is {v}*", "pl": "whose names are {v}*"}, "with name like {v}%", "where name like {v}*", "with name {v}%",
+               "where the name starts with {v}"]
+    },
+    "items.item_name LIKE suffix": {
+      "post": [{"sg": "whose name ends with {v}", "pl": "whose names end with {v}"},
+               "with names ending in {v}", "ending in {v}", "ending with {v}",
+               {"sg": "that ends in {v}", "pl": "that end in {v}"},
+               {"sg": "that ends with {v}", "pl": "that end with {v}"},
+               {"sg": "whose name ends in {v}", "pl": "whose names end in {v}"},
+               {"text": "with a name ending in {v}", "split": "eval"},
+               {"text": "with names finishing in {v}", "split": "eval"},
+               {"sg": "whose name is *{v}", "pl": "whose names are *{v}"}, "with name like %{v}", "where name like *{v}", "with name %{v}",
+               "where the name ends with {v}"]
+    },
+    "items.item_name LIKE contains": {
+      "post": [{"sg": "whose name contains {v}", "pl": "whose names contain {v}"},
+               "with {v} in the name", "with names containing {v}", "containing {v}",
+               {"sg": "that has {v} in the name", "pl": "that have {v} in the name"},
+               "with {v} in their names", "with names that include {v}",
+               {"text": "that have {v} somewhere in the name", "split": "eval"},
+               {"text": "with {v} anywhere in the name", "split": "eval"},
+               {"sg": "whose name is *{v}*", "pl": "whose names are *{v}*"}, "with name like %{v}%", "where name like *{v}*", "with name %{v}%",
+               "where the name contains {v}"]
+    },
+    "items.category =": {
+      "pre": ["{v}"],
+      "post": ["in {v}", "in the {v} category", "from the {v} category", "from {v}", "in category {v}",
+               "in the {v} dept", "listed under {v}", "under the {v} category", "category {v}",
+               {"text": "in the {v} section", "split": "eval"}, {"text": "that fall under {v}", "split": "eval"},
+               "where category is {v}"]
+    },
+    "items.category !=": {
+      "pre": ["non-{v}"],
+      "post": ["not in {v}", "outside the {v} category", {"sg": "that is not in {v}", "pl": "that are not in {v}"},
+               "except {v}", "excluding {v}", "other than {v}", "not from {v}", "outside of {v}",
+               {"sg": "that isn't in {v}", "pl": "that aren't in {v}"}, "besides {v}",
+               "in any category but {v}", "skipping {v}", "leaving out {v}",
+               {"text": "outside {v}", "split": "eval"}, {"text": "but not {v}", "split": "eval"}]
+    },
+    "items.price =": {
+      "pre": ["{$v}"],
+      "post": ["priced at {v}", {"sg": "that costs {$v}", "pl": "that cost {$v}"}, "costing {$v}", "with a price of {v}",
+               "for {$v}", "at {$v}", {"sg": "that costs exactly {$v}", "pl": "that cost exactly {$v}"},
+               "priced {v}", "for {#v} dollars", "for {#v} bucks", "with price {v}",
+               {"text": "selling for {$v}", "split": "eval"}, {"text": "going for {$v}", "split": "eval"}]
+    },
+    "items.price <": {
+      "post": ["under {$v}", "below {$v}", "cheaper than {$v}", "priced under {v}",
+               {"sg": "that costs less than {$v}", "pl": "that cost less than {$v}"},
+               "less than {$v}", "under {#v} dollars", "under {#v} bucks", "for less than {$v}", "costing under {$v}",
+               "with price < {#v}", "with a price under {v}", "cheaper than {#v} dollars", "below {#v} bucks",
+               {"text": "priced below {v}", "split": "eval"}, {"text": "for under {$v}", "split": "eval"},
+               {"text": "sub {$v}", "split": "eval"}]
+    },
+    "items.price >": {
+      "post": ["over {$v}", "above {$v}", "more expensive than {$v}", "priced over {v}",
+               {"sg": "that costs more than {$v}", "pl": "that cost more than {$v}"},
+               "more than {$v}", "over {#v} dollars", "over {#v} bucks", "for more than {$v}", "costing over {$v}",
+               "with price > {#v}", "with a price over {v}", "upwards of {$v}", "above {#v} dollars",
+               {"text": "pricier than {$v}", "split": "eval"}, {"text": "for over {$v}", "split": "eval"},
+               {"text": "north of {$v}", "split": "eval"}]
+    },
+    "items.price <=": {
+      "post": ["{$v} or less", "{$v} or cheaper", "priced at {v} or less", "at most {$v}",
+               "up to {$v}", "{$v} max", "max {$v}", "{$v} and under", "{$v} and below", "with price <= {#v}",
+               "{#v} dollars or less", "{#v} bucks or less", "for {$v} or less", "not over {$v}",
+               {"text": "no more than {$v}", "split": "eval"}, {"text": "{$v} tops", "split": "eval"}]
+    },
+    "items.price >=": {
+      "post": ["{$v} or more", "priced at {v} or more", "at least {$v}", "no cheaper than {$v}",
+               "{$v}+", "from {$v} up", "starting at {$v}", "{$v} and above", "min {$v}", "with price >= {#v}",
+               "{#v} dollars or more", "{#v} bucks or more", "for {$v} or more", "not under {$v}",
+               {"text": "{$v} and up", "split": "eval"}, {"text": "{$v} minimum", "split": "eval"}]
+    },
+    "items.price BETWEEN": {
+      "post": ["between {$v} and {$v2}", "priced between {v} and {v2}", "priced from {v} to {v2}",
+               "in the {$v} to {$v2} range", "{$v}-{$v2}", "from {$v} to {$v2}", "{$v} to {$v2}",
+               "between {#v} and {#v2} dollars", "between {#v} and {#v2} bucks", "with price between {#v} and {#v2}",
+               "in the {$v}-{$v2} range", "priced {v}-{v2}",
+               {"text": "costing {$v}-{$v2}", "split": "eval"}, {"text": "anywhere from {$v} to {$v2}", "split": "eval"}]
+    },
+    "items.stock =": {
+      "post": ["with {v} in stock", "with {v} units in stock", "with exactly {v} left",
+               {"sg": "that has {v} units left", "pl": "that have {v} units left"},
+               "with {v} left", "with only {v} left", "with stock at {v}", "with stock = {v}",
+               {"sg": "that has exactly {v} in stock", "pl": "that have exactly {v} in stock"}, "with {v} units left",
+               {"text": "with a stock of {v}", "split": "eval"}, {"text": "with {v} on hand", "split": "eval"},
+               "where stock is {v}"]
+    },
+    "items.stock <": {
+      "post": ["with fewer than {v} in stock", "with less than {v} units left", "with stock below {v}",
+               "with under {v} units in stock", "with stock < {v}", "with less than {v} in stock", "with under {v} left",
+               "with fewer than {v} left", "with < {v} in stock", {"text": "with stock under {v}", "split": "eval"}, {"text": "with under {v} on hand", "split": "eval"}]
+    },
+    "items.stock >": {
+      "post": ["with more than {v} in stock", "with over {v} units in stock", "with stock above {v}",
+               "with more than {v} left", "with stock > {v}", "with over {v} left",
+               "with more than {v} available", "with over {v} available", "with > {v} in stock",
+               {"text": "with stock over {v}", "split": "eval"}, {"text": "with over {v} on hand", "split": "eval"}]
+    },
+    "items.stock <=": {
+      "post": ["with {v} or fewer in stock", "with at most {v} units left", "with no more than {v} in stock",
+               "with stock of {v} or less", "with stock <= {v}", "with {v} or less in stock", "with {v} or fewer left",
+               "with max {v} in stock", "with up to {v} units in stock",
+               {"text": "with {v} or fewer units left", "split": "eval"}, {"text": "with {v} tops in stock", "split": "eval"}]
+    },
+    "items.stock >=": {
+      "post": ["with at least {v} in stock", "with {v} or more units in stock", "with stock of {v} or more",
+               "with no fewer than {v} left", "with stock >= {v}", "with {v} or more in stock", "with {v} or more left",
+               "with min {v} in stock", "with {v}+ in stock", "with at least {v} left",
+               {"text": "with {v}+ units in stock", "split": "eval"}, {"text": "with {v} or more on hand", "split": "eval"}]
+    },
+    "items.stock = 0": {
+      "pre": ["out-of-stock", "sold-out"],
+      "post": ["out of stock", {"sg": "that is out of stock", "pl": "that are out of stock"}, "sold out",
+               {"sg": "that is sold out", "pl": "that are sold out"}, "with none left", "with nothing left in stock",
+               "with no stock", "with no units left",
+               {"sg": "that has run out", "pl": "that have run out", "split": "eval"},
+               {"text": "with none on hand", "split": "eval"}]
+    },
+    "items.stock > 0": {
+      "pre": ["in-stock", "available"],
+      "post": ["in stock", {"sg": "that is in stock", "pl": "that are in stock"}, "currently in stock", "still in stock",
+               "available", {"sg": "that is available", "pl": "that are available"}, "with some stock left",
+               {"sg": "that isn't sold out", "pl": "that aren't sold out"},
+               {"text": "on hand", "split": "eval"}, {"sg": "that we still have", "pl": "that we still have", "split": "eval"}]
+    },
+    "items.stock BETWEEN": {
+      "post": ["with {v} to {v2} units in stock", "with stock between {v} and {v2}", "with between {v} and {v2} left",
+               "with {v}-{v2} in stock", "with {v}-{v2} left", "with stock from {v} to {v2}",
+               "with between {v} and {v2} in stock", "with {v} to {v2} left", "with stock {v}-{v2}",
+               {"text": "stocked at {v} to {v2} units", "split": "eval"},
+               {"text": "with anywhere from {v} to {v2} in stock", "split": "eval"}]
+    },
+    "customers.customer_id =": {
+      "head": ["customer {v}", "customer #{v}", "customer id {v}", "customer number {v}", "client {v}", "customer no. {v}",
+               "client id {v}", {"text": "client #{v}", "split": "eval"}, {"text": "customer no {v}", "split": "eval"}],
+      "post": ["with id {v}", "with customer id {v}", "numbered {v}", "w/ id {v}", "with customer number {v}",
+               {"sg": "whose id is {v}", "pl": "whose ids are {v}"}, "with id# {v}",
+               {"text": "with the id {v}", "split": "eval"}, {"text": "id'd {v}", "split": "eval"}],
+      "post_or": ["with ids {v}", "with customer ids {v}", "numbered {v}", "w/ ids {v}", "with customer numbers {v}"]
+    },
+    "customers.name =": {
+      "head": ["{v}", "\"{v}\"", "the customer {v}", "the client {v}"],
+      "post": ["named {v}", "called {v}", "with the name {v}", "named \"{v}\"", "called '{v}'",
+               {"sg": "who goes by {v}", "pl": "who go by {v}"},
+               {"sg": "who is named {v}", "pl": "who are named {v}", "split": "eval"},
+               {"text": "by the name of {v}", "split": "eval"}]
+    },
+    "customers.name LIKE prefix": {
+      "post": [{"sg": "whose name starts with {v}", "pl": "whose names start with {v}"},
+               "with names starting with {v}", "starting with {v}", "beginning with {v}",
+               {"sg": "who starts with {v}", "pl": "who start with {v}"},
+               {"sg": "whose name begins with {v}", "pl": "whose names begin with {v}"},
+               "with names that start with {v}",
+               {"sg": "whose first name starts with {v}", "pl": "whose first names start with {v}", "split": "eval"},
+               {"text": "with names beginning in {v}", "split": "eval"},
+               {"sg": "whose name is {v}*", "pl": "whose names are {v}*"}, "with name like {v}%", "where name like {v}*", "with name {v}%",
+               "where the name starts with {v}"]
+    },
+    "customers.name LIKE suffix": {
+      "post": [{"sg": "whose name ends with {v}", "pl": "whose names end with {v}"},
+               "with names ending in {v}", "ending in {v}", "ending with {v}",
+               {"sg": "whose name ends in {v}", "pl": "whose names end in {v}"},
+               "with names that end in {v}", "with names ending with {v}",
+               {"text": "with a name ending in {v}", "split": "eval"},
+               {"text": "with names finishing in {v}", "split": "eval"},
+               {"sg": "whose name is *{v}", "pl": "whose names are *{v}"}, "with name like %{v}", "where name like *{v}", "with name %{v}",
+               "where the name ends with {v}"]
+    },
+    "customers.name LIKE contains": {
+      "post": [{"sg": "whose name contains {v}", "pl": "whose names contain {v}"},
+               "with {v} in the name", "with names containing {v}", "containing {v}",
+               {"sg": "who has {v} in their name", "pl": "who have {v} in their names"},
+               "with {v} in their names", "with names that include {v}",
+               {"text": "with {v} somewhere in the name", "split": "eval"},
+               {"text": "with {v} anywhere in the name", "split": "eval"},
+               {"sg": "whose name is *{v}*", "pl": "whose names are *{v}*"}, "with name like %{v}%", "where name like *{v}*", "with name %{v}%",
+               "where the name contains {v}"]
+    },
+    "customers.city =": {
+      "pre": ["{v}", "{v}-based"],
+      "post": ["in {v}", "from {v}", "living in {v}", "based in {v}", "located in {v}",
+               {"sg": "who lives in {v}", "pl": "who live in {v}"}, "in the city of {v}", "residing in {v}",
+               {"sg": "who is from {v}", "pl": "who are from {v}", "split": "eval"},
+               {"sg": "that calls {v} home", "pl": "that call {v} home", "split": "eval"},
+               "where city is {v}"]
+    },
+    "customers.city !=": {
+      "pre": ["non-{v}"],
+      "post": ["not in {v}", "not from {v}", "outside {v}", "outside of {v}", "not living in {v}",
+               {"sg": "who doesn't live in {v}", "pl": "who don't live in {v}"}, "excluding {v}",
+               "living outside {v}", "anywhere but {v}", "leaving out {v}", "skipping {v}",
+               {"text": "not based in {v}", "split": "eval"}, {"text": "not located in {v}", "split": "eval"}]
+    },
+    "customers.membership =": {
+      "pre": ["{v}", "{v}-tier", "{v} membership", "{v}-level"],
+      "post": ["with {v} membership", "with a {v} membership", "on the {v} tier", "at the {v} level",
+               {"sg": "who is a {v} member", "pl": "who are {v} members"}, "in the {v} tier", "holding {v} membership",
+               "with membership {v}", "on {v} membership",
+               {"text": "with a {v} plan", "split": "eval"}, {"text": "at {v} level", "split": "eval"},
+               "where membership is {v}"]
+    },
+    "customers.membership !=": {
+      "pre": ["non-{v}"],
+      "post": ["not on the {v} tier", "not in the {v} tier", "outside the {v} tier", "excluding {v} members",
+               "except {v} members", "other than {v} members", "besides {v} members",
+               {"sg": "who isn't a {v} member", "pl": "who aren't {v} members"},
+               {"sg": "who is not {v}", "pl": "who are not {v}"}, "with membership other than {v}",
+               "leaving out {v} members", "skipping {v} members", "on any tier but {v}",
+               {"text": "with a non-{v} membership", "split": "eval"}, {"text": "not at the {v} level", "split": "eval"}]
+    },
+    "orders.order_id =": {
+      "head": ["order {v}", "order #{v}", "order id {v}", "order number {v}", "order no. {v}", "purchase {v}",
+               "purchase #{v}", {"text": "order no {v}", "split": "eval"}, {"text": "transaction {v}", "split": "eval"}],
+      "post": ["with order id {v}", "with id {v}", "numbered {v}", "with order number {v}", "w/ order id {v}",
+               {"sg": "whose id is {v}", "pl": "whose ids are {v}"}, "with order # {v}",
+               {"text": "with the order id {v}", "split": "eval"}, {"text": "id'd {v}", "split": "eval"}],
+      "post_or": ["with ids {v}", "with order ids {v}", "numbered {v}", "with order numbers {v}", "w/ order ids {v}"]
+    },
+    "orders.customer_id =": {
+      "post": ["by customer {v}", "placed by customer {v}", "from customer {v}", "for customer {v}", "made by customer {v}",
+               "by customer id {v}", "from customer #{v}", "with customer id {v}", "placed by client {v}",
+               {"text": "on customer {v}'s account", "split": "eval"}, {"text": "that customer {v} placed", "split": "eval"}],
+      "post_or": ["by customers {v}", "placed by customers {v}", "from customers {v}", "for customer ids {v}",
+                  "with customer ids {v}", "made by customers {v}"]
+    },
+    "orders.item_id =": {
+      "post": ["for item {v}", "of item {v}", "for item id {v}", "containing item {v}", "for product {v}",
+               "with item id {v}", {"sg": "that includes item {v}", "pl": "that include item {v}"}, "for item #{v}",
+               {"text": "of product #{v}", "split": "eval"}, {"text": "involving item {v}", "split": "eval"}],
+      "post_or": ["for items {v}", "of items {v}", "for item ids {v}", "with item ids {v}", "for products {v}",
+                  "containing items {v}"]
+    },
+    "orders.quantity =": {
+      "post": ["of {v} units", "for {v} units", "with quantity {v}", "with a quantity of {v}", "with {v} units",
+               "with qty {v}", "of exactly {v} units", "for exactly {v} units",
+               {"text": "with {v} pieces", "split": "eval"}, {"text": "covering {v} units", "split": "eval"},
+               "where quantity is {v}"],
+      "post_or": ["of {v} units", "for {v} units", "with quantity {v}", "with {v} units", "with qty {v}"]
+    },
+    "orders.quantity <": {
+      "post": ["of fewer than {v} units", "with quantity under {v}", "with fewer than {v} units", "under {v} units",
+               "with qty < {v}", "with quantity below {v}", "for less than {v} units",
+               "with less than {v} units",
+               {"text": "of under {v} units", "split": "eval"}, {"text": "with a quantity smaller than {v}", "split": "eval"}]
+    },
+    "orders.quantity >": {
+      "post": ["of more than {v} units", "with quantity over {v}", "with more than {v} units", "over {v} units",
+               "with qty > {v}", "with quantity above {v}", "for more than {v} units",
+               "with over {v} units",
+               {"text": "of over {v} units", "split": "eval"}, {"text": "with a quantity greater than {v}", "split": "eval"}]
+    },
+    "orders.quantity <=": {
+      "post": ["of {v} units or fewer", "with quantity of {v} or less", "with at most {v} units", "of up to {v} units",
+               "with qty <= {v}", "with no more than {v} units", "for {v} units or less",
+               "with {v} units or fewer",
+               {"text": "of max {v} units", "split": "eval"}, {"text": "with {v} units tops", "split": "eval"}]
+    },
+    "orders.quantity >=": {
+      "post": ["of {v} units or more", "with quantity of {v} or more", "with at least {v} units", "of {v}+ units",
+               "with qty >= {v}", "with no fewer than {v} units", "for {v} units or more",
+               "with {v} or more units",
+               {"text": "of min {v} units", "split": "eval"}, {"text": "with {v} units minimum", "split": "eval"}]
+    },
+    "orders.quantity BETWEEN": {
+      "post": ["of {v} to {v2} units", "with quantity between {v} and {v2}", "with between {v} and {v2} units",
+               "of {v}-{v2} units", "with qty {v}-{v2}", "for {v} to {v2} units", "with a quantity from {v} to {v2}",
+               {"text": "of anywhere from {v} to {v2} units", "split": "eval"},
+               {"text": "in the {v}-{v2} unit range", "split": "eval"}]
+    },
+    "orders.status =": {
+      "pre": ["{v}"],
+      "post": ["with status {v}", {"sg": "that is {v}", "pl": "that are {v}"}, "marked {v}", "with a status of {v}",
+               "in {v} status", {"sg": "whose status is {v}", "pl": "whose status is {v}"},
+               "flagged as {v}", "listed as {v}",
+               {"text": "sitting at {v}", "split": "eval"}, {"text": "showing as {v}", "split": "eval"},
+               {"sg": "that was {v}", "pl": "that were {v}"}, "where status is {v}"]
+    },
+    "orders.status !=": {
+      "pre": ["non-{v}"],
+      "post": ["not {v}", {"sg": "that is not {v}", "pl": "that are not {v}"}, "with status other than {v}",
+               {"sg": "whose status is not {v}", "pl": "whose status is not {v}"}, "not marked {v}",
+               {"sg": "that isn't {v}", "pl": "that aren't {v}"}, "except {v} ones", "excluding {v} ones",
+               "with a status besides {v}", "with any status but {v}", {"sg": "that is anything but {v}", "pl": "that are anything but {v}"}, "skipping the {v} ones",
+               "leaving out the {v} ones", "excluding {v}", "not counting {v} ones",
+               {"text": "other than the {v} ones", "split": "eval"}, {"text": "not listed as {v}", "split": "eval"}]
+    },
+    "items.category = electronics": {
+      "noun": [{"sg": "electronics item", "pl": "electronics"}]
+    },
+    "items.category = furniture": {
+      "noun": [{"sg": "piece of furniture", "pl": "furniture"}]
+    },
+    "items.category = clothing": {
+      "noun": [{"sg": "clothing item", "pl": "clothing"}, {"sg": "piece of clothing", "pl": "clothes"}]
+    },
+    "items.category = office supplies": {
+      "noun": [{"sg": "office supply", "pl": "office supplies"}]
+    },
+    "items.category = sports": {
+      "noun": [{"sg": "piece of sports gear", "pl": "sports gear"}, {"sg": "piece of sports equipment", "pl": "sports equipment"}]
+    },
+    "items.category = kitchen": {
+      "noun": [{"sg": "kitchen item", "pl": "kitchen stuff"}, {"sg": "piece of kitchenware", "pl": "kitchenware"}]
+    },
+    "orders.status = pending": {
+      "post": ["still pending", {"sg": "that is still pending", "pl": "that are still pending"}, "waiting to ship"]
+    }
+  },
+  "orders": {
+    "items.price ASC": {
+      "sup": ["cheapest", "least expensive", "lowest-priced", "lowest priced", "most affordable", "least pricey",
+              {"text": "cheapest-priced", "split": "eval"}],
+      "post": [{"sg": "with the lowest price", "pl": "with the lowest prices"},
+               {"sg": "that costs the least", "pl": "that cost the least"}, "with the lowest cost",
+               {"text": "at the lowest prices", "split": "eval"}],
+      "sort": ["sorted by price from low to high", "from cheapest to most expensive", "ordered by price, cheapest first",
+               "cheapest first", "sorted by price ascending", "by price low to high", "price low to high",
+               "order by price asc", "sorted cheapest to priciest",
+               {"text": "in ascending order of price", "split": "eval"}, {"text": "lowest price first", "split": "eval"},
+               "sorted by price", "ordered by price"]
+    },
+    "items.price DESC": {
+      "sup": ["most expensive", "priciest", "highest-priced", "highest priced", "most pricey", "costliest",
+              {"text": "most costly", "split": "eval"}],
+      "post": [{"sg": "with the highest price", "pl": "with the highest prices"},
+               {"sg": "that costs the most", "pl": "that cost the most"}, "with the highest cost",
+               {"text": "at the highest prices", "split": "eval"}],
+      "top": ["by price", "by cost", {"text": "in price", "split": "eval"}],
+      "sort": ["sorted by price from high to low", "from most to least expensive", "ordered by price, most expensive first",
+               "most expensive first", "sorted by price descending", "by price high to low", "price high to low",
+               "order by price desc", "sorted priciest to cheapest",
+               {"text": "in descending order of price", "split": "eval"}, {"text": "highest price first", "split": "eval"}]
+    },
+    "items.stock ASC": {
+      "sup": ["lowest stock", "least stocked", {"text": "lowest-stock", "split": "eval"}],
+      "post": ["with the least stock", "with the fewest units in stock",
+               {"sg": "with the lowest stock", "pl": "with the lowest stock levels"},
+               "with the fewest left", "with the smallest stock",
+               {"text": "that are lowest on stock", "split": "eval"}],
+      "sort": ["sorted by stock, lowest first", "ordered by stock from low to high", "from least to most stock",
+               "lowest stock first", "sorted by stock ascending", "by stock low to high", "order by stock asc",
+               "fewest left first",
+               {"text": "in ascending order of stock", "split": "eval"}, {"text": "least stock first", "split": "eval"},
+               "sorted by stock", "ordered by stock"]
+    },
+    "items.stock DESC": {
+      "sup": ["highest stock", "most stocked", "best-stocked", {"text": "most-stocked", "split": "eval"}],
+      "post": ["with the most stock", "with the most units in stock",
+               {"sg": "with the highest stock", "pl": "with the highest stock levels"},
+               "with the most left", "with the largest stock",
+               {"text": "that have the most on hand", "split": "eval"}],
+      "top": ["by stock", "by stock level", "by stock count", "by units in stock",
+              {"text": "by amount on hand", "split": "eval"}],
+      "sort": ["sorted by stock, highest first", "ordered by stock from high to low", "from most to least stock",
+               "highest stock first", "most stock first", "sorted by stock descending", "by stock high to low",
+               "order by stock desc",
+               {"text": "in descending order of stock", "split": "eval"}, {"text": "most left first", "split": "eval"}]
+    },
+    "orders.quantity ASC": {
+      "sup": ["smallest", "lowest-quantity", "lowest quantity", "fewest-unit", {"text": "tiniest", "split": "eval"}],
+      "post": [{"sg": "with the lowest quantity", "pl": "with the lowest quantities"}, "with the fewest units",
+               {"sg": "with the smallest quantity", "pl": "with the smallest quantities"},
+               {"text": "with the least units ordered", "split": "eval"}],
+      "sort": ["sorted by quantity, lowest first", "ordered by quantity from low to high", "smallest orders first",
+               "sorted by quantity ascending", "by quantity low to high", "order by quantity asc", "fewest units first",
+               "quantity low to high",
+               {"text": "in ascending order of quantity", "split": "eval"}, {"text": "smallest quantity first", "split": "eval"},
+               "sorted by quantity", "ordered by quantity"]
+    },
+    "orders.quantity DESC": {
+      "sup": ["largest", "biggest", "highest-quantity", "highest quantity", {"text": "bulkiest", "split": "eval"}],
+      "post": [{"sg": "with the highest quantity", "pl": "with the highest quantities"}, "with the most units",
+               {"sg": "with the largest quantity", "pl": "with the largest quantities"},
+               {"text": "with the most units ordered", "split": "eval"}],
+      "top": ["by quantity", "by units", "by units ordered", {"text": "by order size", "split": "eval"}],
+      "sort": ["sorted by quantity, highest first", "ordered by quantity from high to low", "largest orders first",
+               "sorted by quantity descending", "by quantity high to low", "order by quantity desc", "most units first",
+               "quantity high to low",
+               {"text": "in descending order of quantity", "split": "eval"}, {"text": "biggest orders first", "split": "eval"},
+               "largest quantity first", "highest quantity first"]
+    }
+  },
+  "limits": {
+    "tail": ["just {n}", "only {n}", "first {n}", "just the first {n}", "only the top {n}", "top {n} only",
+             "{n} of them", "limit {n}", "give me {n}", "just show {n}"],
+    "tail1": ["just the top one", "only the first one", "top 1 only", "just that one", "only 1", "just the first"]
+  }
+}
