@@ -1,3 +1,6 @@
+# 역할: 2단계 SQL 문법 판정, 정답 비교와 오류 유형 분류를 구현한다.
+# 사용처: 공통 evaluation/scoring.py가 2단계 모델의 생성 결과를 채점할 때 사용한다.
+
 """
 sql_rules.py — 2단계 채점 규칙 (조건 0~3개, AND / OR, IN, 비교·BETWEEN·LIKE, ORDER BY, LIMIT)
 

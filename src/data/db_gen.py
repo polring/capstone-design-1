@@ -1,5 +1,8 @@
+# 역할: 고객·상품·주문 SQLite DB와 학습 제외 값 목록을 생성하고 검사한다.
+# 사용처: 각 단계의 SQL 생성·평가에서 사용할 DB와 값 분포를 준비할 때 사용한다.
+
 """
-Text-to-SQL 1단계 DB 생성기 (v2)
+Text-to-SQL 1·2·3단계 공통 DB 생성기 (v2)
 
 v1 대비 변경점
   1. 이름을 한 단어로 (customers.name, items.item_name)
@@ -16,8 +19,8 @@ v1 대비 변경점
     python -m src.data.db_gen space                      # SQL 공간과 ID 조건 비중
 
 산출물
-    data/stage1/db/shop.db        SQLite DB
-    data/stage1/db/holdout.json   미등장 값 목록 (SQL 생성기가 읽어 해당 리터럴을 제외)
+    data/stage<N>/db/shop.db        SQLite DB (3단계는 날짜 컬럼 포함)
+    data/stage<N>/db/holdout.json   미등장 값 목록 (SQL 생성기가 읽어 해당 리터럴을 제외)
 """
 
 from __future__ import annotations
@@ -30,6 +33,7 @@ import random
 import sqlite3
 import sys
 from dataclasses import dataclass, asdict
+from datetime import date, timedelta
 
 from src import config
 
@@ -169,15 +173,33 @@ class Config:
     heldout_item_ratio: float = 0.20
     heldout_id_only_ratio: float = 0.10    # 이름은 등장, ID만 미등장
     heldout_order_id_ratio: float = 0.10
+    stage: int = 1
+    date_start: str = "2025-01-01"
+    date_end: str = "2026-12-31"
+    heldout_date_ratio: float = 0.20
+    pool_path: str | None = None
 
     def item_name_capacity(self) -> dict[str, int]:
         """카테고리별로 만들 수 있는 서로 다른 상품명 개수."""
         if self.name_style == "single":
             return {c: len(CATEGORY_NOUNS[c]) for c in CATEGORIES}
+        if self.pool_path:
+            from src.data.stage3.name_pools import load_pools, product_names
+            return {c: len(values) for c, values in product_names(load_pools(self.pool_path)).items()}
         return {c: len(CATEGORY_NOUNS[c]) * len(CATEGORY_MODIFIERS[c]) for c in CATEGORIES}
 
     def validate(self) -> None:
         p: list[str] = []
+        if self.stage >= 3:
+            start, end = date.fromisoformat(self.date_start), date.fromisoformat(self.date_end)
+            if start.isoformat() != self.date_start or end.isoformat() != self.date_end or start > end:
+                p.append("Dates must be canonical YYYY-MM-DD with start <= end")
+            if not 0 <= self.heldout_date_ratio < 1:
+                p.append("heldout_date_ratio must be in [0, 1)")
+        if self.name_style == "two_word" and self.pool_path:
+            from src.data.stage3.name_pools import load_pools, customer_names
+            if len(customer_names(load_pools(self.pool_path))) < self.n_customers:
+                p.append("Customer name pool capacity exceeded")
         if self.name_style not in ("single", "two_word"):
             p.append("name_style 은 single 또는 two_word")
         if self.min_per_city * len(CITIES) > self.n_customers:
@@ -219,7 +241,19 @@ PRESETS: dict[str, Config] = {
                     min_per_quantity=8, min_per_status=25, min_zero_stock=3),
     # 확장판 (기본)
     "large": Config(),
+    "aggregate": Config(stage=3, n_customers=600, n_items=400, n_orders=6000,
+                        order_id_range=(5000, 14999), name_style="two_word",
+                        pool_path=str(config.stage_paths(3).data_dir / "name_pools.json"),
+                        min_per_city=80, min_per_membership=120, min_per_category=50,
+                        min_per_quantity=400, min_per_status=1200, min_zero_stock=26),
 }
+
+
+def preset_config(stage: int, preset: str | None = None, **overrides) -> Config:
+    values = asdict(PRESETS[preset or ("aggregate" if stage >= 3 else "large")])
+    values.update(stage=stage, pool_path=str(config.stage_paths(stage).data_dir / "name_pools.json") if stage >= 3 else None)
+    values.update(overrides)
+    return Config(**values)
 
 
 SCHEMA = """
@@ -252,6 +286,18 @@ TABLE_COLUMNS = {
     "items": ["item_id", "item_name", "category", "price", "stock"],
     "orders": ["order_id", "customer_id", "item_id", "quantity", "status"],
 }
+
+
+def table_columns(stage: int = 1) -> dict[str, list[str]]:
+    columns = {table: list(cols) for table, cols in TABLE_COLUMNS.items()}
+    if stage >= 3:
+        columns["orders"].append("order_date")
+    return columns
+
+
+def schema_sql(stage: int = 1) -> str:
+    return (SCHEMA.replace("status      TEXT    NOT NULL", "status      TEXT    NOT NULL,\n    order_date  TEXT    NOT NULL")
+            if stage >= 3 else SCHEMA)
 
 
 # ---------------------------------------------------------------------------
@@ -292,6 +338,9 @@ def build_customers(rng: random.Random, cfg: Config) -> list[tuple]:
     ids = sample_ids(rng, *cfg.customer_id_range, cfg.n_customers)
     if cfg.name_style == "single":
         names = rng.sample(GIVEN_NAMES, cfg.n_customers)
+    elif cfg.pool_path:
+        from src.data.stage3.name_pools import load_pools, customer_names
+        names = rng.sample(customer_names(load_pools(cfg.pool_path)), cfg.n_customers)
     else:
         names, used = [], set()
         while len(names) < cfg.n_customers:
@@ -313,10 +362,14 @@ def build_items(rng: random.Random, cfg: Config) -> list[tuple]:
                            caps=cfg.item_name_capacity())
 
     names, used = [], set()
+    full_pools = None
+    if cfg.name_style == "two_word" and cfg.pool_path:
+        from src.data.stage3.name_pools import load_pools, product_names
+        full_pools = product_names(load_pools(cfg.pool_path))
     for cat in cats:
         nouns = CATEGORY_NOUNS[cat]
         while True:
-            name = (rng.choice(nouns) if cfg.name_style == "single"
+            name = (rng.choice(full_pools[cat]) if full_pools else rng.choice(nouns) if cfg.name_style == "single"
                     else f"{rng.choice(CATEGORY_MODIFIERS[cat])} {rng.choice(nouns)}")
             if name not in used:
                 used.add(name)
@@ -384,7 +437,7 @@ def load_bans(ho: dict) -> dict[str, dict[str, set]]:
              | set(ho["customers"]["heldout_ids_only"]))
     i_ids = ({r["item_id"] for r in ho["items"]["heldout_rows"]}
              | set(ho["items"]["heldout_ids_only"]))
-    return {
+    result = {
         "customers": {"customer_id": c_ids,
                       "name": {r["name"] for r in ho["customers"]["heldout_rows"]}},
         "items": {"item_id": i_ids,
@@ -392,6 +445,9 @@ def load_bans(ho: dict) -> dict[str, dict[str, set]]:
         "orders": {"order_id": set(ho["orders"]["heldout_ids"]),
                    "customer_id": c_ids, "item_id": i_ids},
     }
+    if "heldout_dates" in ho["orders"]:
+        result["orders"]["order_date"] = set(ho["orders"]["heldout_dates"])
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -409,14 +465,28 @@ def build(seed: int, out_dir: str, cfg: Config | None = None) -> tuple[str, str]
     orders = build_orders(rng, cfg, [c[0] for c in customers], [i[0] for i in items])
     holdout = build_holdout(rng, cfg, customers, items, orders)
 
+    if cfg.stage >= 3:
+        date_rng = random.Random(f"order_date:{seed}")
+        start = date.fromisoformat(cfg.date_start)
+        span = (date.fromisoformat(cfg.date_end) - start).days
+        orders = [(*row, (start + timedelta(days=date_rng.randint(0, span))).isoformat()) for row in orders]
+        dates = sorted({row[-1] for row in orders})
+        if cfg.heldout_date_ratio and len(dates) < 2:
+            raise ValueError("Date holdout requires at least two observed dates")
+        count = max(1, min(len(dates) - 1, round(len(dates) * cfg.heldout_date_ratio))) if cfg.heldout_date_ratio else 0
+        holdout["orders"]["heldout_dates"] = sorted(random.Random(f"date_holdout:{seed}").sample(dates, count))
+
     db_path = os.path.join(out_dir, config.DB_PATH.name)
+    if cfg.stage >= 3 and os.path.realpath(db_path) == os.path.realpath(config.stage_paths(1).db_path):
+        raise ValueError("Refusing to overwrite the stage-1 database")
     if os.path.exists(db_path):
         os.remove(db_path)
     con = sqlite3.connect(db_path)
-    con.executescript(SCHEMA)
+    con.executescript(schema_sql(cfg.stage))
     con.executemany("INSERT INTO customers VALUES (?,?,?,?)", customers)
     con.executemany("INSERT INTO items VALUES (?,?,?,?,?)", items)
-    con.executemany("INSERT INTO orders VALUES (?,?,?,?,?)", orders)
+    placeholders = ','.join('?' for _ in table_columns(cfg.stage)['orders'])
+    con.executemany(f"INSERT INTO orders VALUES ({placeholders})", orders)
     con.commit()
     con.close()
 
@@ -503,6 +573,16 @@ def verify(db_path: str, cfg: Config | None = None) -> list[str]:
     chk(q("SELECT COUNT(*) FROM customers c JOIN items i ON c.customer_id = i.item_id")[0][0] == 0,
         "customer_id 와 item_id 대역이 겹침")
 
+    columns = [row[1] for row in q("PRAGMA table_info(orders)")]
+    chk(columns == table_columns(cfg.stage)["orders"], "orders schema mismatch")
+    if cfg.stage >= 3 and "order_date" in columns:
+        for (value,) in q("SELECT order_date FROM orders"):
+            try:
+                valid = date.fromisoformat(value).isoformat() == value and cfg.date_start <= value <= cfg.date_end
+            except (TypeError, ValueError):
+                valid = False
+            chk(valid, f"Invalid order date: {value!r}")
+
     con.close()
     return fails
 
@@ -531,7 +611,8 @@ def sql_space(db_path: str, ho_path: str, detail: bool = True) -> tuple[int, int
     if detail:
         print(f"{'테이블':<11}{'WHERE 컬럼':<14}{'가용 리터럴':>11}{'SQL':>9}")
         print("-" * 46)
-    for t, cols in TABLE_COLUMNS.items():
+    for t in TABLE_COLUMNS:
+        cols = [row[1] for row in con.execute(f"PRAGMA table_info({t})")]
         n_sel = len(cols) + 1                      # 각 컬럼 + '*'
         for c in cols:
             vals = {r[0] for r in con.execute(f"SELECT DISTINCT {c} FROM {t}")}
@@ -592,6 +673,16 @@ def test_holdout(ho_path: str) -> list[str]:
             f.append(f"{t}: heldout_rows 와 heldout_ids_only 가 겹침")
         if not rows or not only:
             f.append(f"{t}: 미등장 값 집합이 비어 있음")
+    if "heldout_dates" in ho["orders"]:
+        with sqlite3.connect(os.path.join(os.path.dirname(ho_path), "shop.db")) as con:
+            observed = {r[0] for r in con.execute("SELECT DISTINCT order_date FROM orders")}
+        heldout_dates = ho["orders"]["heldout_dates"]
+        ratio = ho["config"]["heldout_date_ratio"]
+        expected = max(1, min(len(observed) - 1, round(len(observed) * ratio))) if ratio else 0
+        if len(heldout_dates) != expected or len(set(heldout_dates)) != expected or not set(heldout_dates) <= observed:
+            f.append("Date holdout size, uniqueness or membership mismatch")
+        if ratio and not observed - set(heldout_dates):
+            f.append("No training dates remain")
     return f
 
 
@@ -616,6 +707,9 @@ def summary(db_path: str) -> None:
     print(f"{'price':<12}{mn} ~ {mx} (평균 {av})")
     mn, mx, z = con.execute("SELECT MIN(stock), MAX(stock), SUM(stock=0) FROM items").fetchone()
     print(f"{'stock':<12}{mn} ~ {mx} (품절 {z}개)")
+    if "order_date" in {r[1] for r in con.execute("PRAGMA table_info(orders)")}:
+        mn, mx, nd = con.execute("SELECT MIN(order_date), MAX(order_date), COUNT(DISTINCT order_date) FROM orders").fetchone()
+        print(f"order_date  {mn} ~ {mx} (distinct dates: {nd})")
     print("-" * 62)
     for t in ("customers", "items", "orders"):
         for r in con.execute(f"SELECT * FROM {t} LIMIT 3"):
@@ -625,18 +719,32 @@ def summary(db_path: str) -> None:
 
 # ---------------------------------------------------------------------------
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description="1단계 DB 생성기")
+def main(argv: list[str] | None = None) -> int:
+    selector = argparse.ArgumentParser(add_help=False)
+    selector.add_argument("--stage", type=int, choices=[1, 2, 3], default=config.STAGE)
+    selected, _ = selector.parse_known_args(argv)
+    paths = config.stage_paths(selected.stage)
+    ap = argparse.ArgumentParser(description="단계 공통 DB 생성기", parents=[selector])
     ap.add_argument("command", choices=["build", "verify", "test", "summary", "space"])
-    ap.add_argument("--preset", default="large", choices=list(PRESETS))
+    ap.add_argument("--preset", default="aggregate" if selected.stage >= 3 else "large", choices=list(PRESETS))
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--out", default=str(config.DB_DIR), help=f"출력 폴더 (기본 {config.DB_DIR})")
+    ap.add_argument("--out", default=str(paths.db_dir), help="출력 폴더")
     ap.add_argument("--name-style", default=None, choices=["single", "two_word"])
-    args = ap.parse_args()
+    ap.add_argument("--pools", default=None, help="이름·상품명 풀 JSON (3단계 기본: 해당 단계 name_pools.json)")
+    ap.add_argument("--date-start", default=None)
+    ap.add_argument("--date-end", default=None)
+    args = ap.parse_args(argv)
 
-    cfg = Config(**asdict(PRESETS[args.preset]))
+    cfg = preset_config(args.stage, args.preset)
+    if args.pools:
+        cfg.pool_path = args.pools
+    if args.date_start:
+        cfg.date_start = args.date_start
+    if args.date_end:
+        cfg.date_end = args.date_end
     if args.name_style:
         cfg.name_style = args.name_style
+    cfg.validate()
     db = os.path.join(args.out, config.DB_PATH.name)
     ho = os.path.join(args.out, config.HOLDOUT_PATH.name)
 
@@ -657,14 +765,16 @@ def main() -> int:
 
     if args.command == "test":
         db, ho = build(0, args.out, cfg)
+        failed = False
         for name, fails in [("분포 조건", verify(db, cfg)),
                             ("결정성", test_determinism(args.out, cfg)),
                             ("price 등호", test_price_equality(db)),
                             ("미등장 값", test_holdout(ho))]:
             print(f"[{'PASS' if not fails else 'FAIL'}] {name}")
+            failed |= bool(fails)
             for x in fails:
                 print(f"       {x}")
-        return 0
+        return int(failed)
 
     if args.command == "space":
         sql_space(db, ho)

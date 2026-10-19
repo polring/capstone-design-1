@@ -1,3 +1,6 @@
+# 역할: 1단계 SQL 문법 판정, 정답 비교와 오류 유형 분류를 구현한다.
+# 사용처: 공통 evaluation/scoring.py가 1단계 모델의 생성 결과를 채점할 때 사용한다.
+
 """
 sql_rules.py — 1단계 SQL 형식 규칙 (SELECT 컬럼 하나 또는 *, FROM 테이블 하나, WHERE 등호 하나)
 

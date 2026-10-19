@@ -1,3 +1,6 @@
+# 역할: 2단계 질문과 SQL의 라벨 규칙 위반·모호성을 검사한다.
+# 사용처: 2단계 학습 데이터 정제와 평가의 규칙 일치 여부 판정에 사용한다.
+
 """2단계 라벨 규칙 판정 (1단계 clean_ambiguous 의 2단계판): 질문과 정답 SQL 만 보고 정답이 라벨 규칙과 어긋나는지 정한다.
 
 규칙은 1단계 L1~L4(2단계에도 그대로 적용)와 2단계 L13~L15(docs/text-to-sql-label-rules.md)다. 여기서는 그중 질문의 단서로
@@ -55,10 +58,10 @@ EXISTS_START = re.compile(r"^\W*" + INTERJ + r"((can|could|would) you |please )?
                           r"|(confirm|verify|check)( if| whether)?( we have| there (is|are)))\b")
 
 
-def _strip_conditions(q: str, g: sql_ast.Query) -> str:
+def _strip_conditions(q: str, g: sql_ast.Query, *, schema_module=schema) -> str:
     """WHERE 조건을 말하는 표현을 지운다: ID 조건 값 앞의 id / number / #, orders 질문의 item id / customer id,
     이름 조건의 named / called. ID 조건이 아닌 숫자 앞의 "item id"("item id 174.13" = price 조건)는 SELECT 단서로 남긴다."""
-    ids = [str(v) for c in g.conds if schema.kind(g.table, c.col) == "id"
+    ids = [str(v) for c in g.conds if schema_module.kind(g.table, c.col) == "id"
            for v in (c.val if c.op == "IN" else (c.val,))]
     if ids:
         alt = "|".join(ids)
@@ -89,18 +92,32 @@ def select_label(q: str, g: sql_ast.Query) -> str:
     return ident               # ⑤ "what item costs 91.52?", "item priced 199.11?"
 
 
-def drop_reason(pair: dict) -> str | None:
+def drop_reason(pair: dict, *, stage: int = 2) -> str | None:
     """정답이 라벨 규칙과 어긋나면 사유 키(REASONS), 아니면 None. 2단계 문법 밖 SQL 은 판정하지 않는다."""
     try:
-        g = sql_ast.parse(pair["sql"])
+        if stage >= 3:
+            from src.data.stage3 import schema as active_schema, sql_ast as active_ast
+        else:
+            active_schema, active_ast = schema, sql_ast
+        g = active_ast.parse(pair["sql"])
+        if hasattr(g, "aggregate"):
+            return None
     except ValueError:
         return None
     q = pair["question"].lower().strip()
+    if stage >= 3:
+        q = q.replace("_", " ")
     t, sel = g.table, g.select
     if _is_l1(g):
+        if stage >= 3:
+            intent = q.split(";", 1)[1] if re.match(r"^i(?: am|'m) checking\b", q) and ";" in q else q
+            indirect = re.search(r"^does (?:any|an?|the) (?:item|product|customer|order|record)\b.*\bhave\b"
+                                 r"|^does\b.*\bappear in\b.*\b(?:orders|records|database|table)\b"
+                                 r"|^is\b.*\bpresent\b", intent.strip())
+            return None if EXISTS_CUE.search(intent) or indirect else "L1"
         return None if EXISTS_CUE.search(q) else "L1"
     ident = ID_COL[t]
-    qs = _strip_conditions(q, g)
+    qs = _strip_conditions(q, g, schema_module=active_schema)
     # 존재 확인 질문이면 L14 가 SELECT 를 정한다. "is there anything on order 5432?"처럼 행 전체 단서가 있으면 조회(*)다
     if g.conds and g.order is None and EXISTS_START.search(q) and not STAR_CUE.search(qs):
         if sel == ident:
