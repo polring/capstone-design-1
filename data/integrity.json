@@ -1,0 +1,218 @@
+{
+  "format_version": 1,
+  "bundles": {
+    "stage1": {
+      "data/stage1/db/holdout.json": {
+        "sha256": "63f782e77f2308505f8159714caeaa43e8672b05008635881f70cb3f1534262c"
+      },
+      "data/stage1/db/shop.db": {
+        "sha256": "43af9744d895c3763449a68eaaa32685cc37dcfd0ac23a39c5fc19cee775264c"
+      },
+      "data/stage1/eval/holdout/pairs.json": {
+        "sha256": "b9e50c01465923b26889a3399e6ecdc8daab3e409c9b8d0c6f05ffd5de35cdf0"
+      },
+      "data/stage1/eval/holdout/sql.json": {
+        "sha256": "5940ab7020d77549a4e8a1d1ae1e461b83fe00ebc873af20588f3df5b5246782"
+      },
+      "data/stage1/eval/holdout_qwen/pairs.json": {
+        "sha256": "648382a47574ea9df50556245779f8bc507e9949f178fe8ca0d003db2875b2e1"
+      },
+      "data/stage1/eval/holdout_qwen/sql.json": {
+        "sha256": "800af04af815648da5bc17ccec405e7bb3364803d01ed5b598d3f821cead2188"
+      },
+      "data/stage1/eval/indist/pairs.json": {
+        "sha256": "2263fd7009a7c45c8dd435b41cd9d00cff753fb24f43fc67ca5768ff87171989"
+      },
+      "data/stage1/eval/indist/sql.json": {
+        "sha256": "4bd73c0eb2034fb377e8e99921fc5b8282f9f2c8f26a58041ac7e0d69563600f"
+      },
+      "data/stage1/sql/eval_holdout.json": {
+        "sha256": "5940ab7020d77549a4e8a1d1ae1e461b83fe00ebc873af20588f3df5b5246782"
+      },
+      "data/stage1/sql/eval_indist.json": {
+        "sha256": "9861521f65f8769a88f9a89867ea00bc2976c4deb9752da300a230686bc3ef8d"
+      },
+      "data/stage1/sql/gen_report.json": {
+        "sha256": "84d6d7cbbfbce6696926062e8f9f0c409bd0cab998927f1483645b5be9fd64a1"
+      },
+      "data/stage1/sql/train.json": {
+        "sha256": "80f89c44dea5c1048bd566507103a63ee26a774b128623b66109172a9cd2ce14"
+      },
+      "data/stage1/tokenizer/seed_tokens.json": {
+        "sha256": "d6dac91232bf8821b55942f95925a11051c509d35df4b0109fe4687b347bc26f"
+      },
+      "data/stage1/tokenizer/tokenizer.json": {
+        "sha256": "35d41d2082ace359f978861d411fb645870284e6c3d05bd000ed67ba31be3c9d"
+      },
+      "data/stage1/train/pairs.json": {
+        "sha256": "9efd8dd08b58400d941f6c4bf0375262cba869b7b3cca14400fda11615c43a57"
+      },
+      "models/stage1/model.pt": {
+        "sha256": "282e3c892e7cb17858197dec7ca81432aea4908d5984af867979734e62256065"
+      },
+      "models/stage1/model_info.json": {
+        "sha256": "f608a335e397aa20151e6bc5e6022aa001364f258b6e8e3d0008f1d40e4b0fb5"
+      },
+      "models/stage1/tokenizer.json": {
+        "sha256": "35d41d2082ace359f978861d411fb645870284e6c3d05bd000ed67ba31be3c9d"
+      }
+    },
+    "stage2": {
+      "data/stage2/composer/frames.json": {
+        "sha256": "84302547b83c31d302a86159d7e3780dcd2b1aa0fc7ec70e265a72cd6f2214e0"
+      },
+      "data/stage2/composer/lexicon.json": {
+        "sha256": "e203b4242a7e978cab6d7651016b5549da0a910dffc763a6d136146a07529001"
+      },
+      "data/stage2/composer/synonyms.json": {
+        "sha256": "257be7526f40ed80b33e3ecfb30c78ce3ea48ca44df9894b099948875796ba67"
+      },
+      "data/stage2/db/holdout.json": {
+        "sha256": "63f782e77f2308505f8159714caeaa43e8672b05008635881f70cb3f1534262c"
+      },
+      "data/stage2/db/shop.db": {
+        "sha256": "43af9744d895c3763449a68eaaa32685cc37dcfd0ac23a39c5fc19cee775264c"
+      },
+      "data/stage2/eval/pairs.json": {
+        "sha256": "1940ef295928e85c902bcbed5c8d5a52e2c7de3c9eb3813cb1f46618e8b1e785"
+      },
+      "data/stage2/eval/sql.json": {
+        "sha256": "87583bdc5ad5a9cbc550fc1abc09709b59d61fe4b74790961164cfcf325280c0"
+      },
+      "data/stage2/sql/eval_holdout.json": {
+        "sha256": "b199adbc8658593e8d6e43fd757c7ceb4b0a6fa691daebf8d4ed1b2af1be992f"
+      },
+      "data/stage2/sql/eval_indist.json": {
+        "sha256": "afd470c49e15e2112f957f620b7acbd3c04119c3bc460e0528a658788bbb64bd"
+      },
+      "data/stage2/sql/eval_struct.json": {
+        "sha256": "f79bdf731504be9b589d576eeab455ee40a5a8dca805c35dc5e31c207d08e483"
+      },
+      "data/stage2/sql/gen_report.json": {
+        "sha256": "3c4ac891546d7e6b2bbab2a1c6fac6e87908582e0c15d01cf5c8bcd6976da098"
+      },
+      "data/stage2/sql/train.json": {
+        "sha256": "8e07cafddfabcae7f53f9af44f06603d8c6eddf6c0ce479797b8136fdd12d498"
+      },
+      "data/stage2/tokenizer/seed_tokens.json": {
+        "sha256": "9c56dc99d13fee0ee5344e11b57c9c7c95d689748b8a97794370bf86bc7d1e86"
+      },
+      "data/stage2/tokenizer/tokenizer.json": {
+        "sha256": "157bb5b0d5d55f8de6618329371fb145473df87e511d726e8500d6e1c4765f6e"
+      },
+      "data/stage2/train/composed.json": {
+        "sha256": "34fa751305d814a1b25a89be35169eb5513fa31ce510bb7b6e10aa26ce8a62a4"
+      },
+      "data/stage2/train/llm.json": {
+        "sha256": "5ccde545503fa5e912b209a36ec1622d7a575528c6bb306bad7f9e2c18860a3a"
+      },
+      "data/stage2/train/stage1_pairs.json": {
+        "sha256": "fa977f4b58ec5c6ffc7758bf1d0678e28544b216e2185989e4b65a8c54ad53d4"
+      },
+      "models/stage2/model.pt": {
+        "sha256": "c1ac506299b0df86effbbb4450517d514ef4f7b4910b606ce865eff99fc94e33"
+      },
+      "models/stage2/model_info.json": {
+        "sha256": "c5b6326738d8a40caaf7b4b1310df4cf6b44ca0c8d60e1b2c6b94afc02edbcb1"
+      },
+      "models/stage2/tokenizer.json": {
+        "sha256": "157bb5b0d5d55f8de6618329371fb145473df87e511d726e8500d6e1c4765f6e"
+      }
+    },
+    "stage3": {
+      "data/stage3/composer/advanced.json": {
+        "sha256": "621a92281d97b33f364ae77fab70e8cba1118a3eddc88265914c6beffc93e0ad"
+      },
+      "data/stage3/composer/frames.json": {
+        "sha256": "b5f7e17094bf6214d4f431106586327de5c3129806f502cdd8ac9c60ae3909ac"
+      },
+      "data/stage3/composer/lexicon.json": {
+        "sha256": "6f10bcc751e1b0e9522c682bd32b9a943dc73bab6bf5bc012e8397cd3d58865d"
+      },
+      "data/stage3/composer/synonyms.json": {
+        "sha256": "8b876271ce2058f838299da47b09f8042068e9c38acaafa1f6fa2309c1a8dfe0"
+      },
+      "data/stage3/dataset_info.json": {
+        "sha256": "a6507b32d3ddb1ffb52fc4b5c660a4edfa69a81bc4b878cc91090740b50df65b"
+      },
+      "data/stage3/db/holdout.json": {
+        "sha256": "c446367625d07d39c459132fad6bc837373d4ac3f4164013846ff481952c886d"
+      },
+      "data/stage3/db/shop.db": {
+        "sha256": "eeb22f4a2fb796280508be9a3388bea306d01f2549bedfa09bc63293dcb0f8f4"
+      },
+      "data/stage3/eval/external_sources.json": {
+        "sha256": "ac62a8bbff1eecd4510eb2d9a3c4d9256d400426d9be0f5fc08b2052c4de56e6"
+      },
+      "data/stage3/eval/pairs.json": {
+        "sha256": "d49275ad722e0d7636287f74a1bd5dd7b40d0c0530e7ce573d0d14b2d7587b7e"
+      },
+      "data/stage3/eval/sql.json": {
+        "sha256": "5c7da776b849302027c360a8098e5d775eb40e04a5aa0033c6bc427a31262087"
+      },
+      "data/stage3/name_pools.json": {
+        "sha256": "0e60853194ca3ddb6ae41ca132eb87781d32cb442d15d8b7af0c2c65bd027c2f"
+      },
+      "data/stage3/preprocessing/manifest.json": {
+        "sha256": "9b818a0e4a574bc87af599fcd332267dc26882013a6998e568b819c3b7fa848b"
+      },
+      "data/stage3/preprocessing/mapping_audit.csv": {
+        "sha256": "3a99a2264246e0d69831e372f0f0585fd2b459eb6b8a2d1af05ceb7f401b04f5"
+      },
+      "data/stage3/preprocessing/normalizer.json": {
+        "sha256": "c6217869b5c163550b7ace3fdf10505fe14d07b8f362574b5fcf06dfea8c0ac6"
+      },
+      "data/stage3/sql/eval_holdout.json": {
+        "sha256": "722fe42aac1b93b7ee4bd622729cec0259d484016b4a8ed646ef6564f17abedd"
+      },
+      "data/stage3/sql/eval_indist.json": {
+        "sha256": "61122afb10e48f90ff8122d17da781500fbff0cb32301e6cd7ef1108b1e787ed"
+      },
+      "data/stage3/sql/eval_struct.json": {
+        "sha256": "b3250eb2fb98fb084ca9638993f213f493ac4fb11af4f1dae442ed945a3faeb4"
+      },
+      "data/stage3/sql/gen_report.json": {
+        "sha256": "ab8d7aa7ce6a2cd9183a851c4b6dbc3bde6b4a8a5d4c74bdc873fe8965a51ba9"
+      },
+      "data/stage3/sql/train.json": {
+        "sha256": "a3042d4e319640ad1bc777a8d33c585c108c225886d9c0553378d1abe6308637"
+      },
+      "data/stage3/tokenizer/seed_tokens.json": {
+        "sha256": "e0291612fa1fed56e7e93c909fdb5715a44c53bf48031a1046ea860acc3945a8"
+      },
+      "data/stage3/tokenizer/tokenizer.json": {
+        "sha256": "807a81b2c8679f08048d9245d82879557817bd79539e298b9a83a97f94307e7e"
+      },
+      "data/stage3/tokenizer/training_report.json": {
+        "sha256": "7231366553c23b7187b8465a97ad56e37240c4db07a3b674be70a087796431e1"
+      },
+      "data/stage3/train/pairs.json.gz": {
+        "sha256": "040bfd739170b3262077080b5e3f1257b2aa30d6cda9f2ca640baf225b520da1",
+        "uncompressed_sha256": "75e5bb37293af705d28c0d1365817cf820dab4bcd92c34aabcfc07516e3e2e58"
+      },
+      "data/stage3/validation/pairs.json": {
+        "sha256": "8292f9b2f8ba9e603c23d9a110434ed004afa269dcc9f1d4654fe7ab182bd439"
+      },
+      "models/stage3/model.pt": {
+        "sha256": "03ad30c674be3113b5532db62818de4ff6e670a50025b6f2165b2ee659b33167"
+      },
+      "models/stage3/model_info.json": {
+        "sha256": "be01710fa7c715ccc331b938c3524b951fc7ea4dc910d5245529c8c20d2c92ef"
+      },
+      "models/stage3/normalizer.json": {
+        "sha256": "c6217869b5c163550b7ace3fdf10505fe14d07b8f362574b5fcf06dfea8c0ac6"
+      },
+      "models/stage3/tokenizer.json": {
+        "sha256": "807a81b2c8679f08048d9245d82879557817bd79539e298b9a83a97f94307e7e"
+      },
+      "models/stage3/WORDNET_LICENSE.txt": {
+        "sha256": "7731175a77952e259390b496fab905e57118b8d19ad3a8383c67eee724ff443f"
+      }
+    },
+    "common": {
+      "data/common/wordnet/english_words.txt": {
+        "sha256": "9be59293b222e8446053ffba1e7ad4160f99ab9c1e10c4b01c09a3181e39e01f"
+      }
+    }
+  }
+}
