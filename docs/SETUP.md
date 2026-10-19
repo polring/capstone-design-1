@@ -393,6 +393,9 @@ GitHub 파일 크기 제한에 맞춰 압축했으며 학습기·BPE·전처리 
 gzip 압축 해제 후의 해시를 검사한다. 정당한 데이터·모델 변경을 검토한 뒤
 `python -m src.data.integrity`로 기준을 갱신하고 변경 파일과 함께 커밋한다.
 테스트 실패를 없애기 위한 기준 갱신은 하지 않는다.
+줄바꿈도 해시 대상이다. `.gitattributes`의 `-text`는 기존 작업 파일의 줄바꿈을 소급 변경하지
+않으므로, 기준 생성 전 작업 파일과 Git 저장 바이트가 같은지 `git ls-files --eol data models`로
+확인한다. 1·2단계의 기존 JSON은 Git에 저장된 LF 바이트를 기준으로 유지한다.
 평가는 `data/stage3/eval/pairs.json` 하나에 조합기 17,676쌍과 외부 LLM 2,000쌍을 합친 총 19,676쌍이다.
 `set` 필드로 14개 평가셋을 구분해 각각 채점한다. 외부 평가는 기존 GPT 표현 1,000쌍과 사람 말투를 참고한 LLM 표현 1,000쌍이다.
 SQL 메타데이터는 `eval/sql.json`, 외부 질문 생성 기록은 `eval/external_sources.json`에 둔다.

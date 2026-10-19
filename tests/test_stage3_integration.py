@@ -90,8 +90,15 @@ def test_llm_prepare_custom_counts_without_external_calls(tmp_path):
     from src.data.stage3.llm_batches import main
 
     out = tmp_path / "round"
+    # 생성 안내문은 로컬 작업 파일이므로 테스트에서 직접 준비한다.
+    brief = tmp_path / "brief.txt"
+    brief.write_text(
+        "Author {questions_per_sql} independently worded questions per SQL.\n"
+        "Use one session for up to {batch_size} SQL.\n",
+        encoding="utf-8",
+    )
     main(["prepare", "--out", str(out), "--n-sql", "3", "--batch-size", "2",
-          "--questions-per-sql", "2", "--seed", "0"])
+          "--questions-per-sql", "2", "--seed", "0", "--brief", str(brief)])
     meta = json.loads((out / "round_meta.json").read_text(encoding="utf-8"))
     assert meta["expected_pairs"] == 6
     prompts = sorted((out / "prompts").glob("*.txt"))

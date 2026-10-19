@@ -3,55 +3,55 @@
   "bundles": {
     "stage1": {
       "data/stage1/db/holdout.json": {
-        "sha256": "63f782e77f2308505f8159714caeaa43e8672b05008635881f70cb3f1534262c"
+        "sha256": "1f8ddd4ba98e68820f75c2894597e4cf21044d2824f9ec977f04164996c6ff88"
       },
       "data/stage1/db/shop.db": {
         "sha256": "43af9744d895c3763449a68eaaa32685cc37dcfd0ac23a39c5fc19cee775264c"
       },
       "data/stage1/eval/holdout/pairs.json": {
-        "sha256": "b9e50c01465923b26889a3399e6ecdc8daab3e409c9b8d0c6f05ffd5de35cdf0"
+        "sha256": "58e0333080f1cc2554b1b86ff46e490b7b6a471a3accba4978134bacefea48da"
       },
       "data/stage1/eval/holdout/sql.json": {
-        "sha256": "5940ab7020d77549a4e8a1d1ae1e461b83fe00ebc873af20588f3df5b5246782"
+        "sha256": "4b4de7d8f58b38f61bccd39bb8e1bcbffe39a9065415e5940047468a7e8d0183"
       },
       "data/stage1/eval/holdout_qwen/pairs.json": {
-        "sha256": "648382a47574ea9df50556245779f8bc507e9949f178fe8ca0d003db2875b2e1"
+        "sha256": "a6bda79b0933a49d69df8b229be77a3079c24f1fd6d3e9ef5a75b36bade27dcf"
       },
       "data/stage1/eval/holdout_qwen/sql.json": {
-        "sha256": "800af04af815648da5bc17ccec405e7bb3364803d01ed5b598d3f821cead2188"
+        "sha256": "690a9418acd41ee8de92d15c8a71fd6ac2a92e726245aaec44bccb66e578cce6"
       },
       "data/stage1/eval/indist/pairs.json": {
-        "sha256": "2263fd7009a7c45c8dd435b41cd9d00cff753fb24f43fc67ca5768ff87171989"
+        "sha256": "e1422662791a53b3f22f800cadcddcba01be653698298e3f21f69641d54b27ad"
       },
       "data/stage1/eval/indist/sql.json": {
-        "sha256": "4bd73c0eb2034fb377e8e99921fc5b8282f9f2c8f26a58041ac7e0d69563600f"
+        "sha256": "0bc7f4512a5a9ba0d58676b9732b7f18486175c54d4a39c43f6c02053e1986b9"
       },
       "data/stage1/sql/eval_holdout.json": {
-        "sha256": "5940ab7020d77549a4e8a1d1ae1e461b83fe00ebc873af20588f3df5b5246782"
+        "sha256": "4b4de7d8f58b38f61bccd39bb8e1bcbffe39a9065415e5940047468a7e8d0183"
       },
       "data/stage1/sql/eval_indist.json": {
-        "sha256": "9861521f65f8769a88f9a89867ea00bc2976c4deb9752da300a230686bc3ef8d"
+        "sha256": "459be9f7ce29e83f5e20650647565ffd317b0123e95fe996fb104b912a2ff5ee"
       },
       "data/stage1/sql/gen_report.json": {
-        "sha256": "84d6d7cbbfbce6696926062e8f9f0c409bd0cab998927f1483645b5be9fd64a1"
+        "sha256": "337dc1be1814baa33d042a7f6c0ae8f62c5788f1db9008e8b73096f6b5bb40dd"
       },
       "data/stage1/sql/train.json": {
-        "sha256": "80f89c44dea5c1048bd566507103a63ee26a774b128623b66109172a9cd2ce14"
+        "sha256": "2d9e52ce8a893c0e549f2c633300a13ac59b1db27a1d87e1460788792d12e174"
       },
       "data/stage1/tokenizer/seed_tokens.json": {
-        "sha256": "d6dac91232bf8821b55942f95925a11051c509d35df4b0109fe4687b347bc26f"
+        "sha256": "f1acfcc7853f04f398d0a5ce8c155e4a3ede0251944b6737e4535c8d2dc4e9a2"
       },
       "data/stage1/tokenizer/tokenizer.json": {
         "sha256": "35d41d2082ace359f978861d411fb645870284e6c3d05bd000ed67ba31be3c9d"
       },
       "data/stage1/train/pairs.json": {
-        "sha256": "9efd8dd08b58400d941f6c4bf0375262cba869b7b3cca14400fda11615c43a57"
+        "sha256": "e551f00c463c9eb923d43d2902dfa2ceaddc8668cb2758152c93fa63e0645675"
       },
       "models/stage1/model.pt": {
         "sha256": "282e3c892e7cb17858197dec7ca81432aea4908d5984af867979734e62256065"
       },
       "models/stage1/model_info.json": {
-        "sha256": "f608a335e397aa20151e6bc5e6022aa001364f258b6e8e3d0008f1d40e4b0fb5"
+        "sha256": "e97b7f5ee255a6979064770c40d1b6fac0a54cfff36997e2b86bc647cc4b291f"
       },
       "models/stage1/tokenizer.json": {
         "sha256": "35d41d2082ace359f978861d411fb645870284e6c3d05bd000ed67ba31be3c9d"
@@ -59,61 +59,61 @@
     },
     "stage2": {
       "data/stage2/composer/frames.json": {
-        "sha256": "84302547b83c31d302a86159d7e3780dcd2b1aa0fc7ec70e265a72cd6f2214e0"
+        "sha256": "bd71c789403baa49b10fd443924f3c009083fb558044f79c3e9661d146b21102"
       },
       "data/stage2/composer/lexicon.json": {
-        "sha256": "e203b4242a7e978cab6d7651016b5549da0a910dffc763a6d136146a07529001"
+        "sha256": "c8a9f9f2921a2ec03ac65703aedda7c7873a0a90cdda158408ee4b8784cc08a6"
       },
       "data/stage2/composer/synonyms.json": {
-        "sha256": "257be7526f40ed80b33e3ecfb30c78ce3ea48ca44df9894b099948875796ba67"
+        "sha256": "39845edb13c68ae5e7f6e165b27d60f19ef461dc9e5c85e22118743afea6ee4f"
       },
       "data/stage2/db/holdout.json": {
-        "sha256": "63f782e77f2308505f8159714caeaa43e8672b05008635881f70cb3f1534262c"
+        "sha256": "1f8ddd4ba98e68820f75c2894597e4cf21044d2824f9ec977f04164996c6ff88"
       },
       "data/stage2/db/shop.db": {
         "sha256": "43af9744d895c3763449a68eaaa32685cc37dcfd0ac23a39c5fc19cee775264c"
       },
       "data/stage2/eval/pairs.json": {
-        "sha256": "1940ef295928e85c902bcbed5c8d5a52e2c7de3c9eb3813cb1f46618e8b1e785"
+        "sha256": "97676450a7f33cbff4ee63e63c04b286dfb1c99e36d6eb6c74fb945a190c0a31"
       },
       "data/stage2/eval/sql.json": {
-        "sha256": "87583bdc5ad5a9cbc550fc1abc09709b59d61fe4b74790961164cfcf325280c0"
+        "sha256": "c7e647e9ee398e1b2a603d807f5aabc8b05620d7a4b54cdcb819637d7ed6d7a4"
       },
       "data/stage2/sql/eval_holdout.json": {
-        "sha256": "b199adbc8658593e8d6e43fd757c7ceb4b0a6fa691daebf8d4ed1b2af1be992f"
+        "sha256": "be7a5a51d4ee6bf78b2d3afe6015d4a24371d819092dc402fe8e4f9cb7381b39"
       },
       "data/stage2/sql/eval_indist.json": {
-        "sha256": "afd470c49e15e2112f957f620b7acbd3c04119c3bc460e0528a658788bbb64bd"
+        "sha256": "54d6d15a12f07cbfbc953bf98fcb624ddced706fe78d5d4720473404299bf76c"
       },
       "data/stage2/sql/eval_struct.json": {
-        "sha256": "f79bdf731504be9b589d576eeab455ee40a5a8dca805c35dc5e31c207d08e483"
+        "sha256": "c0ebdfef1759d779759c4a3334e609b3619032dcd85a2adf4e78f78229068afd"
       },
       "data/stage2/sql/gen_report.json": {
-        "sha256": "3c4ac891546d7e6b2bbab2a1c6fac6e87908582e0c15d01cf5c8bcd6976da098"
+        "sha256": "8ba5db5bb4160abd7ac45a3dc4da3691d5ee40fe731036c25a205769b67bc22a"
       },
       "data/stage2/sql/train.json": {
-        "sha256": "8e07cafddfabcae7f53f9af44f06603d8c6eddf6c0ce479797b8136fdd12d498"
+        "sha256": "153b74279a545ca5931f9d8002e115a0aca7d84e6338cf8461536138409f7736"
       },
       "data/stage2/tokenizer/seed_tokens.json": {
-        "sha256": "9c56dc99d13fee0ee5344e11b57c9c7c95d689748b8a97794370bf86bc7d1e86"
+        "sha256": "be08465307866298d215bf2e12e72a2d20edf45642ec7632e0e26d63c277695b"
       },
       "data/stage2/tokenizer/tokenizer.json": {
         "sha256": "157bb5b0d5d55f8de6618329371fb145473df87e511d726e8500d6e1c4765f6e"
       },
       "data/stage2/train/composed.json": {
-        "sha256": "34fa751305d814a1b25a89be35169eb5513fa31ce510bb7b6e10aa26ce8a62a4"
+        "sha256": "8528588ecc80b554fd0d6d948ae303481e54d41f436bf06758b74a502daa560f"
       },
       "data/stage2/train/llm.json": {
-        "sha256": "5ccde545503fa5e912b209a36ec1622d7a575528c6bb306bad7f9e2c18860a3a"
+        "sha256": "a0b4a288ee187ac8c0ec90e4f62060984de9de1b02c4c782fdcc512e440ae402"
       },
       "data/stage2/train/stage1_pairs.json": {
-        "sha256": "fa977f4b58ec5c6ffc7758bf1d0678e28544b216e2185989e4b65a8c54ad53d4"
+        "sha256": "7b4f9b51345226246ecda8d262f93e2022472ff9b5facb4b60ba7c1c6b227d7e"
       },
       "models/stage2/model.pt": {
         "sha256": "c1ac506299b0df86effbbb4450517d514ef4f7b4910b606ce865eff99fc94e33"
       },
       "models/stage2/model_info.json": {
-        "sha256": "c5b6326738d8a40caaf7b4b1310df4cf6b44ca0c8d60e1b2c6b94afc02edbcb1"
+        "sha256": "c7738c5f334c879bcd6ce7c044637e024c6e7481a2959c58e08463183c6e995d"
       },
       "models/stage2/tokenizer.json": {
         "sha256": "157bb5b0d5d55f8de6618329371fb145473df87e511d726e8500d6e1c4765f6e"
