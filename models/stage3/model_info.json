@@ -1,0 +1,1666 @@
+{
+  "format_version": 1,
+  "stage": 3,
+  "source_checkpoint": "runs/stage3/size_15m_numbers_r10_once_fixed_s0/best.pt",
+  "model_cfg": {
+    "vocab_size": 4096,
+    "valid_vocab_size": 3534,
+    "dim": 384,
+    "num_layers": 8,
+    "num_heads": 6,
+    "ffn_dim": 1024,
+    "max_seq_len": 256,
+    "padding_idx": 256
+  },
+  "tokenizer": {
+    "vocab_size": 3534,
+    "n_seed_tokens": 55,
+    "n_merges": 3219
+  },
+  "train_args": {
+    "name_swap_ratio": 0.4,
+    "ffn_dim": 1024,
+    "epochs": 15,
+    "batch_size": 32,
+    "lr": 0.001,
+    "weight_decay": 0.1,
+    "warmup": 200,
+    "val_ratio": 0.05,
+    "patience": 16,
+    "seed": 0,
+    "llm_repeat": 3,
+    "llm_round_repeat": {
+      "llm_numbers_r10_600": 1
+    },
+    "steps_per_epoch": 10845,
+    "val_em_samples": 2000,
+    "llm_synonym_prob": 0.5,
+    "composer_synonym_prob": 0.0,
+    "like_sampling": "markov"
+  },
+  "best_epoch": 15,
+  "best_step": 162675,
+  "val_em": 0.9785,
+  "val_loss": 0.004030416150500142,
+  "run": {
+    "epochs_run": 15,
+    "steps": 162675,
+    "train_time_s": 4945.25888967514,
+    "avg_tokens_per_s": 181755.16955777514
+  },
+  "params": 15735168,
+  "status": "validated",
+  "preprocessing": {
+    "file": "normalizer.json",
+    "enabled_by_default": false,
+    "activation_argument": "--wordnet-map models/stage3/normalizer.json",
+    "description": "Frozen shop-domain WordNet nouns, phrase/abbreviation and comparison-symbol rules",
+    "runtime_dependencies": "Python standard library only; no NLTK, WordNet download or LLM calls",
+    "license": "WORDNET_LICENSE.txt"
+  },
+  "training_data": {
+    "manifest": "data/stage3/dataset_info.json",
+    "pairs": 321041,
+    "validation_pairs": 16216,
+    "uncompressed_sha256": "75e5bb37293af705d28c0d1365817cf820dab4bcd92c34aabcfc07516e3e2e58",
+    "note": "Same ordered records as checkpoint inputs, consolidated and gzip-packaged"
+  },
+  "selection": {
+    "source": "Matched-data 5.8M/15.7M experiment; previously selected best validation checkpoint",
+    "reason": "Stage-3 report selects 15.7M plus optional preprocessing as the next-stage baseline",
+    "new_training_performed": false
+  },
+  "artifacts": {
+    "model.pt": {
+      "bytes": 62958709,
+      "sha256": "03ad30c674be3113b5532db62818de4ff6e670a50025b6f2165b2ee659b33167"
+    },
+    "tokenizer.json": {
+      "bytes": 58935,
+      "sha256": "807a81b2c8679f08048d9245d82879557817bd79539e298b9a83a97f94307e7e"
+    },
+    "normalizer.json": {
+      "bytes": 43697,
+      "sha256": "c6217869b5c163550b7ace3fdf10505fe14d07b8f362574b5fcf06dfea8c0ac6"
+    },
+    "WORDNET_LICENSE.txt": {
+      "bytes": 1625,
+      "sha256": "7731175a77952e259390b496fab905e57118b8d19ad3a8383c67eee724ff443f"
+    }
+  },
+  "packaging_checks": {
+    "weights_identical": true,
+    "tokenizer_identical": true,
+    "cpu_logits_identical": true,
+    "optimizer_or_local_training_paths_in_weights": false
+  },
+  "eval": {
+    "advanced_holdout": {
+      "overall": {
+        "n": 1546,
+        "em": 0.9987063389391979,
+        "em_ci95": [
+          0.9952952189782704,
+          0.9996451671876447
+        ],
+        "em_multi": 0.9987063389391979,
+        "em_multi_ci95": [
+          0.9952952189782704,
+          0.9996451671876447
+        ],
+        "exec_acc": 0.9987063389391979
+      },
+      "by_tier": {
+        "unseen_date": {
+          "n": 146,
+          "em": 1.0,
+          "em_ci95": [
+            0.9743622598797664,
+            1.0
+          ],
+          "em_multi": 1.0,
+          "em_multi_ci95": [
+            0.9743622598797664,
+            1.0
+          ],
+          "exec_acc": 1.0
+        },
+        "unseen_entity": {
+          "n": 600,
+          "em": 0.9966666666666667,
+          "em_ci95": [
+            0.9879283904323899,
+            0.9990854224615877
+          ],
+          "em_multi": 0.9966666666666667,
+          "em_multi_ci95": [
+            0.9879283904323899,
+            0.9990854224615877
+          ],
+          "exec_acc": 0.9966666666666667
+        },
+        "unseen_id": {
+          "n": 200,
+          "em": 1.0,
+          "em_ci95": [
+            0.9811539940816791,
+            1.0
+          ],
+          "em_multi": 1.0,
+          "em_multi_ci95": [
+            0.9811539940816791,
+            1.0
+          ],
+          "exec_acc": 1.0
+        },
+        "unseen_order_id": {
+          "n": 600,
+          "em": 1.0,
+          "em_ci95": [
+            0.9936380666717896,
+            1.0
+          ],
+          "em_multi": 1.0,
+          "em_multi_ci95": [
+            0.9936380666717896,
+            1.0
+          ],
+          "exec_acc": 1.0
+        }
+      },
+      "error_parts": {
+        "conds": 2,
+        "table": 1
+      }
+    },
+    "advanced_indist": {
+      "overall": {
+        "n": 1000,
+        "em": 0.978,
+        "em_ci95": [
+          0.9669140836251823,
+          0.9854274013262284
+        ],
+        "em_multi": 0.978,
+        "em_multi_ci95": [
+          0.9669140836251823,
+          0.9854274013262284
+        ],
+        "exec_acc": 0.982
+      },
+      "by_tier": {
+        "advanced_indist": {
+          "n": 1000,
+          "em": 0.978,
+          "em_ci95": [
+            0.9669140836251823,
+            0.9854274013262284
+          ],
+          "em_multi": 0.978,
+          "em_multi_ci95": [
+            0.9669140836251823,
+            0.9854274013262284
+          ],
+          "exec_acc": 0.982
+        }
+      },
+      "error_parts": {
+        "malformed": 13,
+        "conds": 9,
+        "table": 1
+      }
+    },
+    "advanced_phrase": {
+      "overall": {
+        "n": 991,
+        "em": 0.520686175580222,
+        "em_ci95": [
+          0.4895622335543253,
+          0.5516503574752415
+        ],
+        "em_multi": 0.520686175580222,
+        "em_multi_ci95": [
+          0.4895622335543253,
+          0.5516503574752415
+        ],
+        "exec_acc": 0.6518668012108981
+      },
+      "by_tier": {
+        "advanced_phrase": {
+          "n": 991,
+          "em": 0.520686175580222,
+          "em_ci95": [
+            0.4895622335543253,
+            0.5516503574752415
+          ],
+          "em_multi": 0.520686175580222,
+          "em_multi_ci95": [
+            0.4895622335543253,
+            0.5516503574752415
+          ],
+          "exec_acc": 0.6518668012108981
+        }
+      },
+      "error_parts": {
+        "conds": 293,
+        "malformed": 112,
+        "inner_conds": 76,
+        "subquery": 29,
+        "table": 26,
+        "aggregate": 21,
+        "projection": 21,
+        "having": 12,
+        "structure": 10,
+        "group_by": 7,
+        "limit": 3,
+        "order": 1
+      }
+    },
+    "advanced_struct": {
+      "overall": {
+        "n": 1000,
+        "em": 0.971,
+        "em_ci95": [
+          0.958661377168108,
+          0.9797336843635122
+        ],
+        "em_multi": 0.971,
+        "em_multi_ci95": [
+          0.958661377168108,
+          0.9797336843635122
+        ],
+        "exec_acc": 0.989
+      },
+      "by_tier": {
+        "advanced_struct": {
+          "n": 1000,
+          "em": 0.971,
+          "em_ci95": [
+            0.958661377168108,
+            0.9797336843635122
+          ],
+          "em_multi": 0.971,
+          "em_multi_ci95": [
+            0.958661377168108,
+            0.9797336843635122
+          ],
+          "exec_acc": 0.989
+        }
+      },
+      "error_parts": {
+        "malformed": 7,
+        "inner_conds": 7,
+        "having": 6,
+        "conds": 6,
+        "group_by": 2,
+        "limit": 1
+      }
+    },
+    "holdout": {
+      "overall": {
+        "n": 7161,
+        "em": 0.9983242563887725,
+        "em_ci95": [
+          0.9970730081804244,
+          0.9990411278250386
+        ],
+        "em_multi": 0.9984639016897081,
+        "em_multi_ci95": [
+          0.9972512389956762,
+          0.9991420378633682
+        ],
+        "exec_acc": 0.9983242563887725
+      },
+      "by_tier": {
+        "unseen_date": {
+          "n": 1168,
+          "em": 1.0,
+          "em_ci95": [
+            0.9967217412319208,
+            1.0
+          ],
+          "em_multi": 1.0,
+          "em_multi_ci95": [
+            0.9967217412319208,
+            1.0
+          ],
+          "exec_acc": 1.0
+        },
+        "unseen_entity": {
+          "n": 2998,
+          "em": 0.9976651100733822,
+          "em_ci95": [
+            0.9951879208179253,
+            0.9988685277301925
+          ],
+          "em_multi": 0.9976651100733822,
+          "em_multi_ci95": [
+            0.9951879208179253,
+            0.9988685277301925
+          ],
+          "exec_acc": 0.9976651100733822
+        },
+        "unseen_id": {
+          "n": 1195,
+          "em": 1.0,
+          "em_ci95": [
+            0.9967955733267848,
+            1.0
+          ],
+          "em_multi": 1.0,
+          "em_multi_ci95": [
+            0.9967955733267848,
+            1.0
+          ],
+          "exec_acc": 1.0
+        },
+        "unseen_order_id": {
+          "n": 1800,
+          "em": 0.9972222222222222,
+          "em_ci95": [
+            0.9935136477752345,
+            0.998812951189996
+          ],
+          "em_multi": 0.9977777777777778,
+          "em_multi_ci95": [
+            0.9942998374859088,
+            0.9991355062826349
+          ],
+          "exec_acc": 0.9972222222222222
+        }
+      },
+      "error_parts": {
+        "select": 9,
+        "table": 6,
+        "where_col": 6,
+        "literal": 1
+      }
+    },
+    "indist": {
+      "overall": {
+        "n": 2000,
+        "em": 0.988,
+        "em_ci95": [
+          0.9822059894056792,
+          0.9919229038162203
+        ],
+        "em_multi": 0.988,
+        "em_multi_ci95": [
+          0.9822059894056792,
+          0.9919229038162203
+        ],
+        "exec_acc": 0.991
+      },
+      "by_tier": {
+        "indist": {
+          "n": 2000,
+          "em": 0.988,
+          "em_ci95": [
+            0.9822059894056792,
+            0.9919229038162203
+          ],
+          "em_multi": 0.988,
+          "em_multi_ci95": [
+            0.9822059894056792,
+            0.9919229038162203
+          ],
+          "exec_acc": 0.991
+        }
+      },
+      "error_parts": {
+        "literal": 19,
+        "malformed": 5
+      }
+    },
+    "phrase": {
+      "overall": {
+        "n": 2000,
+        "em": 0.838,
+        "em_ci95": [
+          0.8212064234440568,
+          0.8534976050579963
+        ],
+        "em_multi": 0.838,
+        "em_multi_ci95": [
+          0.8212064234440568,
+          0.8534976050579963
+        ],
+        "exec_acc": 0.862
+      },
+      "by_tier": {
+        "phrase": {
+          "n": 2000,
+          "em": 0.838,
+          "em_ci95": [
+            0.8212064234440568,
+            0.8534976050579963
+          ],
+          "em_multi": 0.838,
+          "em_multi_ci95": [
+            0.8212064234440568,
+            0.8534976050579963
+          ],
+          "exec_acc": 0.862
+        }
+      },
+      "error_parts": {
+        "select": 115,
+        "order": 70,
+        "op": 65,
+        "limit": 34,
+        "where_col": 30,
+        "literal": 22,
+        "structure": 19,
+        "malformed": 10,
+        "table": 1
+      }
+    },
+    "struct": {
+      "overall": {
+        "n": 1978,
+        "em": 0.8629929221435794,
+        "em_ci95": [
+          0.8471339707157711,
+          0.8774446232546048
+        ],
+        "em_multi": 0.8629929221435794,
+        "em_multi_ci95": [
+          0.8471339707157711,
+          0.8774446232546048
+        ],
+        "exec_acc": 0.8897876643073812
+      },
+      "by_tier": {
+        "struct": {
+          "n": 1978,
+          "em": 0.8629929221435794,
+          "em_ci95": [
+            0.8471339707157711,
+            0.8774446232546048
+          ],
+          "em_multi": 0.8629929221435794,
+          "em_multi_ci95": [
+            0.8471339707157711,
+            0.8774446232546048
+          ],
+          "exec_acc": 0.8897876643073812
+        }
+      },
+      "error_parts": {
+        "literal": 249,
+        "malformed": 16,
+        "conn": 4,
+        "where_col": 3,
+        "structure": 2
+      }
+    },
+    "ext_r1_gpt_holdout": {
+      "overall": {
+        "n": 200,
+        "em": 0.965,
+        "em_ci95": [
+          0.9295285391333187,
+          0.9829446753626429
+        ],
+        "em_multi": 0.965,
+        "em_multi_ci95": [
+          0.9295285391333187,
+          0.9829446753626429
+        ],
+        "exec_acc": 0.99
+      },
+      "by_tier": {
+        "unseen_date": {
+          "n": 30,
+          "em": 1.0,
+          "em_ci95": [
+            0.8864829086095221,
+            1.0
+          ],
+          "em_multi": 1.0,
+          "em_multi_ci95": [
+            0.8864829086095221,
+            1.0
+          ],
+          "exec_acc": 1.0
+        },
+        "unseen_entity": {
+          "n": 105,
+          "em": 0.9714285714285714,
+          "em_ci95": [
+            0.9193423526396465,
+            0.9902363378610444
+          ],
+          "em_multi": 0.9714285714285714,
+          "em_multi_ci95": [
+            0.9193423526396465,
+            0.9902363378610444
+          ],
+          "exec_acc": 0.9904761904761905
+        },
+        "unseen_id": {
+          "n": 5,
+          "em": 1.0,
+          "em_ci95": [
+            0.5655085052479191,
+            1.0
+          ],
+          "em_multi": 1.0,
+          "em_multi_ci95": [
+            0.5655085052479191,
+            1.0
+          ],
+          "exec_acc": 1.0
+        },
+        "unseen_order_id": {
+          "n": 60,
+          "em": 0.9333333333333333,
+          "em_ci95": [
+            0.8407442010623228,
+            0.973771725856802
+          ],
+          "em_multi": 0.9333333333333333,
+          "em_multi_ci95": [
+            0.8407442010623228,
+            0.973771725856802
+          ],
+          "exec_acc": 0.9833333333333333
+        }
+      },
+      "error_parts": {
+        "having": 4,
+        "malformed": 2,
+        "conds": 1
+      }
+    },
+    "ext_r1_gpt_indist": {
+      "overall": {
+        "n": 400,
+        "em": 0.9525,
+        "em_ci95": [
+          0.9270078923649577,
+          0.9693831678923314
+        ],
+        "em_multi": 0.9525,
+        "em_multi_ci95": [
+          0.9270078923649577,
+          0.9693831678923314
+        ],
+        "exec_acc": 0.9625
+      },
+      "by_tier": {
+        "ext_r1_gpt_indist": {
+          "n": 400,
+          "em": 0.9525,
+          "em_ci95": [
+            0.9270078923649577,
+            0.9693831678923314
+          ],
+          "em_multi": 0.9525,
+          "em_multi_ci95": [
+            0.9270078923649577,
+            0.9693831678923314
+          ],
+          "exec_acc": 0.9625
+        }
+      },
+      "error_parts": {
+        "conds": 7,
+        "structure": 5,
+        "op": 2,
+        "aggregate": 2,
+        "malformed": 2,
+        "subquery": 1
+      }
+    },
+    "ext_r1_gpt_struct": {
+      "overall": {
+        "n": 400,
+        "em": 0.79,
+        "em_ci95": [
+          0.7474197657946615,
+          0.8270629026575238
+        ],
+        "em_multi": 0.79,
+        "em_multi_ci95": [
+          0.7474197657946615,
+          0.8270629026575238
+        ],
+        "exec_acc": 0.8725
+      },
+      "by_tier": {
+        "ext_r1_gpt_struct": {
+          "n": 400,
+          "em": 0.79,
+          "em_ci95": [
+            0.7474197657946615,
+            0.8270629026575238
+          ],
+          "em_multi": 0.79,
+          "em_multi_ci95": [
+            0.7474197657946615,
+            0.8270629026575238
+          ],
+          "exec_acc": 0.8725
+        }
+      },
+      "error_parts": {
+        "limit": 18,
+        "literal": 16,
+        "inner_conds": 16,
+        "having": 15,
+        "malformed": 13,
+        "order": 10,
+        "conds": 4,
+        "structure": 2,
+        "conn": 2,
+        "projection": 1,
+        "subquery": 1
+      }
+    },
+    "ext_r2_humanstyle_gpt_holdout": {
+      "overall": {
+        "n": 200,
+        "em": 0.78,
+        "em_ci95": [
+          0.7176107720803744,
+          0.8318354646053661
+        ],
+        "em_multi": 0.78,
+        "em_multi_ci95": [
+          0.7176107720803744,
+          0.8318354646053661
+        ],
+        "exec_acc": 0.85
+      },
+      "by_tier": {
+        "unseen_date": {
+          "n": 30,
+          "em": 0.6,
+          "em_ci95": [
+            0.42320052498273836,
+            0.7540960567391659
+          ],
+          "em_multi": 0.6,
+          "em_multi_ci95": [
+            0.42320052498273836,
+            0.7540960567391659
+          ],
+          "exec_acc": 0.6666666666666666
+        },
+        "unseen_entity": {
+          "n": 105,
+          "em": 0.8571428571428571,
+          "em_ci95": [
+            0.7775987921491644,
+            0.9114759733816619
+          ],
+          "em_multi": 0.8571428571428571,
+          "em_multi_ci95": [
+            0.7775987921491644,
+            0.9114759733816619
+          ],
+          "exec_acc": 0.8952380952380953
+        },
+        "unseen_id": {
+          "n": 5,
+          "em": 0.8,
+          "em_ci95": [
+            0.3755282641185388,
+            0.9637768390302125
+          ],
+          "em_multi": 0.8,
+          "em_multi_ci95": [
+            0.3755282641185388,
+            0.9637768390302125
+          ],
+          "exec_acc": 0.8
+        },
+        "unseen_order_id": {
+          "n": 60,
+          "em": 0.7333333333333333,
+          "em_ci95": [
+            0.6099104639810865,
+            0.8286750351292115
+          ],
+          "em_multi": 0.7333333333333333,
+          "em_multi_ci95": [
+            0.6099104639810865,
+            0.8286750351292115
+          ],
+          "exec_acc": 0.8666666666666667
+        }
+      },
+      "error_parts": {
+        "structure": 14,
+        "select": 7,
+        "aggregate": 6,
+        "subquery": 5,
+        "malformed": 5,
+        "conds": 4,
+        "inner_conds": 4,
+        "order": 4,
+        "projection": 1,
+        "having": 1,
+        "where_col": 1
+      }
+    },
+    "ext_r2_humanstyle_gpt_indist": {
+      "overall": {
+        "n": 400,
+        "em": 0.78,
+        "em_ci95": [
+          0.7368461708224374,
+          0.8178267504417416
+        ],
+        "em_multi": 0.78,
+        "em_multi_ci95": [
+          0.7368461708224374,
+          0.8178267504417416
+        ],
+        "exec_acc": 0.835
+      },
+      "by_tier": {
+        "ext_r2_humanstyle_gpt_indist": {
+          "n": 400,
+          "em": 0.78,
+          "em_ci95": [
+            0.7368461708224374,
+            0.8178267504417416
+          ],
+          "em_multi": 0.78,
+          "em_multi_ci95": [
+            0.7368461708224374,
+            0.8178267504417416
+          ],
+          "exec_acc": 0.835
+        }
+      },
+      "error_parts": {
+        "structure": 35,
+        "conds": 23,
+        "select": 8,
+        "op": 6,
+        "aggregate": 6,
+        "malformed": 6,
+        "order": 4,
+        "projection": 2,
+        "inner_conds": 2,
+        "having": 2,
+        "subquery": 1,
+        "where_col": 1
+      }
+    },
+    "ext_r2_humanstyle_gpt_struct": {
+      "overall": {
+        "n": 400,
+        "em": 0.5775,
+        "em_ci95": [
+          0.5285801141391775,
+          0.624945426567872
+        ],
+        "em_multi": 0.5775,
+        "em_multi_ci95": [
+          0.5285801141391775,
+          0.624945426567872
+        ],
+        "exec_acc": 0.7125
+      },
+      "by_tier": {
+        "ext_r2_humanstyle_gpt_struct": {
+          "n": 400,
+          "em": 0.5775,
+          "em_ci95": [
+            0.5285801141391775,
+            0.624945426567872
+          ],
+          "em_multi": 0.5775,
+          "em_multi_ci95": [
+            0.5285801141391775,
+            0.624945426567872
+          ],
+          "exec_acc": 0.7125
+        }
+      },
+      "error_parts": {
+        "structure": 40,
+        "aggregate": 26,
+        "order": 18,
+        "having": 18,
+        "inner_conds": 18,
+        "literal": 17,
+        "malformed": 16,
+        "conds": 12,
+        "limit": 11,
+        "select": 9,
+        "op": 9,
+        "subquery": 5,
+        "conn": 2
+      }
+    }
+  },
+  "eval_preprocessed": {
+    "advanced_holdout": {
+      "overall": {
+        "n": 1546,
+        "em": 0.9987063389391979,
+        "em_ci95": [
+          0.9952952189782704,
+          0.9996451671876447
+        ],
+        "em_multi": 0.9987063389391979,
+        "em_multi_ci95": [
+          0.9952952189782704,
+          0.9996451671876447
+        ],
+        "exec_acc": 0.9987063389391979
+      },
+      "by_tier": {
+        "unseen_date": {
+          "n": 146,
+          "em": 1.0,
+          "em_ci95": [
+            0.9743622598797664,
+            1.0
+          ],
+          "em_multi": 1.0,
+          "em_multi_ci95": [
+            0.9743622598797664,
+            1.0
+          ],
+          "exec_acc": 1.0
+        },
+        "unseen_entity": {
+          "n": 600,
+          "em": 0.9966666666666667,
+          "em_ci95": [
+            0.9879283904323899,
+            0.9990854224615877
+          ],
+          "em_multi": 0.9966666666666667,
+          "em_multi_ci95": [
+            0.9879283904323899,
+            0.9990854224615877
+          ],
+          "exec_acc": 0.9966666666666667
+        },
+        "unseen_id": {
+          "n": 200,
+          "em": 1.0,
+          "em_ci95": [
+            0.9811539940816791,
+            1.0
+          ],
+          "em_multi": 1.0,
+          "em_multi_ci95": [
+            0.9811539940816791,
+            1.0
+          ],
+          "exec_acc": 1.0
+        },
+        "unseen_order_id": {
+          "n": 600,
+          "em": 1.0,
+          "em_ci95": [
+            0.9936380666717896,
+            1.0
+          ],
+          "em_multi": 1.0,
+          "em_multi_ci95": [
+            0.9936380666717896,
+            1.0
+          ],
+          "exec_acc": 1.0
+        }
+      },
+      "error_parts": {
+        "conds": 2,
+        "table": 1
+      },
+      "changed_inputs": 4,
+      "unchanged_full_set_reused": false
+    },
+    "advanced_indist": {
+      "overall": {
+        "n": 1000,
+        "em": 0.978,
+        "em_ci95": [
+          0.9669140836251823,
+          0.9854274013262284
+        ],
+        "em_multi": 0.978,
+        "em_multi_ci95": [
+          0.9669140836251823,
+          0.9854274013262284
+        ],
+        "exec_acc": 0.982
+      },
+      "by_tier": {
+        "advanced_indist": {
+          "n": 1000,
+          "em": 0.978,
+          "em_ci95": [
+            0.9669140836251823,
+            0.9854274013262284
+          ],
+          "em_multi": 0.978,
+          "em_multi_ci95": [
+            0.9669140836251823,
+            0.9854274013262284
+          ],
+          "exec_acc": 0.982
+        }
+      },
+      "error_parts": {
+        "malformed": 13,
+        "conds": 9,
+        "table": 1
+      },
+      "changed_inputs": 19,
+      "unchanged_full_set_reused": false
+    },
+    "advanced_phrase": {
+      "overall": {
+        "n": 991,
+        "em": 0.7608476286579213,
+        "em_ci95": [
+          0.7333139416464878,
+          0.7863667793848805
+        ],
+        "em_multi": 0.7608476286579213,
+        "em_multi_ci95": [
+          0.7333139416464878,
+          0.7863667793848805
+        ],
+        "exec_acc": 0.822401614530777
+      },
+      "by_tier": {
+        "advanced_phrase": {
+          "n": 991,
+          "em": 0.7608476286579213,
+          "em_ci95": [
+            0.7333139416464878,
+            0.7863667793848805
+          ],
+          "em_multi": 0.7608476286579213,
+          "em_multi_ci95": [
+            0.7333139416464878,
+            0.7863667793848805
+          ],
+          "exec_acc": 0.822401614530777
+        }
+      },
+      "error_parts": {
+        "conds": 127,
+        "inner_conds": 42,
+        "malformed": 41,
+        "subquery": 30,
+        "projection": 19,
+        "group_by": 16,
+        "aggregate": 15,
+        "structure": 11,
+        "table": 1,
+        "order": 1,
+        "limit": 1
+      },
+      "changed_inputs": 990,
+      "unchanged_full_set_reused": false
+    },
+    "advanced_struct": {
+      "overall": {
+        "n": 1000,
+        "em": 0.971,
+        "em_ci95": [
+          0.958661377168108,
+          0.9797336843635122
+        ],
+        "em_multi": 0.971,
+        "em_multi_ci95": [
+          0.958661377168108,
+          0.9797336843635122
+        ],
+        "exec_acc": 0.989
+      },
+      "by_tier": {
+        "advanced_struct": {
+          "n": 1000,
+          "em": 0.971,
+          "em_ci95": [
+            0.958661377168108,
+            0.9797336843635122
+          ],
+          "em_multi": 0.971,
+          "em_multi_ci95": [
+            0.958661377168108,
+            0.9797336843635122
+          ],
+          "exec_acc": 0.989
+        }
+      },
+      "error_parts": {
+        "malformed": 7,
+        "inner_conds": 7,
+        "having": 6,
+        "conds": 6,
+        "group_by": 2,
+        "limit": 1
+      },
+      "changed_inputs": 19,
+      "unchanged_full_set_reused": false
+    },
+    "holdout": {
+      "overall": {
+        "n": 7161,
+        "em": 0.9983242563887725,
+        "em_ci95": [
+          0.9970730081804244,
+          0.9990411278250386
+        ],
+        "em_multi": 0.9984639016897081,
+        "em_multi_ci95": [
+          0.9972512389956762,
+          0.9991420378633682
+        ],
+        "exec_acc": 0.9983242563887725
+      },
+      "by_tier": {
+        "unseen_date": {
+          "n": 1168,
+          "em": 1.0,
+          "em_ci95": [
+            0.9967217412319208,
+            1.0
+          ],
+          "em_multi": 1.0,
+          "em_multi_ci95": [
+            0.9967217412319208,
+            1.0
+          ],
+          "exec_acc": 1.0
+        },
+        "unseen_entity": {
+          "n": 2998,
+          "em": 0.9976651100733822,
+          "em_ci95": [
+            0.9951879208179253,
+            0.9988685277301925
+          ],
+          "em_multi": 0.9976651100733822,
+          "em_multi_ci95": [
+            0.9951879208179253,
+            0.9988685277301925
+          ],
+          "exec_acc": 0.9976651100733822
+        },
+        "unseen_id": {
+          "n": 1195,
+          "em": 1.0,
+          "em_ci95": [
+            0.9967955733267848,
+            1.0
+          ],
+          "em_multi": 1.0,
+          "em_multi_ci95": [
+            0.9967955733267848,
+            1.0
+          ],
+          "exec_acc": 1.0
+        },
+        "unseen_order_id": {
+          "n": 1800,
+          "em": 0.9972222222222222,
+          "em_ci95": [
+            0.9935136477752345,
+            0.998812951189996
+          ],
+          "em_multi": 0.9977777777777778,
+          "em_multi_ci95": [
+            0.9942998374859088,
+            0.9991355062826349
+          ],
+          "exec_acc": 0.9972222222222222
+        }
+      },
+      "error_parts": {
+        "select": 9,
+        "table": 6,
+        "where_col": 6,
+        "literal": 1
+      },
+      "changed_inputs": 102,
+      "unchanged_full_set_reused": false
+    },
+    "indist": {
+      "overall": {
+        "n": 2000,
+        "em": 0.988,
+        "em_ci95": [
+          0.9822059894056792,
+          0.9919229038162203
+        ],
+        "em_multi": 0.988,
+        "em_multi_ci95": [
+          0.9822059894056792,
+          0.9919229038162203
+        ],
+        "exec_acc": 0.991
+      },
+      "by_tier": {
+        "indist": {
+          "n": 2000,
+          "em": 0.988,
+          "em_ci95": [
+            0.9822059894056792,
+            0.9919229038162203
+          ],
+          "em_multi": 0.988,
+          "em_multi_ci95": [
+            0.9822059894056792,
+            0.9919229038162203
+          ],
+          "exec_acc": 0.991
+        }
+      },
+      "error_parts": {
+        "literal": 19,
+        "malformed": 5
+      },
+      "changed_inputs": 131,
+      "unchanged_full_set_reused": false
+    },
+    "phrase": {
+      "overall": {
+        "n": 2000,
+        "em": 0.839,
+        "em_ci95": [
+          0.8222446725163703,
+          0.8544555217504819
+        ],
+        "em_multi": 0.839,
+        "em_multi_ci95": [
+          0.8222446725163703,
+          0.8544555217504819
+        ],
+        "exec_acc": 0.863
+      },
+      "by_tier": {
+        "phrase": {
+          "n": 2000,
+          "em": 0.839,
+          "em_ci95": [
+            0.8222446725163703,
+            0.8544555217504819
+          ],
+          "em_multi": 0.839,
+          "em_multi_ci95": [
+            0.8222446725163703,
+            0.8544555217504819
+          ],
+          "exec_acc": 0.863
+        }
+      },
+      "error_parts": {
+        "select": 115,
+        "order": 69,
+        "op": 65,
+        "limit": 34,
+        "where_col": 29,
+        "literal": 22,
+        "structure": 19,
+        "malformed": 10
+      },
+      "changed_inputs": 94,
+      "unchanged_full_set_reused": false
+    },
+    "struct": {
+      "overall": {
+        "n": 1978,
+        "em": 0.8629929221435794,
+        "em_ci95": [
+          0.8471339707157711,
+          0.8774446232546048
+        ],
+        "em_multi": 0.8629929221435794,
+        "em_multi_ci95": [
+          0.8471339707157711,
+          0.8774446232546048
+        ],
+        "exec_acc": 0.8902932254802831
+      },
+      "by_tier": {
+        "struct": {
+          "n": 1978,
+          "em": 0.8629929221435794,
+          "em_ci95": [
+            0.8471339707157711,
+            0.8774446232546048
+          ],
+          "em_multi": 0.8629929221435794,
+          "em_multi_ci95": [
+            0.8471339707157711,
+            0.8774446232546048
+          ],
+          "exec_acc": 0.8902932254802831
+        }
+      },
+      "error_parts": {
+        "literal": 250,
+        "malformed": 15,
+        "conn": 4,
+        "where_col": 3,
+        "structure": 2
+      },
+      "changed_inputs": 157,
+      "unchanged_full_set_reused": false
+    },
+    "ext_r1_gpt_holdout": {
+      "overall": {
+        "n": 200,
+        "em": 0.965,
+        "em_ci95": [
+          0.9295285391333187,
+          0.9829446753626429
+        ],
+        "em_multi": 0.965,
+        "em_multi_ci95": [
+          0.9295285391333187,
+          0.9829446753626429
+        ],
+        "exec_acc": 0.99
+      },
+      "by_tier": {
+        "unseen_date": {
+          "n": 30,
+          "em": 1.0,
+          "em_ci95": [
+            0.8864829086095221,
+            1.0
+          ],
+          "em_multi": 1.0,
+          "em_multi_ci95": [
+            0.8864829086095221,
+            1.0
+          ],
+          "exec_acc": 1.0
+        },
+        "unseen_entity": {
+          "n": 105,
+          "em": 0.9714285714285714,
+          "em_ci95": [
+            0.9193423526396465,
+            0.9902363378610444
+          ],
+          "em_multi": 0.9714285714285714,
+          "em_multi_ci95": [
+            0.9193423526396465,
+            0.9902363378610444
+          ],
+          "exec_acc": 0.9904761904761905
+        },
+        "unseen_id": {
+          "n": 5,
+          "em": 1.0,
+          "em_ci95": [
+            0.5655085052479191,
+            1.0
+          ],
+          "em_multi": 1.0,
+          "em_multi_ci95": [
+            0.5655085052479191,
+            1.0
+          ],
+          "exec_acc": 1.0
+        },
+        "unseen_order_id": {
+          "n": 60,
+          "em": 0.9333333333333333,
+          "em_ci95": [
+            0.8407442010623228,
+            0.973771725856802
+          ],
+          "em_multi": 0.9333333333333333,
+          "em_multi_ci95": [
+            0.8407442010623228,
+            0.973771725856802
+          ],
+          "exec_acc": 0.9833333333333333
+        }
+      },
+      "error_parts": {
+        "having": 4,
+        "malformed": 2,
+        "conds": 1
+      },
+      "changed_inputs": 17,
+      "unchanged_full_set_reused": false
+    },
+    "ext_r1_gpt_indist": {
+      "overall": {
+        "n": 400,
+        "em": 0.9525,
+        "em_ci95": [
+          0.9270078923649577,
+          0.9693831678923314
+        ],
+        "em_multi": 0.9525,
+        "em_multi_ci95": [
+          0.9270078923649577,
+          0.9693831678923314
+        ],
+        "exec_acc": 0.9625
+      },
+      "by_tier": {
+        "ext_r1_gpt_indist": {
+          "n": 400,
+          "em": 0.9525,
+          "em_ci95": [
+            0.9270078923649577,
+            0.9693831678923314
+          ],
+          "em_multi": 0.9525,
+          "em_multi_ci95": [
+            0.9270078923649577,
+            0.9693831678923314
+          ],
+          "exec_acc": 0.9625
+        }
+      },
+      "error_parts": {
+        "conds": 7,
+        "structure": 5,
+        "op": 2,
+        "aggregate": 2,
+        "malformed": 2,
+        "subquery": 1
+      },
+      "changed_inputs": 17,
+      "unchanged_full_set_reused": false
+    },
+    "ext_r1_gpt_struct": {
+      "overall": {
+        "n": 400,
+        "em": 0.79,
+        "em_ci95": [
+          0.7474197657946615,
+          0.8270629026575238
+        ],
+        "em_multi": 0.79,
+        "em_multi_ci95": [
+          0.7474197657946615,
+          0.8270629026575238
+        ],
+        "exec_acc": 0.8725
+      },
+      "by_tier": {
+        "ext_r1_gpt_struct": {
+          "n": 400,
+          "em": 0.79,
+          "em_ci95": [
+            0.7474197657946615,
+            0.8270629026575238
+          ],
+          "em_multi": 0.79,
+          "em_multi_ci95": [
+            0.7474197657946615,
+            0.8270629026575238
+          ],
+          "exec_acc": 0.8725
+        }
+      },
+      "error_parts": {
+        "limit": 18,
+        "literal": 16,
+        "inner_conds": 16,
+        "having": 15,
+        "malformed": 13,
+        "order": 10,
+        "conds": 4,
+        "structure": 2,
+        "conn": 2,
+        "projection": 1,
+        "subquery": 1
+      },
+      "changed_inputs": 22,
+      "unchanged_full_set_reused": false
+    },
+    "ext_r2_humanstyle_gpt_holdout": {
+      "overall": {
+        "n": 200,
+        "em": 0.795,
+        "em_ci95": [
+          0.7337418048192546,
+          0.8451390516889363
+        ],
+        "em_multi": 0.795,
+        "em_multi_ci95": [
+          0.7337418048192546,
+          0.8451390516889363
+        ],
+        "exec_acc": 0.85
+      },
+      "by_tier": {
+        "unseen_date": {
+          "n": 30,
+          "em": 0.6,
+          "em_ci95": [
+            0.42320052498273836,
+            0.7540960567391659
+          ],
+          "em_multi": 0.6,
+          "em_multi_ci95": [
+            0.42320052498273836,
+            0.7540960567391659
+          ],
+          "exec_acc": 0.6666666666666666
+        },
+        "unseen_entity": {
+          "n": 105,
+          "em": 0.8571428571428571,
+          "em_ci95": [
+            0.7775987921491644,
+            0.9114759733816619
+          ],
+          "em_multi": 0.8571428571428571,
+          "em_multi_ci95": [
+            0.7775987921491644,
+            0.9114759733816619
+          ],
+          "exec_acc": 0.8857142857142857
+        },
+        "unseen_id": {
+          "n": 5,
+          "em": 1.0,
+          "em_ci95": [
+            0.5655085052479191,
+            1.0
+          ],
+          "em_multi": 1.0,
+          "em_multi_ci95": [
+            0.5655085052479191,
+            1.0
+          ],
+          "exec_acc": 1.0
+        },
+        "unseen_order_id": {
+          "n": 60,
+          "em": 0.7666666666666667,
+          "em_ci95": [
+            0.6456348865960799,
+            0.8556056838156894
+          ],
+          "em_multi": 0.7666666666666667,
+          "em_multi_ci95": [
+            0.6456348865960799,
+            0.8556056838156894
+          ],
+          "exec_acc": 0.8666666666666667
+        }
+      },
+      "error_parts": {
+        "structure": 14,
+        "select": 6,
+        "subquery": 5,
+        "inner_conds": 4,
+        "malformed": 4,
+        "aggregate": 3,
+        "conds": 3,
+        "having": 2,
+        "order": 2,
+        "projection": 1,
+        "where_col": 1
+      },
+      "changed_inputs": 31,
+      "unchanged_full_set_reused": false
+    },
+    "ext_r2_humanstyle_gpt_indist": {
+      "overall": {
+        "n": 400,
+        "em": 0.7925,
+        "em_ci95": [
+          0.7500686395750451,
+          0.8293664656741417
+        ],
+        "em_multi": 0.7925,
+        "em_multi_ci95": [
+          0.7500686395750451,
+          0.8293664656741417
+        ],
+        "exec_acc": 0.8425
+      },
+      "by_tier": {
+        "ext_r2_humanstyle_gpt_indist": {
+          "n": 400,
+          "em": 0.7925,
+          "em_ci95": [
+            0.7500686395750451,
+            0.8293664656741417
+          ],
+          "em_multi": 0.7925,
+          "em_multi_ci95": [
+            0.7500686395750451,
+            0.8293664656741417
+          ],
+          "exec_acc": 0.8425
+        }
+      },
+      "error_parts": {
+        "structure": 29,
+        "conds": 26,
+        "select": 6,
+        "op": 6,
+        "aggregate": 6,
+        "inner_conds": 5,
+        "malformed": 5,
+        "order": 4,
+        "projection": 3,
+        "subquery": 2,
+        "having": 1,
+        "where_col": 1
+      },
+      "changed_inputs": 79,
+      "unchanged_full_set_reused": false
+    },
+    "ext_r2_humanstyle_gpt_struct": {
+      "overall": {
+        "n": 400,
+        "em": 0.6475,
+        "em_ci95": [
+          0.5994796194705074,
+          0.6927141515525868
+        ],
+        "em_multi": 0.6475,
+        "em_multi_ci95": [
+          0.5994796194705074,
+          0.6927141515525868
+        ],
+        "exec_acc": 0.7425
+      },
+      "by_tier": {
+        "ext_r2_humanstyle_gpt_struct": {
+          "n": 400,
+          "em": 0.6475,
+          "em_ci95": [
+            0.5994796194705074,
+            0.6927141515525868
+          ],
+          "em_multi": 0.6475,
+          "em_multi_ci95": [
+            0.5994796194705074,
+            0.6927141515525868
+          ],
+          "exec_acc": 0.7425
+        }
+      },
+      "error_parts": {
+        "structure": 35,
+        "inner_conds": 20,
+        "malformed": 16,
+        "literal": 16,
+        "conds": 15,
+        "having": 15,
+        "limit": 11,
+        "op": 10,
+        "order": 8,
+        "select": 7,
+        "subquery": 6,
+        "conn": 2,
+        "aggregate": 2
+      },
+      "changed_inputs": 89,
+      "unchanged_full_set_reused": false
+    }
+  },
+  "release_validation": {
+    "timestamp_utc": "2026-10-18T12:58:29.490141+00:00",
+    "device": "cuda",
+    "amp": "torch.bfloat16",
+    "batch_size": 512,
+    "sets": 14,
+    "pairs": 19676,
+    "previous_raw_mismatches": [
+      "phrase"
+    ],
+    "historical_preprocessed_differences": [
+      {
+        "set": "phrase",
+        "current_correct": 1678,
+        "historical_correct": 1679,
+        "n": 2000
+      },
+      {
+        "set": "struct",
+        "current_correct": 1707,
+        "historical_correct": 1708,
+        "n": 1978
+      }
+    ]
+  },
+  "validation_selection": {
+    "metric": "Raw greedy exact-string match on a fixed validation sample",
+    "sample_pairs": 2000,
+    "validation_pool_pairs": 16216
+  },
+  "precision_note": {
+    "description": "One general phrase question changed versus the historical cached score. Original and release weights are identical. Both checkpoints choose item_name with BF16 and * with FP32 on the diagnostic question; no assumption is made about the old cached run precision.",
+    "question": "what info do we have on the things for more than $10 and with stock above 0?",
+    "raw_phrase_em_current": 0.838,
+    "raw_phrase_em_historical": 0.8385,
+    "preprocessed_phrase_em_current": 0.839,
+    "preprocessed_phrase_em_historical": 0.8395,
+    "bf16_diagnostic_sql": "SELECT item_name FROM items WHERE price > 10.00 AND stock > 0",
+    "fp32_diagnostic_sql": "SELECT * FROM items WHERE price > 10.00 AND stock > 0",
+    "fp32_cli_argument": "--no-amp"
+  },
+  "humanstyle_summary": {
+    "eval": {
+      "n": 1000,
+      "correct": 699,
+      "em": 0.699
+    },
+    "eval_preprocessed": {
+      "n": 1000,
+      "correct": 735,
+      "em": 0.735
+    }
+  }
+}
