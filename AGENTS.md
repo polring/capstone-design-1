@@ -1,21 +1,22 @@
-# CLAUDE.md
+# AGENTS.md
 
-Guidance for Claude Code in this repository. Keep only rules and traps here; progress, numbers, and
+Guidance for coding agents in this repository. Keep only rules and traps here; progress, numbers, and
 how-to live in `docs/` (Korean). When work changes progress or numbers, update that stage's report (the
 plan holds only design and completion criteria), not this file.
 
 From-scratch Text-to-SQL Transformer (4-person capstone): English question → SQLite SQL. Stage 1 scope:
-single table, `SELECT` one column or `*`, single `WHERE` equality. Stage 2 (in progress): 0–3 `WHERE` conditions
+single table, `SELECT` one column or `*`, single `WHERE` equality. Stage 2: 0–3 `WHERE` conditions
 (AND, or OR across columns — never mixed), same-column value lists as `IN`, comparisons, `BETWEEN`, name `LIKE`,
-`ORDER BY`, `LIMIT`.
+`ORDER BY`, `LIMIT`. Stage 3 adds dates, aggregates, GROUP BY/HAVING and depth-one non-correlated scalar
+subqueries. Stage 3 is the default runtime; its report records current results and limitations.
 
 ## Where things are
 
 | Need | Read |
 |---|---|
 | Design rationale, stage plan, eval metrics & gate thresholds — read before architectural changes | [docs/text-to-sql-llm-project-plan.md](docs/text-to-sql-llm-project-plan.md) |
-| Label rules L1–L17 (one question → one SQL) and the code that judges them | [docs/text-to-sql-label-rules.md](docs/text-to-sql-label-rules.md) |
-| Current status, data/model numbers, dated activity log | [stage-1 report](docs/text-to-sql-stage1-report.md), [stage-2 report](docs/text-to-sql-stage2-report.md) |
+| Label rules L1–L29 (one question → one SQL) and the code that judges them | [docs/text-to-sql-label-rules.md](docs/text-to-sql-label-rules.md) |
+| Current status, data/model numbers, dated activity log | [stage-1 report](docs/text-to-sql-stage1-report.md), [stage-2 report](docs/text-to-sql-stage2-report.md), [stage-3 report](docs/text-to-sql-stage3-report.md) |
 | How to run / reproduce each step, what gets committed | [docs/SETUP.md](docs/SETUP.md) |
 | Branch / commit / PR rules | [docs/CONVENTION.md](docs/CONVENTION.md) |
 | Directory tree | [README.md](README.md) |
@@ -35,14 +36,17 @@ project.
 ## Data layout and paths
 
 All paths live in `src/config.py` and follow `STAGE` (`config.stage_paths(N)` for another stage). `STAGE` defaults to 3;
-run stage-1 commands with `TEXT_TO_SQL_STAGE=1` (`run.py --stage 1`). Scripts under `src/data/stage<N>/` pin their own
-stage's paths (`stage_paths(N)`), never `config.STAGE` — otherwise a stage-1 script would write into stage-2 data. Tests run
+select stages explicitly with `--stage N` in train/run/BPE/DB generation; demo follows `TEXT_TO_SQL_STAGE`.
+Scripts under `src/data/stage<N>/` pin their own
+stage's paths (`stage_paths(N)`), never `config.STAGE` — otherwise a stage-1 script would write into stage-3 data. Tests run
 as stage 1 (`tests/conftest.py`).
-Stage 2 shares the stage-1 DB (`config.DB_STAGE`); stage 3 uses its own expanded date DB. Every command
+Runtime DB paths are `data/stage<N>/db/`. The stage-2 DB has the same bytes as stage 1;
+its SQL generator still defaults to `data/stage1/db/`. Stage 3 uses its expanded date DB. Every command
 takes its input files and output location as arguments and falls back to these defaults — don't hardcode paths.
 Roles come from **folder position**, not names:
 
-- `data/stage<N>/train/*.json` — **every** JSON here is training data and BPE corpus. Never put eval pairs here.
+- `data/stage<N>/train/*.json` and `*.json.gz` — **every** JSON here is training data and BPE corpus. Never put eval pairs here.
+  Stage 3 uses the frozen validation file `data/stage3/validation/pairs.json` by default; train never splits it again.
 - Eval sets are `pairs.json` + `sql.json` (metadata of the SQL used, incl. `holdout_tier`), never written by hand; loading
   fails if a pair's SQL is missing from `sql.json`. Stage 1: one folder per set, `data/stage1/eval/<name>/` (build `sql.json`
   with `python -m src.run --build-sql <name> --sql <sql file>`; `holdout_qwen` is the old Qwen-written set, comparison only).
@@ -50,6 +54,8 @@ Roles come from **folder position**, not names:
   splits by it, so sets are still scored separately). Rebuilt with `python -m src.data.stage2.eval_build [composer|ext|human]`,
   which replaces only those sets (pairs keep `sql_group`, the canonical SQL that keys `sql.json`); to add teammates' human
   questions, fill `data_raw/stage2/human/sql_list_<writer>.json` and re-run.
+- Stage 3 also uses one combined `data/stage3/eval/pairs.json` + `sql.json`; all 14 sets, including external
+  questions, are tagged with `set`. `eval/external_sources.json` records external sources.
 - `data/stage<N>/tokenizer/seed_tokens.json` — seed IDs are `260 + list order`: reordering or inserting changes
   every token ID, so retrain BPE and the model after editing. `tokenizer.json` is the trained result (seeds + merges).
 - `models/stage<N>/` — the one committed release (`model.pt` + the `tokenizer.json` it was trained with +
@@ -59,6 +65,8 @@ Roles come from **folder position**, not names:
   Question-generation rounds are validated in `data_raw/` and moved by hand.
 - Stage-specific code lives in `src/data/stage<N>/` (SQL/question generation, label cleaning, name swap,
   scoring rules `sql_rules.py`); `src/evaluation/scoring.py` keeps only stage-independent scoring.
+  Stage-2/3 schema helpers live in each `schema.py`, LIKE interpretation in `sql_ast.py`, name augmentation
+  in `name_swap.py`, and synonym augmentation in `compose.py`; no shared modules exist for these four roles.
 
 ## Design decisions that are easy to undo by accident
 
@@ -76,7 +84,7 @@ Roles come from **folder position**, not names:
 - BPE seed tokens (SQL keywords, columns, categorical values) stay single tokens; merge ties break
   deterministically.
 - Text values lowercase, SQL keywords uppercase.
-- **One question, one SQL**: labels follow the label rules — all stages (L1–L17) in [docs/text-to-sql-label-rules.md](docs/text-to-sql-label-rules.md)
+- **One question, one SQL**: labels follow the label rules — L1–L17 for stages 1–2 and L18–L29 for stage 3 in [docs/text-to-sql-label-rules.md](docs/text-to-sql-label-rules.md)
   (plan 4-5 holds only the principle). Training data is cleaned with
   `python -m src.data.stage1.clean_ambiguous --apply` (re-run after adding pairs; rebuild BPE after). Stage 2 uses
   `src/data/stage2/clean_ambiguous.drop_reason`: `compose build` drops stage-1 pairs that violate it, `compose check`

@@ -13,12 +13,12 @@
 
 ```bash
 pip install -r requirements.txt
-python -m src.run --input "what city does ashley live in?"   # 질문 → SQL → DB 실행 결과
+python -m src.run --input "how many orders are there?"       # 질문 → SQL → DB 실행 결과
 python -m src.run --input "the 3 cheapest kitchen items with more than 10 in stock"
 python -m src.run --stage 1 --input "what city does ashley live in?"   # 1단계 모델
 python -m src.run                                            # 대화형
 python -m src.run --evaluation                               # 평가셋 전부 채점
-python -m src.demo all                                       # 예시 하나로 파이프라인 각 단계의 입력 → 출력 보기
+python -m src.demo generate                                  # SQL 생성 과정 보기
 pytest tests/ -v                                             # 단위 테스트
 ```
 
@@ -26,6 +26,10 @@ pytest tests/ -v                                             # 단위 테스트
 > 모든 명령은 저장소 루트에서 실행합니다. 학습·데이터 생성·인자 설명은 [docs/SETUP.md](docs/SETUP.md)에 있습니다.
 > C 추론 엔진과 SQL 후처리기는 별도 저장소 [capstone-sql-cli](https://github.com/polring/capstone-sql-cli)에 있고,
 > 이 저장소는 GGUF 모델을 GitHub Release로 배포합니다([docs/exporter-loader.md](docs/exporter-loader.md)).
+
+전체 파이프라인 시연(`demo all`)과 수동 모델 계산 시연(`demo model`)은 현재 1단계 환경에서 실행합니다.
+3단계에서는 실제 어휘 수와 어휘 용량의 차이로 해당 시연이 실패하므로, 단계 선택 방법과 제한은
+[SETUP의 시연 안내](docs/SETUP.md#9-단계별-입출력-보기-demopy)를 참고하세요.
 
 ---
 
@@ -38,7 +42,7 @@ capstone-design-1/
 │   ├── tokenizer/          # BPE 토크나이저
 │   ├── inference/          # 학습된 모델 불러오기, SQL 생성
 │   ├── evaluation/         # 채점·평가셋 (단계 공통)
-│   ├── data/               # 공통 DB·스키마·증강 + stage1/, stage2/, stage3/ 전용 SQL·질문 생성
+│   ├── data/               # 공통 DB·로딩·분할 + stage1/, stage2/, stage3/ 전용 SQL·질문·증강
 │   └── postprocessor/      # SQL 후처리 (python/)
 ├── data/                   # 커밋되는 데이터
 │   ├── stage<N>/           # 단계별: db, sql, train, eval, tokenizer, composer 등

@@ -15,7 +15,7 @@
 "what's a stopwatch going for")이 학습 문장에도 많아, 단서 목록으로 판정하면 맞는 문항을 버린다(버리면 점수가 부푼다).
 
 단서 목록은 라벨 규칙 문서와 학습 문장(조합기 틀·유사어 사전·명사 사전, 1단계 학습 쌍)에서 정한다. 평가 오답을 보고 고치지
-않는다(CLAUDE.md "Rule-consistent EM"). 학습 쌍에 돌려 거의 걸리지 않는지로 확인한다(라벨 규칙 문서 "2단계 판정").
+않는다(AGENTS.md "Rule-consistent EM"). 학습 쌍에 돌려 거의 걸리지 않는지로 확인한다(라벨 규칙 문서 "2단계 판정").
 WHERE 조건을 말하는 표현("customer 1102", "named amy", orders 질문의 "item id")은 SELECT 단서로 보지 않는다.
 이 판정은 외부 질문(평가셋)에 쓴다: question_gen validate 가 어긋난 문항을 빼고 출처별로 버린 수를 기록한다.
 """

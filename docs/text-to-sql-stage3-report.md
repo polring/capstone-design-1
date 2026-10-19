@@ -184,7 +184,7 @@ numbers r10은 3,000문항을 1회, 다른 LLM 질문은 3회 반복했다. LIMI
 | 역할 | 위치 |
 | --- | --- |
 | 15.7M 배포 모델·토크나이저·전처리 사전 | `models/stage3/` (실측 평가는 `model_info.json`) |
-| DB·BPE·학습·추론 | 공통 코드의 `--stage 3` 인자 사용 |
+| DB·BPE·학습·추론·배포 | 공통 코드의 `--stage 3` 인자 사용 |
 | SQL·질문 생성·검사 | `src/data/stage3/` |
 | 통합 학습 / 고정 검증 | `data/stage3/train/pairs.json.gz` / `data/stage3/validation/pairs.json` |
 | 조합기·외부 말투 통합 평가 | `data/stage3/eval/` (`set`으로 구분, 총 14세트·19,676문항) |
@@ -194,14 +194,15 @@ numbers r10은 3,000문항을 1회, 다른 LLM 질문은 3회 반복했다. LIMI
 | 값 표기·IN 목록 연결·조합기 샘플링 | 각 단계의 `src/data/stage<N>/compose.py` 내부 |
 | 공통 전처리 사전 생성 | `src/data/preprocessing/` |
 | 입력 전처리 | `src/inference/wordnet_normalizer.py` |
-| C 입력 전처리·독립 CLI | `src/inference/c/` (연결·빌드는 [GGUF 안내](exporter-loader.md#c-입력-전처리)) |
+| C 입력 전처리·독립 CLI | 로컬 `src/inference/c/` (미추적·별도 레포 전달용, [GGUF 안내](exporter-loader.md#c-입력-전처리)) |
 | 전처리 사전 | `data/stage3/preprocessing/normalizer.json` |
 | r9 라운드 반영 / 실험 제어 테스트 | `experiments/stage3/prepare_contrast_r9.py` / `experiments/stage3/tests/` (Git 제외) |
 
 실행 명령은 [SETUP](SETUP.md)에 정리했다.
 
 10-19에 C 입력 전처리를 추가했다. 배포 사전을 그대로 사용하며, 일반·외부 평가 질문 19,676개와
-사전 항목·보호 문자열·경계 사례를 Python 구현과 비교했다. 별도 C 구동기 저장소에 연결하는 작업은 남아 있다.
+사전 항목·보호 문자열·경계 사례를 Python 구현과 비교했다. C 소스는 별도 레포 전달용 로컬 작업물이며,
+별도 C 구동기 저장소의 반영 상태는 여기서 검증하지 않았다.
 
 - 전체 평가표
 - SQL 유형·말투별 결과

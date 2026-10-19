@@ -2,6 +2,10 @@
 
 작성: 2026-10-12 · 1·2단계 완료: 2026-10-12 (PR #36). 분리한 저장소: [polring/capstone-sql-cli](https://github.com/polring/capstone-sql-cli)
 
+이 문서는 분리 당시의 계획과 완료 기록이다. 옛 코드 경로·테스트 이름은 당시 상태를 뜻한다.
+현재 내보내기·배포 절차는 [GGUF 안내](exporter-loader.md)를 따른다. 3단계는 15.7M 모델을
+`models/stage3/`에 보관하며, 선택형 전처리를 쓸 때 `normalizer.json`과 WordNet 라이선스도 전달한다.
+
 C 추론 엔진과 C 후처리기를 별도 저장소(이하 CLI 저장소)로 분리하는 계획이다. 먼저 같은 저장소 안에서 의존성을
 끊고(1단계), 분리 직전 검증을 거쳐 히스토리를 보존해 떼어낸다(2단계). 안정화 기간은 두지 않는다.
 
@@ -19,10 +23,10 @@ C 추론 엔진과 C 후처리기를 별도 저장소(이하 CLI 저장소)로 �
 - **두 저장소가 공유하는 것은 계약이고, 코드나 설정 파일이 아니다.** CLI 저장소에 `config.py` 사본을 두지 않는다.
   구조 하이퍼파라미터는 exporter가 GGUF 메타데이터에 쓰고 `loader.c`가 파일에서 읽으므로, 2단계 모델(8층·384차원)도
   CLI 코드 수정 없이 돈다. 사본을 두면 원본이 둘이 되어 언젠가 어긋난다.
-- **CLI에 넘기는 모델 파일은 `model.gguf` 하나다.** gguf에 가중치, 구조 하이퍼파라미터(`vocab_size`, `dim`, `layers`,
+- **모델 본체는 `model.gguf` 하나다.** gguf에 가중치, 구조 하이퍼파라미터(`vocab_size`, `dim`, `layers`,
   `heads`, `ffn_dim`, `context`, `eps`, `theta`), 토크나이저(seed, merge, 특수 토큰 id)가 모두 들어 있다. `model.pt`,
   `tokenizer.json`, `model_info.json`은 메인 저장소의 원본으로만 둔다. 후처리기는 여기에 `shop.db`와
-  `semantic_dict_*.bin`이 더 필요하다.
+  `semantic_dict_*.bin`이 더 필요하다. 선택형 입력 전처리에는 `normalizer.json`과 `WORDNET_LICENSE.txt`를 별도로 제공한다.
 - **gguf는 파생물이라 git에 넣지 않는다.** 메인 저장소가 GitHub Release에 올리고 CLI 저장소가 태그로 받아 간다.
 - **gguf에 담을 수 없는 것은 문서, 버전, 테스트로 묶는다.** 계산 규칙(RoPE 차원 쌍, Pre-LN 순서, SwiGLU gate/up 순서,
   임베딩-출력층 가중치 공유), BPE 알고리즘(병합 순서, 동점 처리, 바이트 fallback), 입력 형식(`<bos> 질문 <sep>`, 소문자
@@ -31,7 +35,7 @@ C 추론 엔진과 C 후처리기를 별도 저장소(이하 CLI 저장소)로 �
 - **버전을 맞추는 일은 사람의 기억에 맡기지 않는다.** 계산 결과가 바뀌었는데 버전을 올리지 않으면 메인 CI가 실패하고,
   지원하지 않는 버전의 파일은 `loader.c`가 거부한다.
 
-## 3. 현재 결합 상태
+## 3. 분리 전 결합 상태 (2026-10-12 당시)
 
 | 항목 | 상태 | 처리 |
 | --- | --- | --- |
@@ -51,6 +55,7 @@ C 추론 엔진과 C 후처리기를 별도 저장소(이하 CLI 저장소)로 �
   태그 push (예: stage1-contract2)
     → GitHub Actions: src.exporter 로 model.gguf 생성
     → GitHub Release 첨부: model.gguf, model_info.json, shop.db, SHA256SUMS
+      (전처리 사전이 있으면 normalizer.json, WORDNET_LICENSE.txt도 포함)
         │
         ▼
 CLI 저장소 (실행)
@@ -65,9 +70,9 @@ CLI 저장소 (실행)
 - CLI 저장소 담당자는 새 태그가 나오면 `fetch-model`로 받는다. 태그 이름에 단계와 계약 버전이 들어 있어, 어떤 모델이
   어떤 계약으로 도는지 태그만 보고 알 수 있다.
 - CLI 테스트는 다운로드 없이 fixture로 돈다. 실제 모델은 직접 실행하거나 데모할 때만 받는다.
-- **파일 크기**: `models/stage1/model.pt`는 20MB다. 계획서 파라미터 수로 계산하면 2단계(15M)는 약 60MB, 3단계(27.4M)는
-  약 110MB로, GitHub의 git 파일당 100MB 제한에 걸린다. 3단계부터는 `model.pt`도 release로 옮긴다(release 첨부는 파일당
-  2GB). 그때 `src.release`가 release용 묶음까지 만들도록 고친다.
+- **파일 크기**: 초기 계획의 3단계 27.4M 가중치는 약 110MB로 예상했으나, 실제 배포 모델은
+  15.7M·약 63MB여서 `models/stage3/model.pt`를 저장소에 포함한다. GGUF는 계속 Release 파생물로 관리한다.
+  이후 모델 확대 시 저장소에 가중치를 계속 둘지는 별도로 결정한다.
 
 ## 5. 1단계: 같은 저장소 안에서 분리
 

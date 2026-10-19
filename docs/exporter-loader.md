@@ -15,7 +15,9 @@
 `src/inference/wordnet_normalizer.py`에 대응하는 C 구현이다. 기존
 `models/stage3/normalizer.json`을 그대로 읽으며 Python·NLTK 없이 실행한다.
 GGUF 내보내기에 자동으로 들어가는 기능은 아니므로 C 구동기의 **BPE 호출 전**에 연결한다.
-현재 이 저장소에는 이식용 코드와 독립 CLI를 제공하며, 별도 `capstone-sql-cli` 저장소의 호출부는 아직 수정하지 않았다.
+아래 C 코드는 별도 `capstone-sql-cli` 저장소로 전달하는 로컬 이식 작업물이다.
+`src/inference/c/`는 현재 이 저장소에서 미추적 상태이므로 새로 clone하면 포함되지 않는다.
+아래 빌드 예시는 그 파일들을 로컬에 준비한 경우에 사용한다. 별도 CLI 저장소에 연결·반영되었는지는 이 문서의 로컬 점검으로 확인하지 않았다.
 
 C99 컴파일러와 **PCRE2 8-bit 개발 라이브러리**가 필요하다. Ubuntu에서는
 `libpcre2-dev`·`pkg-config`, Windows에서는 MinGW/MSVC용 PCRE2를 설치한다.

@@ -10,7 +10,7 @@ sql_gen.py 가 만든 학습 SQL(data/stage1/sql/train.json)에서 SQL을 뽑아
 
 SQL 정답은 이미 sql_gen.py 가 정했다. LLM은 그 SQL에 맞는 자연어 질문만 만들고,
 질문이 규칙(리터럴 포함, 소문자, 숫자 단어 금지 등)을 지키는지는 항상 코드가 검사한다
-(CLAUDE.md 스크래치 원칙: LLM은 SQL 정답을 만들거나 수정하지 않는다).
+(AGENTS.md 스크래치 원칙: LLM은 SQL 정답을 만들거나 수정하지 않는다).
 
 사용법
     python -m src.data.stage1.question_gen make-prompts --out data_raw/stage1/pilot --n 200 --batch-size 25 --seed 0
