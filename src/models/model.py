@@ -1,3 +1,6 @@
+# 역할: 임베딩과 디코더 블록을 조립하고 토큰 예측·순차 생성을 구현한다.
+# 사용처: 학습과 체크포인트 로딩 후 질문에서 SQL 토큰을 생성할 때 사용한다.
+
 import math
 
 import torch
@@ -22,8 +25,12 @@ class TextToSQLModel(nn.Module):
         ffn_dim: int = FFN_DIM,
         max_seq_len: int = SEQ_LEN,
         padding_idx: int | None = None,
+        valid_vocab_size: int | None = None,
     ):
         super().__init__()
+        self.valid_vocab_size = vocab_size if valid_vocab_size is None else valid_vocab_size
+        if not 0 < self.valid_vocab_size <= vocab_size:
+            raise ValueError('valid_vocab_size must be within the allocated vocabulary')
         self.max_seq_len = max_seq_len
         self.tok_emb = TokenEmbedding(vocab_size, dim, padding_idx=padding_idx)
         self.blocks = nn.ModuleList(
@@ -63,11 +70,14 @@ class TextToSQLModel(nn.Module):
         freqs_cis = self.freqs_cis[:T]  # apply_rotary_emb 는 길이 T 짜리를 기대한다
         for block in self.blocks:
             x = block(x, freqs_cis=freqs_cis)
-        return self.lm_head(self.norm(x))
+        # Reserved vocabulary capacity must never produce IDs absent from the tokenizer.
+        return self.lm_head(self.norm(x))[..., :self.valid_vocab_size]
 
     @torch.no_grad()
-    def generate(self, prompt_ids: list[int], eos_id: int, max_new_tokens: int = 64) -> list[int]:
+    def generate(self, prompt_ids: list[int], eos_id: int, max_new_tokens: int = 64,
+                 banned_ids: tuple[int, ...] = ()) -> list[int]:
         """Greedy 디코딩: prompt(<bos> question <sep>) 뒤에 이어지는 토큰을 <eos> 전까지 반환한다.
+        banned_ids 는 생성하지 않는다(inference.generate.BANNED_IDS 와 배치 생성 결과를 맞춘다).
         시퀀스가 짧아(최대 64토큰 안팎) KV cache 없이 매 스텝 전체를 다시 계산한다."""
         device = self.freqs_cis.device
         ids = torch.tensor([prompt_ids], dtype=torch.long, device=device)
@@ -75,7 +85,10 @@ class TextToSQLModel(nn.Module):
         for _ in range(max_new_tokens):
             if ids.size(1) >= self.max_seq_len:
                 break
-            next_id = self(ids)[0, -1].argmax().item()
+            logits = self(ids)[0, -1]
+            if banned_ids:
+                logits[list(banned_ids)] = float("-inf")
+            next_id = logits.argmax().item()
             if next_id == eos_id:
                 break
             out.append(next_id)

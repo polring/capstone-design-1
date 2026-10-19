@@ -1,3 +1,6 @@
+# 역할: 생성 SQL의 정답 일치율, 실행 결과, 신뢰구간과 오류 유형을 집계한다.
+# 사용처: train.py, release.py, run.py에서 단계별 규칙을 적용해 모델을 평가할 때 사용한다.
+
 """
 scoring.py — 생성 결과 채점·집계 (계획서 3-4)
 
@@ -42,12 +45,13 @@ def load_rules(stage: int = config.STAGE):
     return importlib.import_module(f"src.data.stage{stage}.sql_rules")
 
 
-def execute(con: sqlite3.Connection, sql: str | None) -> Counter | None:
+def execute(con: sqlite3.Connection, sql: str | None, *, ordered: bool = False) -> Counter | list | None:
     """실행 결과를 순서 무관 multiset 으로. 실행 오류면 None."""
     if sql is None:
         return None
     try:
-        return Counter(con.execute(sql).fetchall())
+        rows = con.execute(sql).fetchall()
+        return rows if ordered and "ORDER BY" in sql.upper() else Counter(rows)
     except sqlite3.Error:
         return None
 
@@ -98,7 +102,7 @@ def evaluate_set(model, name: str, tok: bpe.Tokenizer, device, amp_dtype,
 
 def evaluate_pairs(model, pairs: list[dict], tok: bpe.Tokenizer, device, amp_dtype, name: str,
                    meta: dict[str, dict] | None = None, db_path: str | Path = config.DB_PATH,
-                   rules=None, batch_size: int = 512) -> dict:
+                   rules=None, batch_size: int = 512, *, input_questions: list[str] | None = None) -> dict:
     """(질문, 정답 SQL) 쌍을 평가해 요약(전체·계층별·WHERE 컬럼별·오류 유형)과 틀린 사례 전체를 반환한다.
     meta: SQL → 메타데이터(table, where_col, holdout_tier). 없으면(임의의 쌍 파일) 계층은 name 하나로 묶고
     테이블·WHERE 컬럼은 단계 규칙으로 SQL 에서 뽑는다.
@@ -108,7 +112,12 @@ def evaluate_pairs(model, pairs: list[dict], tok: bpe.Tokenizer, device, amp_dty
     same_sql = getattr(rules, "same_sql", lambda gold, pred: pred == gold)
     labels = getattr(rules, "BREAKDOWNS", {"where_col": "WHERE 컬럼"})
     meta = meta or {}
-    examples = tokenize_pairs(pairs, tok)
+    # Optional preprocessing affects model prompts only. Metrics, label rules,
+    # breakdowns and reported questions continue to use the untouched originals.
+    if input_questions is not None and len(input_questions) != len(pairs):
+        raise ValueError('input_questions must align with the original pairs')
+    model_pairs = pairs if input_questions is None else [dict(p, question=q) for p, q in zip(pairs, input_questions)]
+    examples = tokenize_pairs(model_pairs, tok)
     preds = generate_batch(model, examples, device, amp_dtype, batch_size)
 
     con = sqlite3.connect(db_path)
@@ -122,13 +131,14 @@ def evaluate_pairs(model, pairs: list[dict], tok: bpe.Tokenizer, device, amp_dty
         em = same_sql(p["sql"], pred)
         groups = (rules.breakdowns(p, m) if hasattr(rules, "breakdowns")
                   else {"where_col": f"{m.get('table')}.{m.get('where_col')}"})
-        gold_res = execute(con, p["sql"])
+        ordered = getattr(rules, "ORDERED_EXECUTION", False)
+        gold_res = execute(con, p["sql"], ordered=ordered)
         records.append({
             "question": p["question"], "gold": p["sql"], "pred": pred, "em": em,
             "em_multi": rules.multi_match(p["question"], p["sql"], pred),
             "select_ambiguous": rules.select_ambiguous(p["question"], p["sql"]),
             "label_mismatch": label_mismatch(p["question"], p["sql"]),
-            "exec_match": em or (gold_res is not None and execute(con, pred) == gold_res),
+            "exec_match": em or (gold_res is not None and execute(con, pred, ordered=ordered) == gold_res),
             "tier": m.get("holdout_tier", name), "table": m.get("table"), "where_col": m.get("where_col"),
             "error_parts": [] if em else rules.error_parts(p["sql"], pred), "groups": groups,
         })

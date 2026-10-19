@@ -1,3 +1,6 @@
+# 역할: BPE 병합 규칙 학습, 토큰 인코딩·디코딩과 토크나이저 저장을 구현한다.
+# 사용처: 학습 질문·SQL을 토큰으로 바꾸고 생성한 토큰을 SQL 문자열로 복원할 때 사용한다.
+
 """
 bpe.py — byte-level BPE 토크나이저
 
@@ -25,6 +28,7 @@ from collections import Counter
 from pathlib import Path
 
 from src.config import VOCAB_SIZE, TRAIN_DIR, HOLDOUT_PATH, SEED_TOKENS_PATH, TOKENIZER_PATH
+from src import config
 
 SPECIAL_BASE = 256
 SPECIAL_TOKENS = ["<pad>", "<bos>", "<eos>", "<sep>"]
@@ -224,28 +228,38 @@ class Tokenizer:
 # ---------------------------------------------------------------------------
 
 def load_corpus(files: list[str | Path] | None = None, train_dir: str | Path = TRAIN_DIR) -> list[str]:
-    """BPE 코퍼스 = 학습 쌍의 (질문, SQL) 전부. files 를 주면 그 파일들, 아니면 학습 폴더의 *.json
+    """BPE 코퍼스 = 학습 쌍의 (질문, SQL) 전부. files 를 주면 그 파일들, 아니면 학습 폴더의 *.json·*.json.gz
     (dataset.load_train_pairs 와 같은 규칙. bpe 는 torch 없이 돌아야 해서 따로 둔다)."""
     corpus: list[str] = []
-    for pf in [Path(f) for f in files] if files else sorted(Path(train_dir).glob("*.json")):
-        with open(pf, encoding="utf-8") as f:
-            pairs = json.load(f)
+    from src.data.json_io import json_files, read_json
+
+    for pf in [Path(f) for f in files] if files else json_files(train_dir):
+        pairs = read_json(pf)
         for row in pairs:
             corpus.append(row["question"])
             corpus.append(row["sql"])
     return corpus
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description="BPE 토크나이저 학습")
-    ap.add_argument("--train-files", nargs="+", default=None, help=f"코퍼스 학습 쌍 파일 (기본: {TRAIN_DIR}/*.json)")
-    ap.add_argument("--seeds", default=str(SEED_TOKENS_PATH), help=f"seed 토큰 파일 (기본 {SEED_TOKENS_PATH})")
-    ap.add_argument("--vocab-size", type=int, default=VOCAB_SIZE, help=f"목표 vocab 크기 (기본 {VOCAB_SIZE})")
-    ap.add_argument("--out", default=str(TOKENIZER_PATH), help=f"저장 위치 (기본 {TOKENIZER_PATH})")
-    ap.add_argument("--holdout", default=str(HOLDOUT_PATH), help=f"미등장 이름 토큰 수 확인용 (기본 {HOLDOUT_PATH})")
-    args = ap.parse_args()
+def main(argv: list[str] | None = None) -> int:
+    selector = argparse.ArgumentParser(add_help=False)
+    selector.add_argument("--stage", type=int, choices=sorted(config.STAGE_PRESETS), default=config.STAGE)
+    selected, _ = selector.parse_known_args(argv)
+    paths = config.stage_paths(selected.stage)
+    ap = argparse.ArgumentParser(description="BPE 토크나이저 학습", parents=[selector])
+    ap.add_argument("--train-files", nargs="+", default=None, help=f"코퍼스 학습 쌍 파일 (기본: {paths.train_dir}/*.json 또는 *.json.gz)")
+    ap.add_argument("--seeds", default=str(paths.seed_tokens_path), help="seed 토큰 파일")
+    ap.add_argument("--vocab-size", type=int, default=config.STAGE_PRESETS[selected.stage]["VOCAB_SIZE"], help="목표 vocab 크기")
+    ap.add_argument("--out", default=str(paths.tokenizer_path), help="저장 위치")
+    ap.add_argument("--holdout", default=str(paths.holdout_path), help="미등장 이름 토큰 수 확인용")
+    args = ap.parse_args(argv)
 
-    corpus = load_corpus(args.train_files)
+    from src.data.json_io import json_files
+
+    files = [Path(f) for f in args.train_files] if args.train_files else json_files(paths.train_dir)
+    corpus = load_corpus(files, train_dir=paths.train_dir)
+    if not corpus:
+        ap.error(f"학습 코퍼스가 없습니다: {paths.train_dir}")
     print(f"코퍼스 크기: {len(corpus)}")
 
     seeds = load_seed_tokens(args.seeds)
@@ -262,6 +276,12 @@ def main() -> int:
             if bad <= 5:
                 print(f"ROUNDTRIP FAIL: {text!r} -> {restored!r}")
     print(f"round-trip 실패: {bad} / {len(corpus)}")
+    report = {"target_vocab_size": args.vocab_size, "vocab_size": tok.vocab_size,
+              "exhausted_merge_pairs": tok.vocab_size < args.vocab_size,
+              "seed_tokens": len(tok.seed_tokens), "merges": len(tok.merges),
+              "training_files": list(map(str, files)), "texts": len(corpus), "roundtrip_errors": bad,
+              "max_sql_tokens": max((len(tok.encode(t)) for t in corpus if t.startswith("SELECT ")), default=0)}
+    Path(args.out).with_name("training_report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 
     holdout_path = Path(args.holdout)
     if holdout_path.exists():
@@ -271,7 +291,7 @@ def main() -> int:
         names += [r["item_name"] for r in holdout["items"]["heldout_rows"]]
         counts = [len(tok.encode(n)) for n in names]
         print(f"미등장 이름 {len(names)}개 평균 토큰 수: {sum(counts) / len(counts):.2f}")
-    return 0
+    return int(bad != 0)
 
 
 if __name__ == "__main__":

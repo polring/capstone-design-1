@@ -1,3 +1,6 @@
+# 역할: 단계별 모델 크기, 학습 기본값, 데이터와 모델 경로를 정의한다.
+# 사용처: 학습·추론·데이터 생성 명령이 공통 설정과 단계별 경로를 가져올 때 사용한다.
+
 # config.py — 모델 구조, 학습 설정, 데이터·모델 저장 경로
 # 표준 라이브러리만 쓴다 (torch 없이 도는 질문 생성 스크립트도 import 한다)
 
@@ -7,7 +10,7 @@ from pathlib import Path
 
 # 현재 학습 단계 — 단계를 바꿀 때는 이 값만 수정한다 (모델 구조와 아래 경로가 함께 바뀐다).
 # 다른 단계는 환경 변수로 명령 하나만 바꿔 실행한다: TEXT_TO_SQL_STAGE=1 python -m src.train (run.py 는 --stage)
-STAGE = int(os.environ.get("TEXT_TO_SQL_STAGE", 2))
+STAGE = int(os.environ.get("TEXT_TO_SQL_STAGE", 3))
 
 # 단계별 모델 구조 (계획서 3-2 단계별 자원 계획, 5 = 상한)
 STAGE_PRESETS = {
@@ -55,6 +58,12 @@ class StagePaths:
     @property
     def train_dir(self) -> Path: return self.data_dir / "train"                   # 학습 (질문, SQL) 쌍
     @property
+    def train_pairs_path(self) -> Path:
+        compressed = self.train_dir / "pairs.json.gz"
+        return compressed if compressed.is_file() else self.train_dir / "pairs.json"
+    @property
+    def validation_path(self) -> Path: return self.data_dir / "validation" / "pairs.json"  # 고정 검증 쌍
+    @property
     def eval_dir(self) -> Path: return self.data_dir / "eval"                     # 평가셋: <이름>/pairs.json + sql.json
     @property
     def seed_tokens_path(self) -> Path: return self.data_dir / "tokenizer" / "seed_tokens.json"  # BPE seed 토큰 (입력, 사람이 편집)
@@ -99,4 +108,5 @@ RUNS_DIR = _paths.runs_dir
 RELEASE_EVAL_DIR = _paths.release_eval_dir
 PREDICTIONS_DIR = _paths.predictions_dir
 
-WORDLIST_PATH = Path("data") / "wordnet" / "english_words.txt"  # 이름 교체용 영단어 (WordNet 3.0 표제어, 단계 공통)
+COMMON_DATA_DIR = Path("data") / "common"
+WORDLIST_PATH = COMMON_DATA_DIR / "wordnet" / "english_words.txt"  # 이름 교체용 영단어 (WordNet 3.0 표제어, 단계 공통)
