@@ -2,7 +2,7 @@ import random
 
 import pytest
 
-from src.data.stage2.synonym_swap import SynonymSwapper
+from src.data.stage2.compose import SynonymSwapper
 
 pytestmark = pytest.mark.unit
 
@@ -30,3 +30,14 @@ def test_keeps_original_when_swap_breaks_value_or_label():
         out, stats = SynonymSwapper().swap(pairs, 1.0, random.Random(seed))
         assert [p["question"] for p in out] == [p["question"] for p in pairs]
         assert stats["rejected"] == 2
+
+
+def test_composer_prob_swaps_composer_pairs_only():
+    """composer_prob 를 주면 조합기 쌍도 바꾼다. 1단계 쌍은 계속 그대로이고, LLM 쌍은 prob 만 따른다"""
+    sql = "SELECT * FROM items WHERE price < 20.00"
+    pairs = [pair("pull up all items under $20", sql, source=s) for s in ("composer", "stage1", "llm:gpt:q1")]
+    out, stats = SynonymSwapper().swap(pairs, 0.0, random.Random(0), composer_prob=1.0)
+    assert out[0]["synonym_swapped"] and out[0]["sql"] == sql
+    assert out[0]["question"] in ("bring up all items under $20", "dig up all items under $20")
+    assert [p["question"] for p in out[1:]] == [p["question"] for p in pairs[1:]]
+    assert stats == {"composer_pairs": 1, "composer_swapped": 1, "llm_pairs": 1}

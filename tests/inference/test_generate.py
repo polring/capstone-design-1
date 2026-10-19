@@ -72,4 +72,5 @@ def test_generate_batch_matches_single_generate():
     model = tiny_model().eval()
     batch = generate.generate_batch(model, examples, torch.device("cpu"), None, max_new_tokens=8)
     for ex, got in zip(examples, batch):
-        assert got == model.generate(ex["ids"][:ex["sql_start"]], eos_id=EOS_ID, max_new_tokens=8)
+        assert got == model.generate(ex["ids"][:ex["sql_start"]], eos_id=EOS_ID, max_new_tokens=8,
+                                     banned_ids=generate.BANNED_IDS)

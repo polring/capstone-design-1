@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-# 테스트는 1단계 배포 모델·데이터 기준이다 (config.STAGE 기본값은 2). src 를 import 하기 전에 정해야 한다.
+# 테스트는 1단계 배포 모델·데이터 기준이다 (config.STAGE 기본값은 3). src 를 import 하기 전에 정해야 한다.
 # 2단계 테스트는 stage_paths(2) 를 직접 쓴다
 os.environ.setdefault("TEXT_TO_SQL_STAGE", "1")
 

@@ -126,3 +126,24 @@ def test_load_train_pairs_reads_json_files_in_train_dir(tmp_path):
 def test_load_pairs_no_match_returns_empty_list(tmp_path):
     pairs = ds.load_pairs(tmp_path, "nonexistent*/pairs.json")
     assert pairs == []
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("explicit", [False, True])
+def test_gzip_training_and_bpe_keep_order_labels_and_metadata(tmp_path, explicit):
+    import gzip
+
+    pairs = [
+        {"question": "show café items", "sql": "SELECT * FROM items", "round": "r1", "contrast_group": "g1"},
+        {"question": "orders over 15?", "sql": "SELECT * FROM orders WHERE quantity > 15", "source": "llm:gpt"},
+    ]
+    for compressed in (False, True):
+        folder = tmp_path / ("gzip" if compressed else "plain")
+        folder.mkdir()
+        path = folder / ("pairs.json.gz" if compressed else "pairs.json")
+        opener = gzip.open if compressed else open
+        with opener(path, "wt", encoding="utf-8") as stream:
+            json.dump(pairs, stream, ensure_ascii=False)
+        files = [path] if explicit else None
+        assert ds.load_train_pairs(files, train_dir=folder) == pairs
+        assert bpe.load_corpus(files, train_dir=folder) == [s for pair in pairs for s in (pair["question"], pair["sql"])]
