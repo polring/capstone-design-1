@@ -1,3 +1,6 @@
+# 역할: 작은 GGUF 모델의 토큰·계산·생성 기대값을 계약 검증 파일로 만든다.
+# 사용처: Python과 C 추론기의 계산 결과가 같은지 확인하는 계약 테스트 자료를 생성할 때 사용한다.
+
 """GGUF 계약 fixture 생성 — C 엔진이 Python 없이 같은 계산을 하는지 확인하는 기대값
 
     python -m src.export_fixtures            # tests/fixtures/contract/v<CONTRACT_VERSION>/<세트>/cases.txt, manifest.json 갱신

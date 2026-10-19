@@ -1,3 +1,6 @@
+# 역할: 명령행 인자와 DB 사전을 읽어 SQL 후처리기를 실행한다.
+# 사용처: python -m src.postprocessor.python.main으로 SQL 교정을 직접 실행할 때 사용한다.
+
 import argparse
 import os
 from .core import process_sql

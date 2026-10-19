@@ -1,3 +1,6 @@
+# 역할: SQLite DB에서 테이블·컬럼 이름을 읽어 식별자 사전을 구성한다.
+# 사용처: 후처리 CLI가 실제 DB 스키마를 기준으로 SQL을 교정할 때 사용한다.
+
 import sqlite3
 import os
 

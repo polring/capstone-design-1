@@ -6,8 +6,70 @@
 `src/inference/gguf_model.py`는 팀의 `TokenEmbedding`, `TransformerDecoderBlock`,
 `RMSNorm`을 사용하여 전체 모델을 감싼 내보내기용 모델(`InferenceModel`)이다.
 학습 모델(`TextToSQLModel`)과 블록 구성이 같고 최상위 파라미터 이름만 다르므로,
-학습·배포 체크포인트는 이름만 바꿔 그대로 불러온다(아래 "학습·배포 체크포인트 내보내기").
+학습·배포 체크포인트는 이름을 바꾸고 사용하지 않는 어휘 행을 제외하여 불러온다(아래 "학습·배포 체크포인트 내보내기").
 파라미터 수만 같은 모델은 호환되지 않는다.
+
+## C 입력 전처리
+
+`src/inference/c/normalizer.c`·`normalizer.h`는 Python의
+`src/inference/wordnet_normalizer.py`에 대응하는 C 구현이다. 기존
+`models/stage3/normalizer.json`을 그대로 읽으며 Python·NLTK 없이 실행한다.
+GGUF 내보내기에 자동으로 들어가는 기능은 아니므로 C 구동기의 **BPE 호출 전**에 연결한다.
+현재 이 저장소에는 이식용 코드와 독립 CLI를 제공하며, 별도 `capstone-sql-cli` 저장소의 호출부는 아직 수정하지 않았다.
+
+C99 컴파일러와 **PCRE2 8-bit 개발 라이브러리**가 필요하다. Ubuntu에서는
+`libpcre2-dev`·`pkg-config`, Windows에서는 MinGW/MSVC용 PCRE2를 설치한다.
+PCRE2를 사용하는 이유는 사전에 들어 있는 lookbehind·이름 있는 캡처 등 정규식 규칙을 실행하기 위해서다.
+공유 라이브러리로 링크했다면 실행 환경에도 PCRE2 DLL/공유 라이브러리를 제공해야 한다.
+
+```sh
+cmake -S src/inference/c -B build/normalizer "-DNORMALIZER_MAP_PATH=models/stage3/normalizer.json"
+cmake --build build/normalizer --config Release
+# 실행 파일 위치는 CMake 생성기에 따라 build/normalizer/Release/일 수도 있다.
+build/normalizer/normalizer_cli "record count of transactions"
+# row count of orders
+```
+
+직접 컴파일하는 Linux 예시:
+
+```sh
+# 기본 사전 경로는 실행할 때의 작업 폴더에 있는 normalizer.json이다.
+cc -std=c99 -O2 src/inference/c/normalizer.c src/inference/c/normalizer_cli.c \
+  $(pkg-config --cflags --libs libpcre2-8) -o normalizer_cli
+```
+
+일반적인 순차 CLI에서는 `normalizer_process(question)` 한 번만 호출하면 된다.
+
+```c
+#include "normalizer.h"
+
+const char *input = normalizer_process(question);
+/* 기존 BPE에 input을 전달한다. 별도의 초기화·종료·free 호출은 없다. */
+```
+
+첫 호출에서 현재 작업 폴더의 `normalizer.json`을 읽어 재사용하며, 프로세스 종료 시 사전과 결과 메모리를
+자동 해제한다. 사전 경로는 빌드 시 `NORMALIZER_MAP_PATH`로 바꿀 수 있다. 실패 시 로그를 남기고
+원문을 사용한다. 첫 사전 로딩에 실패하면 해당 실행에서는 전처리 없이 계속 진행한다.
+반환 문자열은 수정하거나 해제하지 않고 **다음 호출 전에** 토크나이저에서 사용해야 한다.
+이 자동 관리 함수는 동시 호출을 지원하지 않는다. 입력은 NULL이 아닌 문자열이어야 한다.
+
+외부에는 `normalizer_process()`만 공개한다. 사전 로딩·치환·메모리 정리는
+`normalizer.c`의 내부 함수로 분리되어 있다. 입출력은 NUL로 끝나는 UTF-8 문자열이다.
+전처리는 단어·구문·비교 기호를 치환하고,
+숫자·날짜·따옴표·DB 값·명시적 LIKE 조각을 보호한다. 원문에서 같은 위치에 겹치는 치환은 긴 구문이 우선하며,
+치환된 결과를 재치환하지 않는다. 사전 형식은 버전 1이며, 구문 치환문은 현재 배포 사전에서 사용하는
+일반 문자열과 `\g<name>` 캡처 참조를 지원한다. 다른 Python 전용 정규식 문법이나 치환 이스케이프는 별도 대응이 필요하다.
+사전은 최대 16 MiB까지 읽는다. WordNet 라이선스 원본은 `licenses/WORDNET_LICENSE.txt`에서 관리하고,
+배포할 때는 `normalizer.json`과 `WORDNET_LICENSE.txt`를 함께 제공한다. `models/stage3/`에는 배포용 사본을 둔다.
+
+전처리 도중 오류가 나면 부분적으로 바뀐 결과를 버리고 **원문을 반환**한다.
+오류는 현재 작업 폴더의 `normalizer.log`에 추가 기록하며,
+빌드 시 `NORMALIZER_LOG_PATH`로 경로를 바꿀 수 있다. 로그 파일을 열 수 없으면 `stderr`에 기록한다.
+원문은 다른 작업 메모리보다 먼저 복사해 이후 메모리 부족에도 반환할 수 있게 했다.
+최초 원문 복사조차 불가능하면 호출자가 전달한 원문 포인터를 그대로 반환한다.
+
+C 코드의 빌드·테스트 의존성은 별도 C 구동기 저장소에서 관리한다.
+이 저장소의 Python 테스트와 CI에는 PCRE2 설치나 C 테스트를 추가하지 않는다.
 
 ## 실행 (저장소 루트, Windows PowerShell)
 
@@ -37,6 +99,7 @@ python -m src.exporter --checkpoint models/stage1/model.pt --output runs/stage1/
 | 학습·배포 체크포인트 (`TextToSQLModel`) | 내보내기 모델 (`InferenceModel`) |
 |---|---|
 | `model_cfg.num_layers`, `num_heads`, `max_seq_len` | `config.layers`, `heads`, `context` |
+| `model_cfg.valid_vocab_size` (없거나 `None`이면 `vocab_size`) | `config.vocab_size` |
 | `tok_emb.*` | `embedding.*` |
 | `norm.*` | `final_norm.*` |
 | 그 밖의 `blocks.*`, `lm_head.weight` | 같은 이름 |
@@ -44,6 +107,8 @@ python -m src.exporter --checkpoint models/stage1/model.pt --output runs/stage1/
 `eps`(1e-6)와 `theta`(10000)는 학습 모델의 기본값과 같아 체크포인트에 없어도 된다.
 `padding_idx`는 추론 결과에 영향이 없어 버린다.
 가중치가 공유된(weight tying) 임베딩·출력층은 독립 embedding/lm_head 텐서 두 개로 내보낸다.
+`valid_vocab_size`가 할당된 어휘 수보다 작으면 두 텐서에서 사용하지 않는 뒤쪽 행을 제외한다.
+따라서 GGUF에서도 학습 모델과 같은 토큰 ID만 출력하며, 기존 C 엔진의 파일 형식을 그대로 사용한다.
 
 ## 내보내기 전용 체크포인트 계약
 

@@ -34,11 +34,11 @@ project.
 
 ## Data layout and paths
 
-All paths live in `src/config.py` and follow `STAGE` (`config.stage_paths(N)` for another stage). `STAGE` defaults to 2;
+All paths live in `src/config.py` and follow `STAGE` (`config.stage_paths(N)` for another stage). `STAGE` defaults to 3;
 run stage-1 commands with `TEXT_TO_SQL_STAGE=1` (`run.py --stage 1`). Scripts under `src/data/stage<N>/` pin their own
 stage's paths (`stage_paths(N)`), never `config.STAGE` — otherwise a stage-1 script would write into stage-2 data. Tests run
 as stage 1 (`tests/conftest.py`).
-Stages 2–3 share the stage-1 DB (`config.DB_STAGE`). Every command
+Stage 2 shares the stage-1 DB (`config.DB_STAGE`); stage 3 uses its own expanded date DB. Every command
 takes its input files and output location as arguments and falls back to these defaults — don't hardcode paths.
 Roles come from **folder position**, not names:
 

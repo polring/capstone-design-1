@@ -1,3 +1,6 @@
+# 역할: 오타·문자 조각·임베딩 유사도로 식별자의 교정 후보를 찾고 적용한다.
+# 사용처: 후처리 core.py가 DB 사전과 선택한 전략으로 테이블·컬럼 이름을 교정할 때 사용한다.
+
 import difflib
 import os
 import pickle

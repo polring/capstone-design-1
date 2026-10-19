@@ -1,3 +1,6 @@
+# 역할: 모델 가중치와 토크나이저를 C 추론기가 읽을 GGUF 파일로 변환한다.
+# 사용처: python -m src.exporter로 별도 C 구동기에 전달할 모델 파일을 만들 때 사용한다.
+
 """GGUF v3 writer, little endian F32 with 32-byte alignment.
 
 capstone_sql is our custom architecture, not an automatically llama.cpp-supported
