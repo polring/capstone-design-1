@@ -55,6 +55,9 @@ jobs:
             cp "models/stage$STAGE/normalizer.json" dist/
             cp licenses/WORDNET_LICENSE.txt dist/
           fi
+          python src/postprocessor/python/build_semantic_dict.py --dim 300 --threshold 0.5 --db "data/stage$STAGE/db/shop.db"
+          python src/postprocessor/python/export_embeddings.py --dim 300
+          cp "data/semantic_dict_300d.bin" dist/
           (cd dist && sha256sum * > SHA256SUMS)
 
       # The engine must already support this contract version (its main branch).
@@ -66,7 +69,7 @@ jobs:
       - name: Smoke test with the C engine
         run: |
           make -C engine engine
-          ./engine/build/loader dist/model.gguf --generate "what city does ashley live in?" 64 | tee /tmp/sql.txt
+          ./engine/build/sql-cli dist/model.gguf --generate "what city does ashley live in?" 64 | tee /tmp/sql.txt
           grep -q '^SELECT ' /tmp/sql.txt
 
       - name: Publish GitHub release
