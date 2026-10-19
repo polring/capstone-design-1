@@ -51,6 +51,10 @@ jobs:
           python -m src.exporter --checkpoint "models/stage$STAGE/model.pt" --output dist/model.gguf
           cp "models/stage$STAGE/model_info.json" dist/
           cp "data/stage$STAGE/db/shop.db" dist/
+          if [[ -f "models/stage$STAGE/normalizer.json" ]]; then
+            cp "models/stage$STAGE/normalizer.json" dist/
+            cp licenses/WORDNET_LICENSE.txt dist/
+          fi
           (cd dist && sha256sum * > SHA256SUMS)
 
       # The engine must already support this contract version (its main branch).
