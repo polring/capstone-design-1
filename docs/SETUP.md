@@ -1,7 +1,7 @@
 # 환경 설정 가이드
 
 저장소를 클론한 뒤 실행 환경을 만들고 각 단계를 재현하는 방법이다. 설계 이유는
-[계획서](text-to-sql-llm-project-plan.md), 진행 상황과 수치는 [진행 보고서](text-to-sql-stage1-report.md)에
+[계획서](text-to-sql-llm-project-plan.md), 현재 진행 상황과 수치는 [3단계 보고서](text-to-sql-stage3-report.md)에
 있고, 함수 단위 입출력은 각 소스 파일의 docstring에 있다.
 
 **모든 명령은 저장소 루트에서 실행한다.** 경로가 현재 디렉터리 기준 상대 경로(`data/...`, `models/...`)라서
@@ -9,7 +9,7 @@
 
 ## 1. 요구 사항
 
-- Python 3.10 이상 (개발 환경 3.13)
+- Python 3.12 또는 3.13 (CI 3.12, 개발 환경 3.13)
 - NVIDIA GPU (학습용, 개발 환경 RTX 4070 Super). 추론·평가는 CPU로도 된다(`--cpu`).
 - DB·SQL·질문 생성(`src/data/db_gen.py`, `src/data/stage1/` 중 `sql_gen`·`question_gen`·`question_gen_auto`)과
   `src/tokenizer/bpe.py`는 표준 라이브러리만 쓴다. Dataset·모델·학습·추론·테스트에는 아래 가상환경이 필요하다.
@@ -23,7 +23,8 @@ python -m venv .venv
 .venv\Scripts\python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0))"
 ```
 
-마지막 줄이 `2.14.0+cu130 True NVIDIA GeForce ...`처럼 `True`를 출력해야 한다.
+GPU 학습 환경에서는 마지막 줄이 `2.14.0+cu130 True NVIDIA GeForce ...`처럼 출력되어야 한다.
+CPU 추론 환경에서는 GPU 확인 명령 대신 `python -c "import torch; print(torch.__version__)"`로 설치를 확인한다.
 
 - `requirements.txt`가 PyTorch CUDA 빌드 인덱스(`--extra-index-url`)를 가리킨다. Windows용 CUDA 빌드는 일반
   PyPI에 없으므로 `pip install torch`를 따로 하지 말고 반드시 `requirements.txt`로 설치한다.
@@ -58,6 +59,7 @@ src/
 ├── inference/
 │   ├── loading.py            체크포인트·배포 모델 불러오기, 짝이 맞는 토크나이저 찾기
 │   ├── generate.py           질문 → SQL greedy 생성 (배치), 디코딩
+│   ├── wordnet_normalizer.py 사전 기반 선택형 질문 전처리
 │   └── gguf_model.py         GGUF 내보내기용 체크포인트 계약 모델 (exporter.py 가 사용)
 ├── evaluation/
 │   ├── scoring.py            채점·집계: EM, 다중 정답 EM, 규칙 일치 EM, 실행 정확도, 신뢰구간
@@ -65,6 +67,10 @@ src/
 ├── data/
 │   ├── dataset.py            <bos> 질문 <sep> SQL <eos> 토큰화, loss_mask, collate_fn
 │   ├── db_gen.py             SQLite DB·미등장 값 생성 (스키마가 같은 단계 공통)
+│   ├── json_io.py            JSON·gzip JSON 공통 입출력
+│   ├── splitting.py          SQL·대비 묶음 단위 학습/검증 분할과 누수 검사
+│   ├── integrity.py          데이터·배포 파일의 해시 기록
+│   ├── preprocessing/        WordNet·도메인 전처리 사전 생성
 │   ├── stage1/
 │   │   ├── sql_gen.py            SQL 생성 (학습 / 분포 내 / 미등장 값)
 │   │   ├── question_gen.py       LLM 질문 생성 (사람이 세션에 전달) · 검증
@@ -72,39 +78,57 @@ src/
 │   │   ├── clean_ambiguous.py    라벨 규칙(L2~L4) 위반 학습 쌍 제거
 │   │   ├── name_swap.py          이름 교체 (가짜 이름 생성)
 │   │   └── sql_rules.py          1단계 채점 규칙 (SQL 분해, 오답 분류, 다중 정답, 규칙 일치)
-│   └── stage2/
-│       ├── schema.py             컬럼 종류별 허용 연산자·정렬 가능 여부·리터럴 표기
-│       ├── sql_ast.py            SQL 구조(Query / Cond), 정규형 렌더링, 역파싱, 문법 규칙 검사
-│       ├── sql_gen.py            SQL 생성 (학습 / 분포 내 / 구조 홀드아웃 / 미등장 값)
-│       ├── compose.py            질문 조합기: SQL 구조 → 질문 (문장 틀 × 표현 사전 × 유사어), 학습 쌍 생성
-│       ├── clean_ambiguous.py    2단계 라벨 규칙 판정 (L1·L2·L3·L4·L14)
-│       ├── question_gen.py       LLM 질문: 외부 말투 평가 / 학습 질문, 배포 묶음, 응답 검증, 학습 폴더로 옮기기
-│       ├── synonym_swap.py       LLM 학습 질문의 epoch 마다 유사어 교체
-│       ├── name_swap.py          2단계 이름 교체 (IN 의 모든 이름, LIKE 조각)
-│       ├── sql_rules.py          2단계 채점 규칙 (IN 값·조건 순서 무시 EM, 오답 분류, 다중 정답, 규칙 일치)
-│       └── eval_build.py         2단계 평가셋 만들기 (→ data/stage2/eval/pairs.json 하나)
+│   ├── stage2/
+│   │   ├── schema.py             컬럼 종류별 허용 연산자·정렬 가능 여부·리터럴 표기
+│   │   ├── sql_ast.py            SQL 구조(Query / Cond), 정규형 렌더링, 역파싱, 문법 규칙 검사
+│   │   ├── sql_gen.py            SQL 생성 (학습 / 분포 내 / 구조 홀드아웃 / 미등장 값)
+│   │   ├── compose.py            질문 조합기: SQL 구조 → 질문 (문장 틀 × 표현 사전 × 유사어), 학습 쌍 생성
+│   │   ├── clean_ambiguous.py    2단계 라벨 규칙 판정 (L1·L2·L3·L4·L14)
+│   │   ├── question_gen.py       LLM 질문: 외부 말투 평가 / 학습 질문, 응답 검증, 학습 폴더로 옮기기
+│   │   ├── name_swap.py          2단계 이름 교체 (IN 의 모든 이름, LIKE 조각)
+│   │   ├── sql_rules.py          2단계 채점 규칙 (IN 값·조건 순서 무시 EM, 오답 분류, 다중 정답, 규칙 일치)
+│   │   └── eval_build.py         2단계 평가셋 만들기 (→ data/stage2/eval/pairs.json 하나)
+│   └── stage3/                날짜·집계·그룹·서브쿼리용 SQL/질문 생성·검사·증강
+│       ├── schema.py / sql_ast.py   단계별 스키마와 SQL 구조, LIKE 해석
+│       ├── sql_gen.py / compose.py SQL 생성과 질문 조합·유의어 증강
+│       ├── clean_ambiguous.py / sql_rules.py  라벨 검사와 채점 규칙
+│       ├── name_swap.py / name_pools.py / like_sampling.py  이름·검색 조각 증강
+│       └── eval_build.py / llm_batches.py / contrast.py     평가·LLM·대비 데이터 생성
 └── postprocessor/            생성된 SQL 의 테이블·컬럼 이름을 DB 스키마로 교정
-    └── python/               Python 구현 (docs/postprocessor_guide.md, sqlglot 필요)
+    └── python/               Python 후처리 참고 구현 (sqlglot 필요, C 구현은 별도 CLI 저장소)
 ```
 
 ### 데이터와 결과
 
 ```
 data/stage1/
-├── db/          shop.db, holdout.json (미등장 값) — 2·3단계도 이 DB 를 쓴다
+├── db/          shop.db, holdout.json (미등장 값)
 ├── sql/         train.json, eval_indist.json, eval_holdout.json, gen_report.json
 ├── train/       pairs.json (학습 쌍. 이 폴더의 *.json 전부가 학습 데이터·BPE 코퍼스)
 ├── eval/        평가셋마다 폴더 하나: indist/, holdout/, holdout_qwen/ (pairs.json + sql.json)
 └── tokenizer/   seed_tokens.json (seed 토큰, 사람이 편집), tokenizer.json (BPE 학습 결과)
 data/stage2/
+├── db/          1단계와 내용이 같은 DB·holdout 사본 (2단계 실행 기본 경로)
 ├── sql/         train.json, eval_indist.json, eval_struct.json, eval_holdout.json, gen_report.json
 ├── composer/    frames.json (문장 틀), lexicon.json (표현 사전), synonyms.json (틀 유사어)
-├── handout/     다른 플랫폼 배포 묶음 안내문 틀 (handout_template.md, handout_fixed_template.md)
 ├── train/       composed.json (조합기 쌍), stage1_pairs.json (1단계 학습 쌍 사본), llm.json (LLM 학습 질문)
 ├── eval/        pairs.json + sql.json 하나에 평가셋 전부, 쌍마다 set (eval_build 가 만든다, 6절 "2단계 평가셋")
 └── tokenizer/   seed_tokens.json, tokenizer.json
-data/wordnet/    이름 교체용 영단어 목록 (단계 공통, 라이선스 포함)
-models/stage1/, models/stage2/   단계별 배포 모델: model.pt, tokenizer.json, model_info.json
+data/stage3/
+├── db/          날짜·두 단어 이름을 포함한 shop.db와 holdout.json
+├── sql/         일반·집계 계열을 통합한 SQL 원본과 생성 보고서
+├── composer/    일반·고급 질문 틀과 표현·유의어 사전
+├── train/       pairs.json.gz (통합 학습 쌍)
+├── validation/  pairs.json (고정 검증 쌍)
+├── eval/        14개 평가셋 통합 pairs.json, sql.json, external_sources.json
+├── tokenizer/   seed_tokens.json, tokenizer.json
+├── preprocessing/normalizer.json  입력 전처리 사전
+└── dataset_info.json, name_pools.json  데이터 명세와 이름 풀
+
+data/common/wordnet/    이름 교체용 영단어 목록 77,503개 (단계 공통, 라이선스는 licenses/WORDNET_LICENSE.txt)
+models/stage1/, models/stage2/, models/stage3/   단계별 배포 모델: model.pt, tokenizer.json, model_info.json
+models/stage3/                 normalizer.json과 배포용 WORDNET_LICENSE.txt도 포함
+licenses/                      외부 데이터 라이선스 원본
 data_raw/stage<N>/  질문 생성 라운드·중간 산출물 (커밋 안 함). 2단계: 외부 말투 평가(ext_*), LLM 학습 질문(llm_*), 배포 묶음, 사람 작성 세트(human/)
 runs/stage<N>/   학습 실행·평가·추론 결과 (커밋 안 함)
 experiments/     단계 전환 전 실험 코드·데이터·체크포인트 (커밋 안 함, 결과는 보고서에만 기록)
@@ -118,11 +142,11 @@ docs/
 ├── text-to-sql-llm-project-plan.md   전체 설계서 (단계 계획, 평가 지표, 전환 기준)
 ├── text-to-sql-stage1-report.md      1단계 진행 보고서
 ├── text-to-sql-stage2-report.md      2단계 진행 보고서
-├── text-to-sql-label-rules.md        라벨 규칙 L1~L17
+├── text-to-sql-stage3-report.md      현재 3단계 결과와 코드 구성
+├── text-to-sql-label-rules.md        라벨 규칙 L1~L29와 정책 반영 기록
 ├── SETUP.md                          이 문서
 ├── CONVENTION.md                     협업·커밋 규칙
-├── exporter-loader.md                GGUF 내보내기와 C 추론 엔진
-└── postprocessor_guide.md            Python SQL 후처리
+└── exporter-loader.md                GGUF 내보내기와 C 입력 전처리 연결
 ```
 
 ## 4. 클론 직후 할 일
@@ -131,14 +155,15 @@ DB, SQL, 질문 쌍, 토크나이저, 배포 모델이 모두 커밋되어 있�
 
 ```
 python -m pytest tests/ -v                                   # 전체 테스트 (unit + integration)
-python -m src.run --input "what city does ashley live in?"   # 배포 모델로 질문 → SQL → DB 실행 결과
+python -m src.run --input "how many orders are there?"       # 기본 3단계 모델로 질문 → SQL → DB 실행 결과
 python -m src.run --evaluation                               # 배포 모델로 평가셋 전부 채점
-python -m src.demo all                                       # 예시 하나로 파이프라인 각 단계의 입력 → 출력 보기 (9절)
-python -m src.train --overfit 100                            # 과적합 테스트 (GPU, 약 40초)
-python -m src.train                                          # 본 학습 + 평가 (GPU, 약 10분)
+python -m src.demo generate                                  # 기본 3단계 SQL 생성 과정 보기 (전체 시연은 9절)
+python -m src.train --overfit 100                            # 기본 3단계 과적합 테스트 (GPU)
+python -m src.train                                          # 기본 3단계 27.4M 프리셋 본 학습 + 평가 (GPU)
 ```
 
 데이터를 처음부터 다시 만들거나 새로 추가할 때만 5~7절을 따른다.
+배포 모델과 같은 15.7M 구조·고정 데이터로 학습하려면 아래의 "3단계 실행" 예시를 따른다.
 
 ### 테스트 분류와 선택 실행
 
@@ -178,16 +203,17 @@ python -m pytest tests/ --collect-only -m "not unit and not integration"
 코드와 시드로 바이트 단위까지 같은 결과가 나온다.
 
 ```
-python -m src.data.db_gen build              # data/stage1/db/shop.db, holdout.json
-python -m src.data.db_gen test               # 분포·결정성·price 등호·홀드아웃 분리 검사
+python -m src.data.db_gen build --stage 1    # data/stage1/db/shop.db, holdout.json
+python -m src.data.db_gen test --stage 1     # 분포·결정성·price 등호·홀드아웃 분리 검사
 python -m src.data.stage1.sql_gen build --cap-nonid 9999 --cap-id 9999   # data/stage1/sql/train.json, eval_indist.json
 python -m src.data.stage1.sql_gen verify     # 완료 조건 검사
 python -m src.data.stage1.sql_gen test       # 결정성·홀드아웃 리터럴 미포함·학습/평가 분리 검사
 python -m src.data.stage1.sql_gen holdout    # data/stage1/sql/eval_holdout.json (미등장 값 평가 SQL)
 ```
 
-주요 옵션: `--seed`(기본 0), `--out`(출력 폴더, 기본 `data/stage1/db` / `data/stage1/sql`), `sql_gen`의
-`--db-dir`(읽을 DB 폴더), `db_gen`의 `--preset small|large`(기본 `large`)와 `--name-style single|two_word`
+위 명령은 1단계 재생성 예시다. `db_gen`은 `--stage` 생략 시 현재 기본인 3단계 경로·설정을 사용한다.
+주요 옵션: `--seed`(기본 0), `--out`(출력 폴더, 위 예시에서는 `data/stage1/db` / `data/stage1/sql`), `sql_gen`의
+`--db-dir`(읽을 DB 폴더), `db_gen`의 `--preset small|large|aggregate`(1·2단계 기본 `large`, 3단계 기본 `aggregate`)와 `--name-style single|two_word`
 (`--preset small`은 80 / 40 / 150행 원안 스키마, `two_word`는 두 단어 이름). `db_gen space`는 SQL 공간과 ID 조건
 비중을, `summary`는 분포·할당량 표를 출력한다. 결정성 판정은 SQLite 파일 바이트가 아니라 행 내용 기준 해시로 한다.
 
@@ -263,7 +289,7 @@ python -m src.data.stage1.question_gen_auto --model qwen3:14b --n 128 --batch-si
    - 평가용: `data/stage1/eval/<이름>/pairs.json`으로 옮기고 메타데이터를 만든다. 평가셋은 이 폴더만 있으면
      `run`·`train`·`release`가 자동으로 찾는다.
      ```
-     python -m src.run --build-sql <이름> --sql data/stage1/sql/eval_indist.json   # 그 평가셋의 SQL 파일
+     python -m src.run --stage 1 --build-sql <이름> --sql data/stage1/sql/eval_indist.json   # 그 평가셋의 SQL 파일
      ```
 2. 라벨 충돌 검사 후, 충돌이 있으면 양쪽 쌍을 모두 제거한다(기본: 학습 쌍 전부 + 분포 내 평가셋).
    ```
@@ -305,32 +331,6 @@ python -m src.data.stage2.question_gen to-train --out data_raw/stage2/llm_r1 --p
 #     이미 있으면 바꾼다(질문은 소문자로, 기존 학습 쌍과 질문이 같고 SQL이 다른 쌍은 뺀다). 옮긴 뒤 BPE를 다시 만든다
 ```
 
-다른 플랫폼(GPT, Gemini 등)을 쓰는 팀원에게는 프롬프트 대신 배포 묶음을 준다. 그 LLM이 안내문의 BRIEF(스키마·SQL 범위·라벨 규칙)를 읽고
-프롬프트를 직접 쓰고, 파일럿으로 고친 뒤 배치마다 새 채팅에서 SQL당 질문 5개를 만든다(안내문 틀 `data/stage2/handout/handout_template.md`).
-학습 SQL과 평가 SQL을 섞어 한 묶음으로 준다. 배포 파일의 id는 묶음 안 번호라 받는 쪽은 어느 것이 평가용인지 모른다.
-배치를 플랫폼별로 나눠 맡겨도 된다(`handout/`을 플랫폼 폴더로 나누고 README의 배치 범위를 고친다). `validate`는 플랫폼마다 응답한 배치만 본다.
-
-```
-python -m src.data.stage2.question_gen make-handout --out data_raw/stage2/llm_r3 --n 800 --batch-size 25 --seed 2     --exclude-dir data_raw/stage2/llm_r1,data_raw/stage2/llm_r2     --eval indist:80,struct:80,holdout:40 --eval-from data_raw/stage2/ext_r1 --eval-prefix data_raw/stage2/ext_r2
-#   → <out>/handout/ (보낼 폴더: README.md, sql/pilot.txt, sql/batch_XX.txt), <out>/handout_map.json (묶음 id → 라운드·원래 id)
-#     라운드 폴더: <out>/ (학습), <out>/pilot/, data_raw/stage2/ext_r2_<분할>/ (평가, --eval-from 라운드와 같은 SQL에서 뽑음)
-python -m src.data.stage2.question_gen collect-handout --out data_raw/stage2/llm_r3 --platform gpt --responses <돌려받은 폴더>   # 플랫폼마다 한 번씩
-#   → 응답을 라운드별 responses/<플랫폼>/ 으로 나누고(```json 코드 블록은 벗긴다) 라운드마다 validate (파일럿은 프롬프트 버전별 <out>/pilot/responses/gpt_vN/)
-#   그 뒤 학습분은 플랫폼마다 to-train --out data_raw/stage2/llm_r3 --platform <플랫폼>, 평가분은 eval_build ext (→ ext_r2_<분할>_<플랫폼>)
-```
-
-프롬프트를 정해 주는 묶음: `--prompt`로 이전 배포에서 받은 최종 프롬프트를 배치 파일마다 넣는다. 받는 쪽은 프롬프트를 쓰지 않고 배치 파일 하나를
-새 세션에 통째로 넣기만 한다(파일럿 없음, 안내문 틀 `data/stage2/handout/handout_fixed_template.md`). `--n 0`이면 평가 SQL만 담는다.
-
-```
-python -m src.data.stage2.question_gen make-handout --out data_raw/stage2/gpt_r3 --n 0 --batch-size 25 --seed 3 \
-    --prompt "data_raw/stage2/gpt result/prompt_final.txt" \
-    --eval indist:80,struct:80,holdout:40 --eval-from data_raw/stage2/ext_r2 --eval-prefix data_raw/stage2/ext_r3
-#   → <out>/handout/ (README.md, sql/batch_01~08.txt), <out>/handout_map.json, data_raw/stage2/ext_r3_<분할>/
-python -m src.data.stage2.question_gen collect-handout --out data_raw/stage2/gpt_r3 --platform gpt --responses <돌려받은 폴더>
-#   → eval_build ext (→ ext_r3_<분할>_gpt)
-```
-
 ### 2단계 평가셋 (`stage2.eval_build`)
 
 `data/stage2/eval/pairs.json` + `sql.json` 하나에 평가셋을 모두 담고 쌍마다 `set`(평가셋 이름)을 적는다. 불러올 때는 `set`으로 나뉘어
@@ -354,12 +354,117 @@ python -m src.data.stage2.eval_build human        # human: data_raw/stage2/human
 
 `ext`와 `human`은 커밋하지 않는 `data_raw/`를 읽으므로, 원본 라운드가 있는 곳에서만 다시 만들 수 있다.
 
+### 3단계 실행
+
+학습·추론·BPE·DB 생성·배포는 공통 실행 코드에서 `--stage 3`을 받는다.
+단계별 파일을 복사해 실행하지 않는다. `--stage 1`, `--stage 2`도 같은 인자 형식이다.
+공유된 DB·토크나이저·고정 분할을 그대로 사용하려면 아래 학습 명령부터 실행한다.
+
+기존 모델을 바로 사용하려면 `models/stage3/`의 15.7M 모델을 불러온다.
+같은 폴더에 토크나이저와 최종 전처리 사전·WordNet 라이선스를 포함했다.
+전처리는 `--wordnet-map`을 지정할 때 적용하며, 모델 정보에 원문·전처리 평가를 구분해 기록한다.
+
+```sh
+python -m src.run --stage 3 --wordnet-map models/stage3/normalizer.json --input "record count of transactions"
+```
+
+```sh
+python -m src.train --stage 3 --layers 8 --dim 384 --heads 6 --ffn-dim 1024 --epochs 15 --steps-per-epoch 10845 --run-name example
+python -m src.run --stage 3 --model runs/stage3/example/best.pt --evaluation
+```
+
+위 학습 명령은 배포 모델과 같은 15.7M 구조다. 크기 인자를 생략한 `--stage 3` 학습 기본값은 계획서의 27M 구조다.
+
+DB·SQL·질문·평가·BPE 생성 도구는 입력을 새로 만들 때 사용한다.
+생성 결과를 비교하려면 `--out` 또는 `--eval-dir`를 `data_raw/stage3/` 아래로 지정해 공유본과 별도로 저장한다.
+
+BPE의 기본 입력은 `data/stage3/train/pairs.json.gz` 하나다.
+GitHub 파일 크기 제한에 맞춰 압축했으며 학습기·BPE·전처리 사전 생성기가 직접 읽는다. 별도 압축 해제는 필요 없다.
+학습은 이 파일의 321,041쌍과 `data/stage3/validation/pairs.json`의 고정 검증 16,216쌍을 자동으로 사용한다.
+`--val-ratio`로 다시 나누지 않으며, SQL·대비 묶음이 양쪽에 걸치면 실행을 거부한다.
+다른 입력은 `--train-files <학습.json> --val-files <검증.json>`으로 지정한다.
+명시하는 학습 입력도 `.json`과 `.json.gz`를 모두 지원한다.
+고정 검증을 지정하지 않은 별도 학습 입력은 기존처럼 SQL·대비 묶음 단위로 분리한다.
+파일별 개수·해시·출처는 `data/stage3/dataset_info.json`에 기록한다.
+
+전체 단계의 데이터·배포 모델과 공용 데이터의 무결성 기준은 `data/integrity.json`에서 관리한다.
+공통 테스트 `python -m pytest tests/data/test_dataset_bundle.py -q`는 파일 추가·삭제·내용 변경과
+gzip 압축 해제 후의 해시를 검사한다. 정당한 데이터·모델 변경을 검토한 뒤
+`python -m src.data.integrity`로 기준을 갱신하고 변경 파일과 함께 커밋한다.
+테스트 실패를 없애기 위한 기준 갱신은 하지 않는다.
+줄바꿈도 해시 대상이다. `.gitattributes`의 `-text`는 기존 작업 파일의 줄바꿈을 소급 변경하지
+않으므로, 기준 생성 전 작업 파일과 Git 저장 바이트가 같은지 `git ls-files --eol data models`로
+확인한다. 1·2단계의 기존 JSON은 Git에 저장된 LF 바이트를 기준으로 유지한다.
+평가는 `data/stage3/eval/pairs.json` 하나에 조합기 17,676쌍과 외부 LLM 2,000쌍을 합친 총 19,676쌍이다.
+`set` 필드로 14개 평가셋을 구분해 각각 채점한다. 외부 평가는 기존 GPT 표현 1,000쌍과 사람 말투를 참고한 LLM 표현 1,000쌍이다.
+SQL 메타데이터는 `eval/sql.json`, 외부 질문 생성 기록은 `eval/external_sources.json`에 둔다.
+SQL 원본도 일반 조회·집계 계열을 합쳐 `sql/train.json` 100,000개, `eval_indist.json` 3,000개,
+`eval_struct.json` 2,978개, `eval_holdout.json` 8,707개로 둔다. `query_kind`가 있으면 집계 계열이다.
+문항 틀·표현은 `composer/`, DB와 미등장 값은 `db/`, 현재 BPE는 `tokenizer/`,
+최종 전처리 사전은 `preprocessing/normalizer.json`이다.
+생성 프롬프트와 문형 출처 기록은 커밋하지 않는 `data_raw/stage3/composer/`의
+`llm_brief.txt`·`template_provenance.json`에 둔다. 새 환경에서 LLM 질문을 생성하려면
+안내문을 준비하고 `--brief`로 지정한다. 출처 기록 검사는 로컬 파일이 있을 때만 실행한다.
+이름 교체 원본은 `name_pools.json`이며, DB에 없는 교체 후보는 학습 시 계산한다.
+후보 목록 내보내기(`python -m src.data.stage3.name_pools`)는 `data_raw/stage3/name_pools/replacement_pools.json`에 저장한다.
+과거 버전은 로컬 `data_raw/stage3/layout_backup_20261018/original_stage3.zip`에 보관하며 GitHub 공유 대상에서 제외한다.
+현재 공유본의 학습·평가에는 이 백업과 원본 LLM 응답, 로컬 실험 스크립트가 필요하지 않다.
+3단계 학습 기본값은 이름 교체 40%, LLM 쌍(source `llm:*`) 3번(`--llm-repeat 3`),
+LLM 질문의 epoch별 유의어 교체(확률 = `data/stage3/composer/synonyms.json`의 `prob` 0.5, `--llm-synonym-prob 0`이면 끔).
+특정 라운드의 반복 비중은 `--llm-round-repeat ROUND=N`으로 따로 지정한다.
+통합본의 기본 반복 비중은 `dataset_info.json`에서 읽으며, numbers 수정본(`llm_numbers_r10_600`)은 1회다.
+`--llm-round-repeat llm_numbers_r10_600=2`처럼 명시하면 그 설정이 우선한다.
+반복은 검증 분리 뒤에 적용하므로 고유 문항과 검증셋은 유지된다.
+지정한 라운드가 학습에 없으면 오타·설정 누락으로 보고 실행을 거부한다.
+반복 설정을 바꾼 체크포인트 이어 받기는 허용하지 않으며 새 학습으로 비교한다.
+데이터량이 다른 실행의 학습량을 맞추려면 `--steps-per-epoch N`으로 epoch당 학습 배치 수를
+제한한다. 예: `--epochs 15 --steps-per-epoch 10845`는 총 162,675 step이며 lr 스케줄도 이 길이를 쓴다.
+각 epoch는 섞인 학습 배치 중 앞 N개를 사용한다. 사용할 수 있는 배치 수보다 큰 값은 거부한다.
+조합기 문장의 epoch별 유의어 교체는 기본으로 끄고 `--composer-synonym-prob 0.5`로 켠다(조합기 30만 쌍 기준 epoch당 약 90초 추가).
+LIKE 값 교체는 `--like-sampling balanced`로 토큰 빈도를 고려한 후보 선택을 켤 수 있다(기본은 기존 `markov`).
+검증 분리·LLM 반복·길이 필터 후의 학습 SQL만으로 토큰 빈도를 계산하고, 같은 글자 수의 흔한 단일 토큰 /
+희귀 단일 토큰(학습 SQL 출현 100회 이하) / 여러 토큰 조각 중 사용 가능한 후보군을 같은 확률로 선택한다.
+후보는 평가 문장과 무관한 소문자 ASCII 조합이며 현재 데이터의 1~3글자를 지원한다. 더 긴 조각은 교체를 건너뛴다.
+질문·SQL 값은 함께 바뀌고 LIKE 방향·글자 수·범위·분할 메타데이터를 유지한다. 교체 확률은 기존 `--name-swap-ratio`를 쓴다.
+설정·후보군 크기는 실행 폴더의 `like_sampling.json`, 교체 통계는 학습 로그의 `like_bucket_*`에 기록한다.
+이 옵션은 3단계 본 학습에서만 지원한다. 방식이 다른 체크포인트의 `--resume`은 거부하며 방식 비교는 `--init`으로 시작한다.
+
+추가 의미 대비 보강은 기존 학습용 조합기로 생성한다. 평가 표현·라벨 규칙·토크나이저를 바꾸지 않는다.
+기본 생성량은 출력 컬럼 2,000·비교 연산자 2,000·정렬/개수 2,000·LIKE 방향 1,500쌍이다.
+
+```powershell
+python -m src.data.stage3.contrast build --out data_raw/stage3/my_contrast
+```
+
+`build`는 지정한 폴더에 검증된 질문·SQL 및 대비 묶음 명세를 저장한다.
+`--source-sql`, `--corpus-files`, `--round`, `--*-groups`로 원본 SQL·중복 확인 대상 질문·라운드명·생성량을 지정한다.
+기존 r9 실험의 고정 라운드 반영 작업은 Git에서 제외되는 로컬 실험 코드로 분리했다.
+
+```powershell
+python experiments/stage3/prepare_contrast_r9.py build
+python experiments/stage3/prepare_contrast_r9.py prepare
+```
+
+이전 r9 재현 명령은 정리 전 압축본을 별도 작업 공간에 복원한 후에 사용한다.
+이 로컬 스크립트의 `build`는 `data_raw/stage3/contrast_r9_1500/`에 생성하고,
+`prepare`는 검수된 numbers/intent/no-invention 8,000쌍과 새 7,500쌍을 학습 입력 폴더에 추가하고,
+SQL·대비 묶음을 함께 나눈 `data/stage3/splits/contrast_r9_seed0/{train,validation}.json`을 만든다.
+현재 통합본은 이 과거 분할을 사용하지 않는다. 원본은 `data_raw/stage3/layout_backup_20261018/original_stage3.zip`에 있다.
+동일 산출물이 있으면 덮어쓰지 않고 종료한다. 다른 실험은 `--out`, `--split-dir`로 경로를 지정한다.
+입력/출력 해시와 라운드별 분할 수는 `split_report.json`에 남는다.
+
+`experiments/stage3/run_contrast_experiment.py`는 이 분할로 5.8M·15 epoch·균형 LIKE 교체를 실행하고,
+기본 평가 8개와 GPT 외부 말투 평가(기존 5.8M도 같은 외부 셋으로 평가)를 이어 실행한다.
+사전 확인은 `--dry-run`이며, 진행 상태는 실행 폴더 `status.json`, 결과 비교는
+`comparison.json`·`comparison.csv`·`weakness_comparison.json`이다. 재분할했으므로 이전 검증 EM과 직접 비교하지 않는다.
+3단계 전용 코드와 공통 코드의 구분은 [3단계 보고서](text-to-sql-stage3-report.md#code-layout)에 정리했다.
+
 ## 7. 토크나이저·학습·배포
 
 ### 토크나이저
 
 ```
-python -m src.tokenizer.bpe    # seed_tokens.json + 학습 쌍 → data/stage1/tokenizer/tokenizer.json, round-trip·미등장 이름 토큰 수 출력
+python -m src.tokenizer.bpe    # 기본 3단계 seed + 학습 쌍 → data/stage3/tokenizer/tokenizer.json, round-trip·미등장 이름 토큰 수 출력
 python -m src.demo dataset     # 전체 쌍 토큰화 길이 통계, collate_fn/loss_mask 확인 (9절)
 ```
 
@@ -372,54 +477,68 @@ python -m src.demo dataset     # 전체 쌍 토큰화 길이 통계, collate_fn/
 
 ```
 python -m src.train --overfit 100          # 학습 예시 100개로 EM 100% 도달 확인
-python -m src.train                        # 본 학습(이름 교체 40% 기본) → runs/stage1/ffn683_swap40/, 끝나면 평가셋 전부 측정
-python -m src.train --name-swap-ratio 0    # 이름 교체 없는 기준 실행 → runs/stage1/ffn683/
+python -m src.train                        # 기본 3단계 프리셋 본 학습 → runs/stage3/<실행>/, 끝나면 평가셋 전부 측정
+python -m src.train --name-swap-ratio 0    # 기본 3단계에서 이름 교체 없는 기준 실행
 .venv\Scripts\tensorboard --logdir runs    # 학습 곡선
 ```
 
-- 산출물: `runs/stage1/<이름>/`에 `best.pt`(검증 EM 최고 시점 체크포인트, 모델 설정 포함), `tokenizer.json`
+- 산출물: `runs/stage<N>/<이름>/`에 `best.pt`(검증 EM 최고 시점 체크포인트, 모델 설정 포함), `tokenizer.json`
   (학습에 쓴 토크나이저 사본), `metrics.json`(epoch별 기록, 평가 요약), `eval_<평가셋>.json`(요약 + 틀린 사례 전체),
-  `tb/`(TensorBoard 로그).
-- 검증셋은 학습 쌍에서 SQL 단위로(`sql_group`이 있으면 그것으로) 5%를 떼어 내고, 체크포인트 선택·조기 종료는 이것으로만 한다. 평가셋은 학습이
-  끝난 뒤 한 번만 측정한다.
-- 주요 옵션: `--epochs`(기본 25), `--patience`(기본 10), `--lr`, `--batch-size`, `--ffn-dim`(config를 고치지
+  `tb/`(TensorBoard 로그), `last.pt`(마지막 epoch 가중치 + 옵티마이저·난수 상태, `--resume`용).
+- 검증셋은 기본 3단계 통합본에서는 고정 파일을 사용한다. 고정 검증이 없는 입력은 SQL·대비 묶음 단위로
+  5%를 분리한다. 체크포인트 선택·조기 종료는 검증셋만 쓰고 평가셋은 학습 후 측정한다.
+- 주요 옵션: `--epochs`(1·2단계 기본 25, 3단계 15, overfit 2000), `--patience`(기본 10), `--lr`, `--batch-size`, `--ffn-dim`(config를 고치지
   않고 FFN 크기만 바꿔 실험, 기본 round(8 × dim / 3)), `--layers` / `--dim` / `--heads`(모델 크기 실험, 기본은 단계 프리셋),
   `--seed`, `--run-name`, `--save-every N`(N epoch마다 `epoch<N>.pt`도 저장, 학습량별 평가 추이 확인용). 입력 바꾸기: `--train-files`(여러 개), `--tokenizer`,
-  `--eval-dir`, `--db`. 최종 평가할 평가셋 고르기: `--eval-sets`(기본 전부). 실행 폴더 직접 지정: `--out`
+  `--val-files`, `--eval-dir`, `--db`. 최종 평가할 평가셋 고르기: `--eval-sets`(기본 전부). 실행 폴더 직접 지정: `--out`
   (기본 `runs/stage<N>/<run-name>/`).
-- 모델 구조와 기본 경로는 `src/config.py`의 `STAGE` 값으로 정해진다. 기본은 2이고, 1단계 명령은 환경 변수로 하나만 바꿔 실행한다
-  (`run.py`는 `--stage 1`). `src/data/stage1/`·`src/data/stage2/`의 데이터 스크립트는 `STAGE`와 상관없이 자기 단계 경로를 쓴다:
+- 중단된 학습 이어 하기: 처음과 같은 인자에 `--resume runs/stage<N>/<run>/last.pt`를 붙인다. 다음 epoch부터 같은 lr 스케줄로 계속하고
+  옵티마이저·증강 난수까지 복원한다. `best.pt`·`epoch<N>.pt`도 받지만 가중치만 있어 AdamW 상태는 새로 시작한다. `--init`은 lr 스케줄을
+  처음부터 다시 시작하는 별개 기능이다.
+- 모델 구조와 기본 경로는 `src/config.py`의 `STAGE` 값으로 정해지며 기본은 3이다.
+  학습·추론·BPE·DB 생성은 `--stage N`으로 단계를 선택한다. `src/data/stage<N>/`의 데이터 스크립트는
+  `STAGE`와 상관없이 자기 단계 경로를 쓴다:
   ```
   python -m src.data.stage2.compose build                                       # 2단계 학습 쌍
-  python -m src.tokenizer.bpe                                                   # data/stage2/tokenizer/tokenizer.json (vocab 2048)
-  python -m src.train --epochs 15 --llm-repeat 3 --run-name <이름>              # → runs/stage2/<이름>/
-  TEXT_TO_SQL_STAGE=1 python -m src.train                                       # 1단계 (5M, data/stage1/)
+  python -m src.tokenizer.bpe --stage 2                                         # data/stage2/tokenizer/tokenizer.json (vocab 2048)
+  python -m src.train --stage 2 --epochs 15 --llm-repeat 3 --run-name <이름>     # → runs/stage2/<이름>/
+  python -m src.train --stage 1                                                # 1단계 (5M, data/stage1/)
   ```
-  PowerShell에서는 `$env:TEXT_TO_SQL_STAGE=1` 을 먼저 실행한다. 2·3단계는 1단계 DB·holdout(`data/stage1/db/`)을 함께 쓴다
-  (`config.DB_STAGE`). 테스트는 1단계 배포 모델·데이터 기준이라 `tests/conftest.py`가 `TEXT_TO_SQL_STAGE=1`로 돈다.
+  실행 DB·holdout 기본 경로는 `data/stage<N>/db/`다. 2단계 DB는 1단계와 내용이 같은 사본이며,
+  2단계 SQL 생성기의 입력 기본값은 계속 `data/stage1/db/`다. 3단계 DB에는 날짜와 두 단어 이름이 포함된다.
+  `demo.py`는 `--stage` 대신 환경 변수를 따른다. PowerShell에서 이전 단계를 보려면
+  `$env:TEXT_TO_SQL_STAGE='1'` 후 실행하고, 끝나면 `Remove-Item Env:TEXT_TO_SQL_STAGE`로 기본값을 복원한다.
+  테스트는 `tests/conftest.py`에서 기본 환경 변수를 1로 설정하고, 2·3단계 테스트는 해당 단계 경로를 직접 사용한다.
 - 모델 최대 길이(`SEQ_LEN`)를 넘는 학습 쌍은 학습에서 빼고 개수를 출력한다.
 - 이름 교체: 기본 학습이 매 epoch 이름 조건 쌍의 40%를 가짜 이름으로 바꾼다(`--name-swap-ratio`로 비율 변경, 0이면 끔).
-  가짜 이름에서 영단어를 걸러 내는 데 `data/wordnet/english_words.txt`(WordNet 3.0 표제어, 라이선스는 같은 폴더)를
+  1·2단계는 마르코프 이름 생성기를 쓰며, 가짜 이름에서 영단어를 걸러 내는 데 `data/common/wordnet/english_words.txt`(WordNet 3.0 표제어, 라이선스는 `licenses/WORDNET_LICENSE.txt`)를
   쓴다. 다른 목록은 `--wordlist`로 지정한다(목록이 다르면 가짜 이름과 결과가 달라진다).
+  목록은 WordNet 3.0의 noun/verb/adj/adv 표제어 중 알파벳 단어를 소문자로 정렬한 것이다.
+  저장소 내 라이선스 원본은 `licenses/WORDNET_LICENSE.txt`로 관리하고, 목록·전처리 사전을 별도로 배포할 때는 함께 복사한다.
+  전처리 사전 생성기는 출력 폴더마다 라이선스를 중복 생성하지 않으며, `models/stage3/`에는 배포용 사본을 유지한다.
   2단계는 `src/data/stage2/name_swap.py`가 IN 의 이름 전부와 LIKE 조각까지 바꾼다. 고정 파일
   명령은 1단계용만 있다.
-- LLM 학습 질문(2단계, `source`가 `llm:*`): 매 epoch 이름 교체 전에 질문의 일상 단어를 조합기 유사어 사전(`synonyms.json`)의
-  대체어로 바꾼다(`src/data/stage2/synonym_swap.py`, 확률 기본 0.5 = 사전의 `prob`, `--llm-synonym-prob 0`이면 끔). 값 검사나 라벨 규칙에
+  3단계는 `name_pools.json`으로 만든 DB와 겹치지 않는 두 단어 후보를 사용하고, 상품 범주를 유지한다.
+  LIKE 조각은 마르코프 또는 `--like-sampling balanced`의 토큰 빈도별 후보로 교체한다.
+- LLM 학습 질문(2·3단계, `source`가 `llm:*`): 매 epoch 이름 교체 전에 질문의 일상 단어를 조합기 유사어 사전(`synonyms.json`)의
+  대체어로 바꾼다(각 단계 `src/data/stage<N>/compose.py`의 `SynonymSwapper`, 확률 기본 0.5 = 사전의 `prob`, `--llm-synonym-prob 0`이면 끔). 값 검사나 라벨 규칙에
   걸리는 문장은 원래 문장을 쓴다. `--llm-repeat N`은 검증셋을 뗀 뒤 LLM 쌍을 N번 넣는다(사본마다 epoch마다 다르게 바뀐다).
+  `--composer-synonym-prob P`(기본 0 = 끔)를 주면 조합기 문장(`source`가 `composer*`)에도 같은 교체를 확률 P로 적용한다.
+  조합기 문장은 만들 때 틀에 한 번 적용됐으므로, epoch마다 다른 대체어를 보여 주는 용도다. 1단계 쌍은 바꾸지 않는다.
   ```
   python -m src.train --epochs 15 --llm-repeat 3 --run-name <이름>
   ```
 - 고정 파일 방식: 파일을 만들어 `--train-files`로 학습한다. 이미 이름을 바꾼 파일이면 학습 중 이름 교체는 자동으로 꺼진다.
   ```
   python -m src.data.stage1.name_swap --ratio 0.4   # → data_raw/stage1/name_swap_40/train_pairs.json (커밋 안 함)
-  TEXT_TO_SQL_STAGE=1 python -m src.train --train-files data_raw/stage1/name_swap_40/train_pairs.json --run-name name_swap_40
+  python -m src.train --stage 1 --train-files data_raw/stage1/name_swap_40/train_pairs.json --run-name name_swap_40
   ```
 
 ### 배포 모델 만들기
 
 ```
 python -m src.release --ckpt runs/stage2/stage2_llm3/best.pt                         # → models/stage2/
-TEXT_TO_SQL_STAGE=1 python -m src.release --ckpt runs/stage1/ffn683_swap40/best.pt   # → models/stage1/
+python -m src.release --stage 1 --ckpt runs/stage1/ffn683_swap40/best.pt  # 1단계 배포 모델 갱신 예시
 ```
 
 - `model.pt`(가중치·모델 설정·단계만, 학습 인자와 로컬 경로 없음), `tokenizer.json`(이 모델이 학습에 쓴
@@ -438,6 +557,58 @@ python -m src.exporter --checkpoint models/stage1/model.pt --output runs/stage1/
 - 배포용 GGUF는 `stage<N>-contract<V>` 태그를 push하면 GitHub Actions가 만들어 release에 올린다.
 
 ## 8. 추론·평가 (`run.py`)
+
+### 선택적 단어·구문 입력 전처리 (3단계)
+
+기존 모델·토크나이저·학습/평가 데이터는 유지하고, `--wordnet-map`을 지정할 때만
+학습에 없던 단어를 학습 단어로 치환한다. 구문 프로필은 이미 등장한 단어의 조합과 약어도 정규화한다.
+원문과 정답은 채점에 그대로 사용하며
+평가 출력의 `preprocessing`에 변환 질문·치환 단어·경로 거리와 유사도를 남긴다.
+옵션을 생략하면 기존 추론이다. 옵션을 켜고 출력 경로를 생략하면 별도 `wordnet_<variant>/`에 저장한다.
+
+```powershell
+python -m src.data.preprocessing.wordnet_map --train-files data/stage3/train/pairs.json.gz --wordnet data_raw/stage3/wordnet_expression_pilot/wordnet.zip --db data/stage3/db/shop.db --out data_raw/stage3/preprocessing/wordnet
+python -m src.run --stage 3 --model runs/stage3/size_5m_numbers_r10_once_fixed_s0/best.pt --input "show merchandise names" --wordnet-map data_raw/stage3/preprocessing/wordnet/synonyms.json --no-exec
+python -m src.run --stage 3 --model runs/stage3/size_5m_numbers_r10_once_fixed_s0/best.pt --eval-sets advanced_phrase --wordnet-map data_raw/stage3/preprocessing/wordnet/path.json --output runs/stage3/wordnet_cli_check
+```
+
+생성기는 기존 치환표 폴더 덮어쓰기를 거부하므로 다시 생성할 때는 새 출력 폴더를 지정한다.
+원본 WordNet은 공식 NLTK 데이터 저장소의 `packages/corpora/wordnet.zip`이며
+`wordnet/data.*`, `wordnet/*.exc`, `wordnet/LICENSE`가 들어 있는 배포본이다.
+실행 의존성은 표준 라이브러리와 생성된 치환표뿐이고 NLTK 설치는 필요 없다.
+`synonyms.json`은 같은 synset, `path.json`은 명사·동사의 상/하위어 연결 최대 2단계까지 허용한다.
+모든 뜻 중 최소 거리, 학습 등장 빈도, 철자 순으로 정하며 문맥에 맞는 뜻을 추론하지 않는다.
+숫자·날짜·따옴표 문자열·DB에 등록된 이름/범주값을 보호한다.
+`wordnet_v3`는 starts/begins/ends with/in, contains, prefix/suffix, 와일드카드 표기 뒤의
+명시적인 검색 조각도 보호하고, `name ending x`, `finishing in x`, `x anywhere in`도 처리한다.
+v1·v2와 WordNet 치환표는 같고 값 보호만 보완한 것이다.
+따옴표나 DB에 없는 새로운 이름 및 인식하지 못하는 문체의 LIKE 조각은 완전히 보호하지 못할 수 있다.
+전처리 점수는 외부 사전을 이용한 시스템 점수로 보고하고, 원문 모델 점수와 따로 비교한다.
+
+도메인 명사·집계 구문·약어 전처리는 `domain_v4` 프로필을 사용한다.
+`src.data.preprocessing.domain_wordnet_map`은 상품·고객·주문의 WordNet 뜻을 기준으로 명사 후보를 제한하고,
+같은 거리로 여러 테이블에 연결되는 단어는 유지한다. 주문은 상업적 의미의 뜻풀이가 있을 때만 후보가 된다.
+도메인 의미 앵커와 구문 규칙은 사람이 정의한 외부 지식이며 문맥 해석 모델은 사용하지 않는다.
+원문에서 가장 긴 구문을 우선해 한 번 치환하고 이름·검색값 보호는 기존과 같다.
+
+| 프로필 | 처리 |
+|---|---|
+| `domain.json` | 도메인 명사 치환만 |
+| `phrases.json` | 집계 구문 12개 규칙, qty/avg/asc/desc 포함 |
+| `combined.json` | 도메인 명사 + 구문·약어 |
+| `combined_symbols.json` | 위 처리 + 비교 기호 6종을 자연어로 확장 |
+
+```powershell
+python -m src.data.preprocessing.domain_wordnet_map --train-files data/stage3/train/pairs.json.gz --wordnet data_raw/stage3/wordnet_expression_pilot/wordnet.zip --db data/stage3/db/shop.db --out data_raw/stage3/preprocessing/domain
+python -m src.run --stage 3 --model runs/stage3/size_5m_numbers_r10_once_fixed_s0/best.pt --wordnet-map data_raw/stage3/preprocessing/domain/combined.json --input "record count of transactions" --no-exec
+python -m src.run --stage 3 --model runs/stage3/size_5m_numbers_r10_once_fixed_s0/best.pt --wordnet-map data/stage3/preprocessing/normalizer.json --eval-sets advanced_phrase --output runs/stage3/domain_cli_check
+```
+
+실제 CPU 확인: `record count of transactions` → `row count of orders` → `SELECT COUNT(*) FROM orders`.
+`avg qty of orders with order number = 11303` → `average quantity of orders with order number equal to 11303`
+→ `SELECT AVG(quantity) FROM orders WHERE order_id = 11303`.
+빌더는 평가셋을 읽지 않는다. 구문 규칙은 이미 관측한 평가의 약점을 참고한 개발 개선이므로
+같은 평가에서의 개선을 봉인 평가나 모델 자체의 어휘 일반화로 주장하지 않는다.
 
 추론과 평가는 `python -m src.run` 하나로 한다. 모델 불러오기·생성은 `src/inference/`, 채점·평가셋 관리는
 `src/evaluation/`에 있고 학습·배포와 같은 함수를 쓴다.
@@ -486,21 +657,33 @@ python -m src.exporter --checkpoint models/stage1/model.pt --output runs/stage1/
 
 ```
 python -m src.run                                              # 대화형
-python -m src.run --input "what city does ashley live in?"     # 단건
+python -m src.run --input "how many orders are there?"         # 기본 3단계 단건
 python -m src.run --evaluation                                 # 평가셋 전부
 python -m src.run --eval-sets indist holdout                   # 고른 평가셋만
 python -m src.run --input holdout --output results/holdout.json
 python -m src.run --input questions.json --test                # 정답 없는 질문 목록 배치 추론
-python -m src.run --model runs/stage2/<실행>/best.pt --evaluation   # 직접 학습한 체크포인트 평가
+python -m src.run --stage 2 --model runs/stage2/<실행>/best.pt --evaluation   # 직접 학습한 2단계 체크포인트 평가
 python -m src.run --list-sets                                  # 평가셋 목록
 python -m src.run --stage 1 --build-sql indist --sql data/stage1/sql/eval_indist.json   # 1단계 평가셋 sql.json 생성 (--sql 여러 개 가능)
 python -m src.run --stage 1 --evaluation                       # 1단계 배포 모델, 1단계 평가셋·채점 규칙
 ```
 
 - 결과 파일은 기본으로 `runs/` 아래(커밋 안 함)에 저장된다. `models/`는 커밋 폴더라 결과를 쓰지 않는다.
-- `--stage 2`처럼 아직 모델이 없는 단계를 주면 안내 후 종료한다.
+- 1·2·3단계 배포 모델을 제공한다. 선택한 모델 파일이 없으면 오류를 안내하고 종료한다.
 
 ## 9. 단계별 입출력 보기 (`demo.py`)
+
+이 절의 전체 시연 예시는 1단계 기준이다. 현재 `demo all`·`demo model`은 3단계에서
+할당 어휘 용량 4,096과 실제 어휘 수 3,534의 차이를 처리하지 못해 오류가 난다.
+일반 추론(`run.py`)과 `demo generate`는 기본 3단계에서 실행할 수 있다.
+전체 시연을 실행할 때는 PowerShell에서 환경 변수를 먼저 설정한다:
+
+```powershell
+$env:TEXT_TO_SQL_STAGE='1'
+python -m src.demo all
+```
+
+이 절의 시연이 끝나면 `Remove-Item Env:TEXT_TO_SQL_STAGE`로 기본 단계 3을 복원한다.
 
 파이프라인의 각 단계가 무엇을 받아 무엇을 내놓는지 직접 보여 준다. 확인·시연용이라 파일을 쓰지 않는다.
 질문을 SQL로 바꿔 쓰거나 평가하는 것은 `run.py`(8절)다.
@@ -564,7 +747,9 @@ python -m src.demo score --text "do we have a customer named harriet" --sql "SEL
 
 ## 10. 재현 확인 기준
 
-1단계 명령은 `TEXT_TO_SQL_STAGE=1`(`run.py`는 `--stage 1`)로 실행한다.
+아래 수치 표는 1단계 재현 기준이다. `train`·`run`·BPE 명령은 `--stage 1`로 실행하거나,
+PowerShell에서 먼저 `$env:TEXT_TO_SQL_STAGE='1'`을 설정한다. `demo`도 이 환경 변수를 따른다.
+검증이 끝나면 `Remove-Item Env:TEXT_TO_SQL_STAGE`로 기본 단계 3을 복원한다.
 
 | 명령 / 파일 | 기대 결과 |
 | --- | --- |
@@ -581,7 +766,8 @@ python -m src.demo score --text "do we have a customer named harriet" --sql "SEL
 
 ## 11. 커밋 대상
 
-- **커밋**: `src/`, `tests/`, `docs/`, `CLAUDE.md`, `README.md`, `requirements.txt`, `data/stage<N>/`
-  (DB, SQL, 학습 쌍, 평가셋, seed 토큰, 토크나이저), `data/wordnet/`, `models/stage<N>/`(단계별 최종 배포 모델 하나).
+- **커밋**: `src/`, `tests/`, `docs/`, `AGENTS.md`, `README.md`, `requirements.txt`, `data/stage<N>/`
+  (DB, SQL, 학습 쌍, 평가셋, seed 토큰, 토크나이저), `data/common/wordnet/`, `data/integrity.json`,
+  `licenses/`, `models/stage<N>/`(단계별 최종 배포 모델 하나).
 - **커밋 안 함** (`.gitignore`): `.venv/`, `data_raw/`(LLM 라운드 원본·중간 산출물),
   `runs/`(학습·평가·추론 결과), `experiments/`(단계 전환 전 실험 코드·데이터·체크포인트).

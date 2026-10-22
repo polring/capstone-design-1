@@ -1,3 +1,6 @@
+# 역할: 팀의 디코더 블록으로 GGUF 내보내기용 모델과 체크포인트 계약을 구현한다.
+# 사용처: exporter.py에서 학습 가중치를 C 추론기용 모델 구조로 읽어 변환할 때 사용한다.
+
 """Checkpoint contract built using the team's decoder blocks; no pretrained weights."""
 
 from dataclasses import asdict, dataclass
@@ -120,10 +123,17 @@ def from_training_checkpoint(checkpoint):
     """Convert a TextToSQLModel checkpoint (training best.pt or release model.pt).
 
     eps and theta keep their defaults, which match RMSNorm and RoPE in the team model.
+    Unused vocabulary rows are removed so the existing GGUF contract exposes
+    exactly the training model's output candidates.
     """
     cfg = checkpoint["model_cfg"]
+    vocab_size = cfg.get("valid_vocab_size", cfg["vocab_size"])
+    if vocab_size is None:
+        vocab_size = cfg["vocab_size"]
+    if type(vocab_size) is not int or not 0 < vocab_size <= cfg["vocab_size"]:
+        raise ValueError("valid_vocab_size must be within the allocated vocabulary")
     config = ModelConfig(
-        vocab_size=cfg["vocab_size"],
+        vocab_size=vocab_size,
         dim=cfg["dim"],
         layers=cfg["num_layers"],
         heads=cfg["num_heads"],
@@ -134,6 +144,10 @@ def from_training_checkpoint(checkpoint):
         _rename_training_parameter(name): tensor
         for name, tensor in checkpoint["model"].items()
     }
+    for name in ("embedding.embedding.weight", "lm_head.weight"):
+        if state[name].shape != (cfg["vocab_size"], cfg["dim"]):
+            raise ValueError(f"wrong training shape: {name}")
+        state[name] = state[name][:vocab_size]
     model = InferenceModel(config)
     model.load_state_dict(state, strict=True)
     return model.eval()

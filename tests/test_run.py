@@ -69,6 +69,16 @@ def test_predict_returns_none_on_broken_bytes():
     assert rn.predict(model, "hi", TOK, None) is None
 
 
+@pytest.mark.unit
+def test_single_prediction_accepts_same_wordnet_normalizer_as_batch():
+    from src.inference.wordnet_normalizer import WordNetNormalizer
+    normalizer = WordNetNormalizer(dict(format_version=1, trained_words=['items'],
+        mapping={'articles':['items',0]}))
+    model, prompts = scripted_model('SELECT * FROM items')
+    rn.predict(model, 'articles', TOK, None, normalizer)
+    assert TOK.decode(prompts[0][1:-1]) == 'items'
+
+
 # ===========================================================================
 # run_sql / answer
 # ===========================================================================
@@ -282,3 +292,27 @@ def test_main_eval_sets_rejects_unknown_or_with_input(setup):
         rn.main(base + ["--eval-sets", "nope"])
     with pytest.raises(SystemExit):
         rn.main(base + ["--eval-sets", "a", "--input", "b"])
+
+
+@pytest.mark.integration
+def test_wordnet_cli_passes_transformed_prompts_and_keeps_original_labels(setup, monkeypatch):
+    import json
+    tmp, base = setup
+    map_path = tmp / 'wordnet.json'
+    _write_json(map_path, dict(format_version=1, trained_words=['which'],
+        mapping={'what':['which',0]}, protected_values=['ashley'], metadata={'variant':'synonyms'}))
+    captured = {}
+    def fake_evaluate(model, pairs, *args, **kwargs):
+        captured['pairs'] = pairs
+        captured['input_questions'] = kwargs['input_questions']
+        return {'overall':{'n':len(pairs)}, 'failures':[]}
+    monkeypatch.setattr(rn, 'evaluate_pairs', fake_evaluate)
+    monkeypatch.setattr(rn, 'print_report', lambda result: None)
+    output = tmp / 'normalized_eval.json'
+    assert rn.main(base + ['--input','a','--wordnet-map',str(map_path),'--out',str(output)]) == 0
+    assert captured['input_questions'] == ['which city is ashley in?']
+    assert captured['pairs'][0]['question'] == 'what city is ashley in?'
+    assert captured['pairs'][0]['sql'] == "SELECT city FROM customers WHERE name = 'ashley'"
+    report = json.loads(output.read_text(encoding='utf-8'))
+    assert report['preprocessing']['changed_questions'] == 1
+    assert report['preprocessing']['scoring_question'] == 'original, unchanged'

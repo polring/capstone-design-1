@@ -1,3 +1,6 @@
+# 역할: 2단계 SQL 구조를 문장 틀과 표현 사전으로 조합해 영어 질문을 만든다.
+# 사용처: 2단계 학습 질문과 표현·구조별 평가 질문을 생성하고 검증할 때 사용한다.
+
 """
 2단계 질문 조합기: SQL 레코드(sql_gen 출력) → 영어 질문 한 문장
 
@@ -45,9 +48,9 @@ from pathlib import Path
 
 from src.config import stage_paths
 from src.data import db_gen
-from src.data.stage2 import schema
+from src.data.stage2 import schema, sql_ast
 from src.data.stage2.clean_ambiguous import drop_reason
-from src.data.stage2.sql_ast import Cond, Query, from_dict
+from src.data.stage2.sql_ast import like_mode, Cond, Query, from_dict
 
 PATHS = stage_paths(2)
 COMPOSER_DIR = PATHS.data_dir / "composer"
@@ -109,11 +112,6 @@ def is_wildcard(e: Entry) -> bool:
     return bool(_WILDCARD.search(e.sg))
 
 
-def rng_for(seed: int, epoch: int, sql: str) -> random.Random:
-    """SQL 마다 독립된 난수 (문자열 seed 는 실행마다 같은 값이다)."""
-    return random.Random(f"{seed}:{epoch}:{sql}")
-
-
 # ---------------------------------------------------------------------------
 # SQL 레코드 해석
 # ---------------------------------------------------------------------------
@@ -127,13 +125,6 @@ class Unit:
     values: tuple        # = : (값,), IN: 값들, BETWEEN: (하한, 상한), LIKE: (조각,)
     is_list: bool = False
     idx: tuple = ()      # 이 Unit 이 나온 rec["conds"] 위치
-
-
-def like_mode(pattern: str) -> tuple[str, str]:
-    frag = pattern.strip("%")
-    if pattern.startswith("%") and pattern.endswith("%"):
-        return "contains", frag
-    return ("suffix", frag) if pattern.startswith("%") else ("prefix", frag)
 
 
 def units_of(rec: dict) -> list[Unit]:
@@ -202,9 +193,11 @@ def number_of(rec: dict) -> str:
     return "pl"
 
 
-# ---------------------------------------------------------------------------
-# 값 표기
-# ---------------------------------------------------------------------------
+# 이 단계에서 사용하는 값 표기·목록 연결·난수 생성 보조 함수
+def rng_for(seed: int, epoch: int, sql: str) -> random.Random:
+    """SQL 마다 독립된 난수 (문자열 seed 는 실행마다 같은 값이다)."""
+    return random.Random(f"{seed}:{epoch}:{sql}")
+
 
 def _num_text(table: str, col: str, val, money: bool, whole_int: bool) -> str:
     """price 정수 값은 whole_int 면 20, 아니면 20.00 으로 쓴다."""
@@ -215,8 +208,11 @@ def _num_text(table: str, col: str, val, money: bool, whole_int: bool) -> str:
     return str(int(val))
 
 
-def _value_text(table: str, unit: Unit, val, money: bool, whole_int: bool, rng: random.Random,
-                tag: str | None = None, short_words: frozenset[str] = frozenset(), wildcard: bool = False) -> str:
+def _value_text(
+    table: str, unit, val, money: bool, whole_int: bool, rng: random.Random,
+    tag: str | None = None, short_words: frozenset[str] = frozenset(),
+    wildcard: bool = False,
+) -> str:
     """money / whole_int: price 표기 ($ 붙임 / 정수 값을 20 으로). 다른 컬럼은 무시.
     tag 가 있으면 값 대신 tag 를 쓴다($ 와 따옴표는 그대로 붙인다).
     short_words: 따옴표 없이 쓰지 않는 짧은 LIKE 조각 (조합기 문장에 나오는 단어: a, in, to …).
@@ -238,8 +234,7 @@ def _value_text(table: str, unit: Unit, val, money: bool, whole_int: bool, rng: 
     return _num_text(table, unit.col, val, money, whole_int)
 
 
-# 값 나열(IN)의 연결: or 만 쓰면 "customers 1224 and 1268", "orders 1620 1988" 을 학습에서 보지 못한다(L9: and 로 나열해도 IN).
-# 공백 연결은 숫자 값에만 쓴다("new york" 처럼 값 안에 공백이 있을 수 있다)
+# IN 값 목록의 연결 방식과 비율은 이 단계에서 관리한다.
 LIST_JOIN_WEIGHTS = {"or": 50, "and": 25, "comma": 10, "slash": 5, "space": 10}
 
 
@@ -253,8 +248,10 @@ def _join_or(parts: list[str], rng: random.Random, numeric: bool = False) -> str
     return {"comma": ", ", "slash": "/", "space": " "}[style].join(parts)
 
 
-def _fill(template: str, table: str, unit: Unit, rng: random.Random, tagger=None,
-          short_words: frozenset[str] = frozenset()) -> str:
+def _fill(
+    template: str, table: str, unit, rng: random.Random, tagger=None,
+    short_words: frozenset[str] = frozenset(),
+) -> str:
     """값 자리: {v} 는 price 일부만 $, {$v} 는 항상 $, {#v} 는 $ 없이 ("under 20 bucks").
     $ 표기와 정수 표기(20 / 20.00)는 조건 하나 안에서 통일한다 ("between 5 and $103.99" 방지).
     tagger(unit, j) 가 문자열을 주면 j 번째 값 자리에 값 대신 그 문자열을 쓴다 (태그 모드)."""
@@ -293,28 +290,93 @@ def entry_family(ref: str) -> str:
     return f"{kind}:{rest.split(':', 1)[0]}"
 
 
+# 이 단계의 문장 틀과 학습 질문에 적용하는 유의어 증강
 class Synonyms:
-    """틀 문장의 일상 단어·구절 → 같은 뜻의 대체어. {…} 자리 밖에서만, 긴 구절부터 단어 경계로 찾아
-    prob 확률로 대체어 하나로 바꾼다. start_only 키는 문장 맨 앞에서만 바꾼다
-    ("tell me …" → "let me know …" 는 되지만 "could you tell me" → "could you let me know" 는 문장이 깨질 수 있다)."""
-
-    def __init__(self, data: dict):
-        self.prob = data.get("prob", 0.5)
-        self.words: dict[str, list[str]] = data["words"]
-        self.protected = set(data.get("protected", []))
-        self.start_only = set(data.get("start_only", []))
+    """보호된 값 자리 밖의 표현만 명사·구동사 규칙에 맞춰 바꾼다."""
+    def __init__(self, data: dict, context: str | None = None):
+        self.prob = data.get('prob', .5)
+        self.words = dict(data['words'])
+        if context == 'advanced':
+            self.words.update(data.get('advanced_words', {}))
+        self.protected = set(data.get('protected', []))
+        self.start_only = set(data.get('start_only', []))
+        self.verb_only = set(data.get('verb_only', []))
+        self.skip_followed_by = data.get('skip_followed_by', {})
         keys = sorted(self.words, key=len, reverse=True)
-        self._pattern = re.compile(r"(?<![\w'])(" + "|".join(re.escape(k) for k in keys) + r")(?![\w'])")
+        self._pattern = re.compile(r"(?<![\w'])(" + '|'.join(re.escape(k) for k in keys) + r")(?![\w'])")
 
     def apply(self, text: str, rng: random.Random) -> str:
-        def sub(m: re.Match, first: bool) -> str:
-            key = m.group(1)
-            if key in self.start_only and not (first and m.start() == 0):
+        def sub(match, first):
+            key = match.group(1)
+            if key in self.start_only and not (first and match.start() == 0):
+                return key
+            before = re.search(r'\b([a-z]+)\s+$', match.string[:match.start()])
+            if key in self.verb_only and before and before[1] in {
+                'a', 'an', 'the', 'my', 'your', 'our', 'their', 'his', 'her', 'its', 'this', 'that'
+            }:
+                return key
+            after = re.match(r'\s+([a-z]+)\b', match.string[match.end():])
+            if after and after[1] in self.skip_followed_by.get(key, []):
                 return key
             return rng.choice(self.words[key]) if rng.random() < self.prob else key
-        parts = re.split(r"(\{[^}]*\})", text)
-        return "".join(p if p.startswith("{") else self._pattern.sub(lambda m: sub(m, i == 0), p)
+        parts = re.split(r'(\{[^}]*\})', text)
+        return ''.join(p if p.startswith('{') else self._pattern.sub(lambda m: sub(m, i == 0), p)
                        for i, p in enumerate(parts))
+
+
+def is_llm(pair):
+    return str(pair.get('source', '')).startswith('llm:')
+
+
+def is_composer(pair):
+    return str(pair.get('source', '')).startswith('composer')
+
+
+class SynonymSwapper:
+
+    def __init__(self, synonyms_path=None):
+        self.data = json.loads(Path(synonyms_path or SYNONYMS_PATH).read_text(encoding='utf-8'))
+        self.prob = self.data.get('prob', 0.5)
+        self._recs = {}
+
+    def _rec(self, pair):
+        key = pair.get('sql_group', pair['sql'])
+        if key not in self._recs:
+            self._recs[key] = sql_ast.to_dict(sql_ast.parse(key))
+        return self._recs[key]
+
+    def swap(self, pairs, prob, rng, composer_prob=0.0):
+        """LLM 쌍은 prob, 조합기 쌍(source composer*)은 composer_prob 확률로 단어마다 바꾼다.
+        조합기 문장은 만들 때 틀에 이미 한 번 적용됐으므로, 이건 epoch 마다 다른 대체어를 보여 주는 용도다."""
+        if not (0 <= prob <= 1 and 0 <= composer_prob <= 1):
+            raise ValueError('Synonym probability must be within 0..1')
+        swappers = {}
+        for kind, p in (('llm', prob), ('composer', composer_prob)):
+            data = {**self.data, 'prob': p}
+            swappers[kind] = (Synonyms(data), Synonyms(data, context='advanced'))
+        out, stats = ([], Counter())
+        for pair in pairs:
+            unchanged = dict(pair, synonym_swapped=False)
+            kind = 'llm' if is_llm(pair) else 'composer' if composer_prob and is_composer(pair) else None
+            if kind is None:
+                out.append(unchanged)
+                continue
+            prefix = '' if kind == 'llm' else 'composer_'
+            stats[f'{kind}_pairs'] += 1
+            plain, advanced = swappers[kind]
+            from src.data.stage2.question_gen import check_question
+            question = plain.apply(pair['question'], rng)
+            rec = self._rec(pair)
+            invalid = check_question(question, rec) or drop_reason(dict(pair, question=question))
+            if question == pair['question']:
+                out.append(unchanged)
+            elif invalid:
+                stats[prefix + 'rejected'] += 1
+                out.append(unchanged)
+            else:
+                stats[prefix + 'swapped'] += 1
+                out.append(dict(pair, question=question, synonym_swapped=True))
+        return (out, dict(stats))
 
 
 def _words(text: str) -> set[str]:
@@ -432,6 +494,10 @@ def finish(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 class Composer:
+    _entry_factory = staticmethod(_entry)
+    _fill = staticmethod(_fill)
+    _short_words = staticmethod(short_words)
+
     def __init__(self, frames: dict, lexicon: dict, split: str = "train", synonyms: dict | None = None,
                  wildcard_ratio: float | None = WILDCARD_RATIO):
         """wildcard_ratio: LIKE 표현 중 와일드카드 표현을 고를 확률. None 이면 다른 표현과 똑같이 고른다(표현 수 비율)."""
@@ -450,20 +516,20 @@ class Composer:
             items = group.items() if role == "attr" else [(None, group)]
             for sub, rows in items:
                 name = f"attr.{sub}" if sub else role
-                self.frames[name] = [(_entry(r, f"frame:{name}:{i}"), r.get("number"),
+                self.frames[name] = [(self._entry_factory(r, f"frame:{name}:{i}"), r.get("number"),
                                       tuple(r["tables"]) if "tables" in r else None) for i, r in enumerate(rows)]
-        self.nouns = {t: [_entry(r, f"noun:{t}:{i}") for i, r in enumerate(rows)]
+        self.nouns = {t: [self._entry_factory(r, f"noun:{t}:{i}") for i, r in enumerate(rows)]
                       for t, rows in lexicon["nouns"].items()}
-        self.conds = {k: {pos: [_entry(r, f"cond:{k}:{pos}:{i}") for i, r in enumerate(rows)]
+        self.conds = {k: {pos: [self._entry_factory(r, f"cond:{k}:{pos}:{i}") for i, r in enumerate(rows)]
                           for pos, rows in d.items()} for k, d in lexicon["conds"].items()}
-        self.orders = {k: {pos: [_entry(r, f"order:{k}:{pos}:{i}") for i, r in enumerate(rows)]
+        self.orders = {k: {pos: [self._entry_factory(r, f"order:{k}:{pos}:{i}") for i, r in enumerate(rows)]
                            for pos, rows in d.items()} for k, d in lexicon["orders"].items()}
         # 정렬 표현 뒤에 붙는 개수 ("lowest stock first, just 10"), {n} 자리. 정렬 컬럼과 무관하다
-        self.limit_tails = [_entry(r, f"limit:tail:{i}")
+        self.limit_tails = [self._entry_factory(r, f"limit:tail:{i}")
                             for i, r in enumerate(lexicon.get("limits", {}).get("tail", []))]
-        self.limit_tails1 = [_entry(r, f"limit:tail1:{i}")
+        self.limit_tails1 = [self._entry_factory(r, f"limit:tail1:{i}")
                              for i, r in enumerate(lexicon.get("limits", {}).get("tail1", []))]
-        self.short_words = short_words(frames, lexicon, synonyms)
+        self.short_words = self._short_words(frames, lexicon, synonyms)
 
     @classmethod
     def load(cls, split: str = "train", frames_path: str | Path = FRAMES_PATH,
@@ -536,7 +602,7 @@ class Composer:
         if kind in ("def", "head") and len(units) == 1 and not units[0].is_list and order is None:
             heads = self._head_entries(units[0], bare=kind == "head")
             if heads and (kind == "head" or rng.random() < 0.5):
-                return _fill(self._pick(heads, rng, trace).text(number), t, units[0], rng, self._tagger,
+                return self._fill(self._pick(heads, rng, trace).text(number), t, units[0], rng, self._tagger,
                              self.short_words)
         if kind == "head":
             raise ComposeError("명사구 전체를 값으로 쓸 수 없는 SQL")
@@ -557,7 +623,7 @@ class Composer:
                  else None)
         pre = ""
         if pre_i is not None:
-            pre = _fill(self._pick(self._cond_entries(units[pre_i], "pre"), rng, trace).text(number),
+            pre = self._fill(self._pick(self._cond_entries(units[pre_i], "pre"), rng, trace).text(number),
                         t, units[pre_i], rng, self._tagger, self.short_words)
         posts = []
         rest = [u for i, u in enumerate(units) if i != pre_i]
@@ -566,7 +632,7 @@ class Composer:
             ents = self._cond_entries(u, "post")
             if not ents:
                 raise ComposeError(f"뒤 위치 표현 없음 {u.key}")
-            posts.append(_fill(self._pick(ents, rng, trace).text(number), t, u, rng, self._tagger,
+            posts.append(self._fill(self._pick(ents, rng, trace).text(number), t, u, rng, self._tagger,
                                self.short_words))
         # 조건이 둘 이상이면 연결어를 넣는다 (그냥 이어 붙이면 "names containing 'cu' $30 or more"처럼 경계가 흐려진다)
         if len(posts) >= 2 and is_or:
@@ -919,7 +985,8 @@ def _load_records(paths: list[str]) -> dict[str, list[dict]]:
     return out
 
 
-def _sample(rows: list[dict], comp: Composer, n: int, seed: int, epoch: int) -> list[dict]:
+def _sample(rows: list[dict], comp, n: int, seed: int, epoch: int) -> list[dict]:
+    """조합기가 지원하는 테이블에서 표본을 골라 SQL별 고정 난수로 질문을 만든다."""
     rows = [r for r in rows if r["table"] in comp.tables]
     picked = random.Random(seed).sample(rows, min(n, len(rows)))
     out = []

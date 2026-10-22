@@ -121,6 +121,28 @@ def test_evaluate_set_missing_pairs_raises(tmp_path):
 
 
 @pytest.mark.unit
+def test_preprocessed_prompts_keep_original_questions_for_metric_rules(eval_data, monkeypatch):
+    _, pairs, db = eval_data
+    inputs = ['different model input one', 'different model input two']
+    captured, metric_questions = [], []
+    def fake_generate(model, examples, *args):
+        captured.extend(TOK.decode(e['ids'][1:e['sql_start']-1]) for e in examples)
+        return [TOK.encode(p['sql']) for p in pairs]
+    rules = scoring.load_rules(1)
+    original = rules.multi_match
+    def multi(question, gold, pred):
+        metric_questions.append(question)
+        return original(question, gold, pred)
+    monkeypatch.setattr(scoring, 'generate_batch', fake_generate)
+    monkeypatch.setattr(rules, 'multi_match', multi)
+    result = scoring.evaluate_pairs(None, pairs, TOK, torch.device('cpu'), None, 'probe',
+                                    db_path=db, rules=rules, input_questions=inputs)
+    assert captured == inputs
+    assert metric_questions == [p['question'] for p in pairs]
+    assert result['overall']['em'] == 1
+
+
+@pytest.mark.unit
 def test_load_rules_provides_stage_interface():
     """현재 단계의 SQL 규칙 모듈이 evaluation·predict 가 쓰는 이름을 모두 제공해야 함"""
     rules = scoring.load_rules(config.STAGE)

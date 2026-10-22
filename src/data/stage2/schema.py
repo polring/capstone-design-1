@@ -1,3 +1,6 @@
+# 역할: 2단계 컬럼 종류, 연산자와 값 표기 규칙을 정의한다.
+# 사용처: 2단계 SQL 구조·생성기·질문 조합기가 문법과 컬럼별 처리를 결정할 때 사용한다.
+
 """
 2단계 스키마 메타데이터: 컬럼 종류, 허용 연산자, 정렬 가능 여부, 리터럴 표기.
 
@@ -54,48 +57,43 @@ IDENT = {"customers": "name", "items": "item_name", "orders": "order_id"}
 OWN_ID = {"customers": "customer_id", "items": "item_id"}
 
 
-def kind(table: str, col: str) -> str:
-    return KIND[(table, col)]
+def kind(table, col):
+    return KIND[table, col]
 
 
-def in_ok(table: str, col: str) -> bool:
-    """같은 컬럼 값 나열(IN)을 쓸 수 있는가: = 가 되는 컬럼 중 price 는 뺀다 (가격 여러 개를 나열하는 질문은 부자연스러움)."""
-    return "=" in OPS[kind(table, col)] and (table, col) not in FLOAT_COLUMNS
+def in_ok(table, col):
+    return kind(table, col) != 'date' and '=' in OPS[kind(table, col)] and ((table, col) not in FLOAT_COLUMNS)
 
 
-def ops(table: str, col: str) -> tuple[str, ...]:
-    """그 컬럼에 쓸 수 있는 연산자 (종류별 OPS + IN)."""
-    return OPS[kind(table, col)] + (("IN",) if in_ok(table, col) else ())
+def ops(table, col):
+    return OPS[kind(table, col)] + (('IN',) if in_ok(table, col) else ())
 
 
-def orderable(table: str, col: str) -> bool:
-    return KIND.get((table, col)) == "num"
+def orderable(table, col):
+    return KIND.get((table, col)) in ('num', 'date')
 
 
-def is_text(table: str, col: str) -> bool:
-    return KIND[(table, col)] in ("name", "cat")
+def is_text(table, col):
+    return kind(table, col) in ('name', 'cat', 'date')
 
 
-def col_index(table: str, col: str) -> int:
+def col_index(table, col):
     return TABLE_COLUMNS[table].index(col)
 
 
-def fmt_literal(table: str, col: str, val) -> str:
+def fmt_literal(table, col, val):
     if is_text(table, col):
         return f"'{val}'"
-    if (table, col) in FLOAT_COLUMNS:
-        return f"{float(val):.2f}"
-    return str(int(val))
+    return f'{float(val):.2f}' if (table, col) in FLOAT_COLUMNS else str(int(val))
 
 
-def select_kind(table: str, select: str, cond_cols: set[str]) -> str:
-    """SELECT 종류: * / ident(식별 컬럼) / own_id(자기 ID) / cond_col(조건 컬럼과 같음) / attr(그 외 속성)."""
-    if select == "*":
-        return "*"
+def select_kind(table, select, cond_cols):
+    if select == '*':
+        return '*'
     if select in cond_cols:
-        return "cond_col"
+        return 'cond_col'
     if select == IDENT[table]:
-        return "ident"
+        return 'ident'
     if select == OWN_ID.get(table):
-        return "own_id"
-    return "attr"
+        return 'own_id'
+    return 'attr'

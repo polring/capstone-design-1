@@ -26,6 +26,7 @@ data_raw/
 data/**/data_raw/
 
 # Local compiled binaries
+normalizer.log
 *.exe
 *.obj
 *.o
@@ -48,5 +49,9 @@ runs/
 semantic_dict_*
 glove.6B.*
 
-# 1단계 실험 (정규화·EMA·위치 토큰·앙상블·새 말투) 코드·데이터·체크포인트 — 결과는 1단계 보고서 부록 A에만 기록
+# 로컬 실험 코드·실험 전용 테스트·산출물 — 공유할 결과는 단계별 보고서에 기록
 experiments/
+
+# Local agent settings and scheduler locks
+.claude/settings.local.json
+.claude/scheduled_tasks.lock

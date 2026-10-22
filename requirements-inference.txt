@@ -1,3 +1,0 @@
-# Install the project's PyTorch dependencies first (requirements.txt).
-# Optional independent GGUF reader used by the interoperability test.
-gguf==0.19.0

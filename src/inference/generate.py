@@ -1,8 +1,12 @@
+# 역할: 질문 프롬프트에서 SQL 토큰을 생성하고 안전하게 문자열로 복원한다.
+# 사용처: 학습 중 검증, 배치 추론과 평가에서 공통 생성 로직으로 사용한다.
+
 """
 generate.py — 질문 → SQL 생성 (greedy)
 
 프롬프트 <bos> 질문 <sep> 뒤를 배치로 생성하고 토큰 ID 를 SQL 문자열로 되돌린다. 평가(evaluation/scoring.py),
-배치 추론(run.py), 시연(demo.py) 이 같은 생성 로직을 쓴다. 제약 디코더는 없다.
+배치 추론(run.py), 시연(demo.py) 이 같은 생성 로직을 쓴다. SQL 문법 제약 디코더는 없고, SQL 자리에 올 수 없는
+특수 토큰(<bos> <sep> <pad>)만 생성하지 않는다(3단계 첫 학습에서 LIKE 조각 자리에 <bos> 를 낸 오답이 있었다).
 """
 
 from __future__ import annotations
@@ -12,16 +16,26 @@ import torch
 from src.data.dataset import BOS_ID, EOS_ID, PAD_ID, SEP_ID
 from src.tokenizer import bpe
 
+# SQL 출력에 나올 수 없는 특수 토큰. <eos> 는 끝을 알리므로 막지 않는다
+BANNED_IDS = (BOS_ID, SEP_ID, PAD_ID)
+
+
+def generation_limit(model) -> int:
+    """Preserve 1/2-stage budgets and allow longer SQL in the 256-token models."""
+    return 128 if model.max_seq_len > 128 else 64
+
 
 @torch.no_grad()
 def generate_batch(model, examples: list[dict], device, amp_dtype,
-                   batch_size: int = 512, max_new_tokens: int = 64) -> list[list[int]]:
+                   batch_size: int = 512, max_new_tokens: int | None = None) -> list[list[int]]:
     """각 예시의 프롬프트(<bos> question <sep>) 뒤를 greedy 로 생성해 SQL 토큰 ID 를 반환한다 (<eos> 제외).
 
     오른쪽 패딩 + causal attention 구조라 길이가 다른 프롬프트를 한 배치에 넣을 수 없다
     (왼쪽 패딩은 attention mask 가 없어 패딩을 보게 된다). 그래서 프롬프트 길이(= sql_start)가
     같은 것끼리 묶어 배치 생성한다. 반환 순서는 입력 순서와 같다.
     """
+    if max_new_tokens is None:
+        max_new_tokens = generation_limit(model)
     was_training = model.training
     model.eval()
     groups: dict[int, list[int]] = {}
@@ -36,7 +50,9 @@ def generate_batch(model, examples: list[dict], device, amp_dtype,
             done = torch.zeros(len(chunk), dtype=torch.bool, device=device)
             for _ in range(min(max_new_tokens, model.max_seq_len - plen)):
                 with torch.autocast(device.type, dtype=amp_dtype, enabled=amp_dtype is not None):
-                    next_id = model(ids)[:, -1].argmax(-1)
+                    logits = model(ids)[:, -1]
+                logits[:, list(BANNED_IDS)] = float("-inf")
+                next_id = logits.argmax(-1)
                 next_id = torch.where(done, torch.full_like(next_id, PAD_ID), next_id)
                 ids = torch.cat([ids, next_id[:, None]], dim=1)
                 done |= next_id == EOS_ID

@@ -1,0 +1,1903 @@
+{
+  "aggregates": {
+    "COUNT": {
+      "train": [
+        "number of rows",
+        "row count"
+      ],
+      "eval": [
+        "record count"
+      ]
+    },
+    "SUM": {
+      "train": [
+        "total {column}",
+        "sum of {column}"
+      ],
+      "eval": [
+        "combined {column}"
+      ]
+    },
+    "AVG": {
+      "train": [
+        "average {column}",
+        "mean {column}"
+      ],
+      "eval": [
+        "arithmetic mean of {column}"
+      ]
+    },
+    "MIN": {
+      "train": [
+        "minimum {column}",
+        "lowest {column}"
+      ],
+      "eval": [
+        "smallest {column}"
+      ]
+    },
+    "MAX": {
+      "train": [
+        "maximum {column}",
+        "highest {column}"
+      ],
+      "eval": [
+        "largest {column}"
+      ]
+    }
+  },
+  "aggregate": {
+    "train": [
+      "what is the {aggregate} for {rows}",
+      "what is the {aggregate} among {rows}",
+      "return the {aggregate} for {rows}",
+      "for {rows}, what is the {aggregate}",
+      "report the {aggregate} for {rows}",
+      "needed: the {aggregate} for {rows}",
+      "the {aggregate} is needed for {rows}",
+      "calculate the {aggregate} using only {rows}",
+      "calculate the {aggregate} using {rows}",
+      "for {rows}, report the {aggregate}",
+      "return the {aggregate} from {rows}",
+      "consider {rows}; what is the {aggregate}",
+      "find the {aggregate} for {rows}",
+      "determine the {aggregate} over {rows}",
+      "compute the {aggregate} for {rows}",
+      "give the {aggregate} for {rows}",
+      "the {aggregate} for {rows}: what is its value",
+      "using {rows}, determine the {aggregate}",
+      "requested result: the {aggregate} for {rows}",
+      "compute a value for the {aggregate} over {rows}",
+      "what value does the {aggregate} have for {rows}",
+      "show the value of the {aggregate} for {rows}",
+      "use {rows} to calculate the {aggregate}",
+      "result needed from {rows}: the {aggregate}",
+      "calculate and report the {aggregate} over {rows}",
+      "for the {aggregate}, use {rows}",
+      "the {aggregate} over {rows}, expressed as one value",
+      "what result do you get when computing the {aggregate} for {rows}",
+      "could you find the {aggregate} for {rows}",
+      "can you tell me the {aggregate} for {rows}",
+      "could you give me the {aggregate} among {rows}",
+      "i need the {aggregate} for {rows}",
+      "what do we get for the {aggregate} over {rows}",
+      "i'd like to know the {aggregate} for {rows}",
+      "help me work out the {aggregate} for {rows}",
+      "let's calculate the {aggregate} for {rows}",
+      "the {aggregate} for {rows}—what does it come to",
+      "i'm interested in the {aggregate} for {rows}. what is it",
+      "i'd like a value for the {aggregate}, using {rows}",
+      "i am reviewing {rows}. report the {aggregate} for them",
+      "i am checking {rows}. what is the {aggregate} for them",
+      "for my notes on {rows}, provide the {aggregate}",
+      "i'm preparing a summary of {rows} and need the {aggregate}",
+      "this review concerns {rows}. calculate the {aggregate} for that population"
+    ],
+    "eval": [
+      "taking {rows} as the input population, evaluate the {aggregate}",
+      "supply one result: the value obtained for the {aggregate} over {rows}",
+      "which value represents the {aggregate} computed over {rows}",
+      "work out the {aggregate}; the population to use is {rows}",
+      "if we calculate the {aggregate} over {rows}, what answer do we get",
+      "my summary has an entry for the {aggregate} over {rows}. provide the value for that entry"
+    ]
+  },
+  "group": {
+    "train": [
+      "for {rows}, report {group} and {aggregate} within each {group} group",
+      "for {rows}, what is {aggregate} in each {group} group? include the {group} value",
+      "report {group} and {aggregate} by {group} for {rows}",
+      "group {rows} by {group} and give each {group} value with {aggregate}",
+      "{rows}: group by {group}; output each {group} value and {aggregate}",
+      "report each {group} value and {aggregate} per {group} for {rows}",
+      "show each {group} value with {aggregate}, grouped by {group}, using {rows}",
+      "group {rows} by {group}; output the group value and {aggregate} for each group",
+      "group {rows} by {group} and return each {group} value and {aggregate}",
+      "show {group} and {aggregate}, grouped by {group}, using only {rows}",
+      "for each {group} value, what is {aggregate} among {rows}",
+      "include {rows}; group by {group}; return each {group} value and {aggregate}",
+      "for {rows}, what is {aggregate} in each {group} group? include {group} and that result",
+      "{group} and {aggregate} by {group} for {rows}",
+      "among {rows}, group by {group} and show each {group} value and {aggregate}",
+      "use {rows}, group by {group}, and return each {group} value with {aggregate}",
+      "for {rows}, report {group} and {aggregate} for each {group} value",
+      "show each {group} value and {aggregate} for its rows in {rows}, grouped by {group}",
+      "{group} and {aggregate}, grouped by {group}, using {rows}",
+      "group {rows} by {group} and show each {group} value and {aggregate}",
+      "among {rows}, return each {group} value and {aggregate}, grouped by {group}",
+      "return each {group} value and {aggregate} for {rows}, grouped by {group}",
+      "what is {aggregate} for each distinct {group} value represented in {rows}? show the value alongside its result",
+      "break down {rows} by {group}, reporting the group value together with {aggregate}",
+      "produce a {group} breakdown of {rows} with {aggregate} for every group",
+      "return a result for every {group} group in {rows}: its {group} value and {aggregate}",
+      "compute {aggregate} separately for each {group} value in {rows} and identify each result by that value",
+      "separate {rows} into groups sharing {group}; report each shared value and {aggregate}",
+      "provide {aggregate} alongside the corresponding {group} value for every group formed from {rows}",
+      "which {group} values occur in {rows}, and what is {aggregate} for each one's rows",
+      "a breakdown of {rows}: each {group} value paired with {aggregate} for that group",
+      "calculate {aggregate} within the groups defined by {group} in {rows}; include the group values",
+      "each {group} value with its group's {aggregate}, based on {rows}",
+      "partition {rows} by {group} and report {aggregate} together with the value identifying each partition",
+      "give a grouped summary of {rows}: {group} as the key, {aggregate} as the result for each key",
+      "for every value of {group} found in {rows}, return that value and its group's {aggregate}",
+      "use {group} to define groups within {rows}; show the defining value and {aggregate} for each",
+      "what does the {group} breakdown of {rows} look like when each group is represented by its key and {aggregate}",
+      "report {aggregate} from {rows} separately by {group}, attaching the group value to every result",
+      "create a summary with each {group} value from {rows} and {aggregate} computed over its group",
+      "for {rows}, pair every represented {group} value with {aggregate} calculated within that group",
+      "summarize {rows} in groups defined by {group}, giving each group's key and {aggregate}",
+      "can you work out {aggregate} for each {group} group in {rows} and show which value each result belongs to",
+      "i'd like {rows} broken down by {group}, with each group value and its {aggregate}",
+      "how does {aggregate} come out for the different {group} values in {rows}? include those values",
+      "could i get each {group} value in {rows} together with {aggregate} for that group",
+      "let's group {rows} by {group} and see each group value beside its {aggregate}",
+      "i need {aggregate} separately for the {group} groups in {rows}, with the group values included",
+      "what do we get for {aggregate} when we split {rows} by {group}? show each group value with its result",
+      "can you put each {group} value next to {aggregate} for its share of {rows}",
+      "i'd like to see the {group} values represented in {rows} and {aggregate} for each group",
+      "give me a breakdown where {rows} are grouped by {group} and each group value comes with {aggregate}",
+      "could you take {rows}, split them by {group}, and give me each group's value and {aggregate}",
+      "how about a summary of {rows} showing every {group} group by its value and {aggregate}",
+      "i'm after each {group} value and the {aggregate} of its group within {rows}",
+      "can we see {aggregate} group by group for {rows}, with {group} identifying each result",
+      "i'd like the result for every {group} group in {rows}: the group value, then its {aggregate}",
+      "help me break {rows} into {group} groups and report the value and {aggregate} for each one",
+      "for {rows}, could you give me {aggregate} for each group sharing a {group} value, along with that value",
+      "summary note: use {rows}; form groups by {group}; record each group value and its {aggregate}",
+      "for a grouped review of {rows}, show every {group} value alongside {aggregate} for that group",
+      "i'm preparing a breakdown of {rows}. use {group} as the grouping attribute and report each group value with {aggregate}",
+      "report request: summarize {rows} by {group}, including the group key and {aggregate} for every group",
+      "for my notes on {rows}, i need each {group} value and {aggregate} computed within its group",
+      "i'm checking a grouped summary: take {rows} and return every represented {group} value with its group's {aggregate}",
+      "for a report on {rows}, organize the results by {group} groups and give each group's identifying value and {aggregate}"
+    ],
+    "eval": [
+      "within {rows}, identify each {group} and compute its {aggregate}",
+      "key-result pairs: {group} and {aggregate} for each group in {rows}",
+      "represent each group of {rows} sharing a {group} value by that value and its {aggregate}",
+      "partition {rows} by {group}; give every key with its {aggregate}",
+      "a {group} breakdown of {rows}, with keys and {aggregate}",
+      "group {rows} on {group}; supply keys paired with {aggregate}",
+      "i'd find a {group} breakdown helpful: keys and {aggregate} from {rows}",
+      "can you give each {group} from {rows} with its {aggregate}",
+      "worksheet: keys and {aggregate} by {group} across {rows}"
+    ]
+  },
+  "implicit_group_subjects": {
+    "customers|COUNT(*)": "customers",
+    "items|COUNT(*)": "items",
+    "items|AVG(price)": "price",
+    "items|SUM(stock)": "stock",
+    "orders|COUNT(*)": "orders",
+    "orders|SUM(quantity)": "units ordered"
+  },
+  "aggregate_default": {
+    "items|SUM(stock)": {
+      "train": [
+        "how much stock is there for {rows}",
+        "{rows}, how many units are left in total",
+        "how many units of {rows} are in stock altogether",
+        "how much stock do {rows} have combined"
+      ],
+      "eval": [
+        "how many units are on hand across {rows}"
+      ]
+    },
+    "orders|SUM(quantity)": {
+      "train": [
+        "how many units were ordered in {rows}",
+        "how many units were in {rows} altogether",
+        "{rows}, how many units in total"
+      ],
+      "eval": [
+        "how many pieces were ordered across {rows}"
+      ]
+    }
+  },
+  "group_default": {
+    "train": [
+      "for {rows}, report each {group} and its {subject}",
+      "report {subject} per {group} for {rows}, including each {group}",
+      "group {rows} by {group} and return each group key with its {subject}",
+      "for a breakdown of {rows}, show each {group} and its {subject}",
+      "show each {group} and its {subject}, using {rows}",
+      "for {rows}, provide {subject} per {group}, with each group key",
+      "using {rows}, group by {group}; output each group key and its {subject}",
+      "among {rows}, group by {group} and show each group key with its {subject}",
+      "for {rows}, report {subject} for each {group}, with the group key included",
+      "show each {group} and its {subject} for {rows}, grouped by {group}",
+      "return each {group} and its {subject} among {rows}, grouped by {group}",
+      "group {rows} by {group} and show each group key and its {subject}",
+      "{subject} by {group} for {rows}; include each group key",
+      "using {rows}, give the {subject} for every represented {group}, alongside its key",
+      "break down {subject} for {rows} by {group}, showing the group keys",
+      "report a breakdown of {subject} by {group} for {rows}, with keys",
+      "each {group} with its {subject}, based on {rows}",
+      "return a {subject} summary of {rows} by {group}, with a key for each group",
+      "separate {rows} into groups by {group}; report each key and the {subject} for that group",
+      "output each represented {group}, paired with its {subject} from {rows}",
+      "for {rows}: a {subject} summary per {group}, with group keys",
+      "give a breakdown of {rows} showing {subject} for each {group} and identifying each group",
+      "which {group} values occur in {rows}? give {subject} for each group",
+      "report {subject} separately for each {group} represented in {rows}; include the keys",
+      "use {group} to group {rows}, then provide each key with its {subject}",
+      "a group key and its {subject} for every {group} in {rows}",
+      "show a {subject} breakdown by {group} using {rows}, with each group identified",
+      "take {rows}; for each distinct {group}, return the key and that group's {subject}",
+      "could you group {rows} by {group} and give me each key with its {subject}",
+      "can you show each {group} and its {subject} among {rows}",
+      "could you give me the {subject} for each {group} in {rows}, along with the group key",
+      "i'd like {subject} by {group} for {rows}, with each group key shown",
+      "how does {subject} break down by {group} across {rows}? show the keys too",
+      "i'm after a {subject} summary of {rows} for each {group}, including the group keys",
+      "what do we get for {subject} when {rows} are grouped by {group}? give each key and its result",
+      "let's see each {group} from {rows} next to its {subject}",
+      "i need the {group} breakdown for {rows}: each key with its {subject}",
+      "could i get {subject} by {group} for {rows}, with group keys",
+      "i'd like to see {rows} summarized by {group}, with each key beside its {subject}",
+      "for a review of {rows}, provide each {group} and its {subject}",
+      "review note: use {rows}; group by {group}; report each group key and its {subject}",
+      "i'm preparing a grouped summary of {rows}. show each {group} with its {subject}",
+      "the summary needs a separate entry for each {group} in {rows}, showing the group key and its {subject}",
+      "for my notes on {rows}, give a {subject} breakdown by {group} with the group keys included"
+    ],
+    "eval": [
+      "pair the {group} values represented in {rows} with their respective {subject} results",
+      "make a summary with {group} as the key and {subject} as the result for each group drawn from {rows}",
+      "{rows} are the source; each {group} needs its own keyed {subject} result",
+      "present a mapping from each {group} found in {rows} to the {subject} for that group",
+      "what results describe {subject} by {group} among {rows}, including keys",
+      "the report pairs group identifiers with results: use {rows} and provide {subject} under each {group} key"
+    ]
+  },
+  "having": {
+    "train": [
+      ", only include groups whose {aggregate} is {comparison} {value}",
+      ", keep groups with {aggregate} {comparison} {value}"
+    ],
+    "eval": [
+      ", retain only groups where the {aggregate} is {comparison} {value}"
+    ]
+  },
+  "subquery": {
+    "train": [
+      "return {projection} where {column} is {comparison} the {aggregate} among {reference}",
+      "calculate the {aggregate} from {reference}; show {projection} where {column} is {comparison} that value",
+      "lookup: return {projection} where {column} is {comparison} the {aggregate} among {reference}",
+      "{projection}: {column} {comparison} the {aggregate} across {reference}",
+      "return {projection}, keeping only rows whose {column} is {comparison} the {aggregate} of {reference}",
+      "report {projection} where {column} is {comparison} the {aggregate} across {reference}",
+      "show {projection} for rows whose {column} is {comparison} the {aggregate} among {reference}",
+      "show {projection} where {column} is {comparison} the {aggregate} calculated from {reference}",
+      "comparison: output {projection} where {column} is {comparison} the {aggregate} among {reference}",
+      "use {reference} to establish the {aggregate}; return {projection} where {column} is {comparison} that value",
+      "using {reference} as the reference population, return {projection} where {column} is {comparison} that population's {aggregate}",
+      "return {projection} where {column} is {comparison} the {aggregate} calculated only from {reference}",
+      "list {projection} where {column} is {comparison} the {aggregate} among {reference}",
+      "where {column} is {comparison} the {aggregate} across {reference}, return {projection}",
+      "using the {aggregate} of {reference} as the reference, list {projection} where {column} is {comparison} that value",
+      "return {projection} when {column} is {comparison} the {aggregate} of {reference}",
+      "{projection}: retain rows whose {column} is {comparison} the {aggregate} across {reference}",
+      "comparison: {projection} where {column} is {comparison} the {aggregate} of {reference}",
+      "find {projection} subject to this comparison: {column} is {comparison} the {aggregate} computed over {reference}",
+      "which rows qualify for {projection} when {column} must be {comparison} the {aggregate} from {reference}? return the requested output",
+      "compute the {aggregate} over {reference}. return {projection} for qualifying rows: {column} is {comparison} the computed value",
+      "where {column} is {comparison} the {aggregate} from {reference}, provide {projection}",
+      "for {projection}, require {column} to be {comparison} the {aggregate} of {reference}",
+      "requested output: {projection}. row qualification: {column} is {comparison} the {aggregate} computed from {reference}",
+      "take the {aggregate} over {reference} as a scalar benchmark. select {projection} where {column} is {comparison} the benchmark",
+      "apply this test to the requested rows: {column} is {comparison} the {aggregate} of {reference}. return {projection}",
+      "return the qualifying portion of {projection}, using {column} {comparison} the {aggregate} of {reference} as the test",
+      "find the {aggregate} of {reference}, then use it to select {projection} where {column} is {comparison} that value",
+      "give {projection} for every qualifying row, with qualification defined by {column} being {comparison} the {aggregate} from {reference}",
+      "selection rule for {projection}: {column} must be {comparison} the {aggregate} over {reference}",
+      "what qualifies for {projection} under the test that {column} is {comparison} the {aggregate} of {reference}",
+      "use a scalar reference value, the {aggregate} of {reference}, and return {projection} where {column} is {comparison} it",
+      "filter the rows requested by {projection} by testing whether {column} is {comparison} the {aggregate} over {reference}; return the requested output",
+      "{column} must be {comparison} the {aggregate} from {reference}; show {projection} for rows meeting that requirement",
+      "produce {projection} after checking each requested row's {column} against the {aggregate} of {reference}, using {comparison}",
+      "determine the {aggregate} from {reference}. which requested rows have {column} {comparison} that value? return {projection}",
+      "return {projection} with this row test applied: {column} is {comparison} the {aggregate} for {reference}",
+      "the benchmark is the {aggregate} of {reference}. show {projection} where {column} is {comparison} the benchmark",
+      "retrieve {projection} only for rows satisfying {column} {comparison} the {aggregate} computed from {reference}",
+      "for rows with {column} {comparison} the {aggregate} among {reference}, provide {projection}",
+      "could i see {projection} where {column} is {comparison} the {aggregate} across {reference}",
+      "could you give me {projection} where {column} is {comparison} the {aggregate} calculated only from {reference}",
+      "could you find {projection} where {column} is {comparison} the {aggregate} for {reference}",
+      "could you calculate the {aggregate} using {reference}, then give me {projection} where {column} is {comparison} that value",
+      "i'd like {projection}, keeping rows where {column} is {comparison} the {aggregate} from {reference}",
+      "let's use the {aggregate} of {reference} as the benchmark and get {projection} where {column} is {comparison} it",
+      "i'm after {projection}. which requested rows have {column} {comparison} the {aggregate} of {reference}",
+      "for {projection}, can we keep rows whose {column} is {comparison} the {aggregate} over {reference}",
+      "i need the comparison made against the {aggregate} of {reference}: give me {projection} where {column} is {comparison} that value",
+      "how about {projection}, with {column} required to be {comparison} the {aggregate} from {reference}",
+      "i'd use {reference} to get the {aggregate}; could you return {projection} where {column} is {comparison} the result",
+      "let me see {projection} after you apply the test that {column} is {comparison} the {aggregate} of {reference}",
+      "the value i want to compare against is the {aggregate} from {reference}. can i get {projection} where {column} is {comparison} it",
+      "i'm looking for the rows behind {projection} whose {column} is {comparison} the {aggregate} over {reference}; give me that requested output",
+      "use the {aggregate} from {reference} for the comparison, then get me {projection} wherever {column} is {comparison} that value",
+      "what would {projection} look like if we kept only rows whose {column} is {comparison} the {aggregate} of {reference}",
+      "can you work out the {aggregate} of {reference} and use it to find {projection} with {column} {comparison} that value",
+      "i am using the {aggregate} of {reference} as a benchmark; show {projection} where {column} is {comparison} that benchmark",
+      "for a review, provide {projection} where {column} is {comparison} the {aggregate} of {reference}",
+      "review note: {projection} where {column} is {comparison} the {aggregate} among {reference}",
+      "comparison check: derive the {aggregate} from {reference}, then return {projection} where {column} is {comparison} that value",
+      "for this lookup, the reference value is the {aggregate} over {reference}. the requested result is {projection}, restricted to rows whose {column} is {comparison} that value",
+      "work note: compute the {aggregate} using {reference}; apply {column} {comparison} that result to the requested rows; return {projection}",
+      "i'm checking which requested rows meet a reference comparison. return {projection} where {column} is {comparison} the {aggregate} of {reference}",
+      "for the comparison report, use {reference} to compute the {aggregate}. include {projection} where {column} is {comparison} that computed value",
+      "review criterion: {column} is {comparison} the {aggregate} from {reference}. requested output for qualifying rows: {projection}"
+    ],
+    "eval": [
+      "use {comparison} as the relation between each candidate row's {column} and the {aggregate} of {reference}; return {projection} for candidates satisfying it",
+      "evaluate whether {column} is {comparison} a reference value defined as the {aggregate} over {reference}. for rows that pass, return {projection}",
+      "result requested: {projection}; eligibility depends on {column} being {comparison} a scalar obtained by computing the {aggregate} over {reference}",
+      "obtain {projection} by retaining candidate rows for which the statement “{column} is {comparison} the {aggregate} of {reference}” holds",
+      "base the row selection for {projection} on a comparison with the {aggregate} of {reference}: the row's {column} must be {comparison} that reference value",
+      "start with the output described by {projection}; retain contributions from rows only when {column} is {comparison} the {aggregate} computed over {reference}",
+      "here's what i'd like back: {projection}. to decide which rows belong, compare their {column} with the {aggregate} of {reference}, keeping rows for which {comparison} holds",
+      "i have a reference calculation in mind—the {aggregate} of {reference}. would you get {projection} from candidate rows whose {column} is {comparison} its result",
+      "lookup specification: calculate a scalar as the {aggregate} over {reference}; test candidate rows using {column} {comparison} that scalar; supply {projection} for the rows passing the test"
+    ]
+  },
+  "subquery_default": {
+    "train": [
+      "where {column} is {comparison} the overall {aggregate}, show {projection}",
+      "show {projection} where {column} is {comparison} the overall {aggregate}",
+      "list {projection} where {column} is {comparison} the overall {aggregate}",
+      "return {projection} with {column} {comparison} the overall {aggregate}",
+      "{projection}: {column} {comparison} the overall {aggregate}",
+      "report {projection} with {column} {comparison} the overall {aggregate}",
+      "output {projection} where {column} is {comparison} the overall {aggregate}",
+      "using the overall {aggregate} as the reference, list {projection} where {column} is {comparison} that value",
+      "show {projection} whose {column} is {comparison} the overall {aggregate}",
+      "return {projection} where {column} is {comparison} the overall {aggregate}",
+      "requested output: {projection}; qualifying condition: {column} is {comparison} the overall {aggregate}",
+      "when {column} is {comparison} the overall {aggregate}, return {projection}",
+      "for the condition '{column} is {comparison} the overall {aggregate}', show {projection}",
+      "find {projection} satisfying this comparison: {column} is {comparison} the overall {aggregate}",
+      "which results belong in {projection} when {column} must be {comparison} the overall {aggregate}",
+      "apply '{column} is {comparison} the overall {aggregate}' to select {projection}",
+      "use the overall {aggregate} for the comparison '{column} is {comparison} that value'; return {projection}",
+      "{column} must be {comparison} the overall {aggregate}. show {projection}",
+      "selection note: {projection}, restricted to matches where {column} is {comparison} the overall {aggregate}",
+      "return the qualifying results for {projection}: {column} is {comparison} the overall {aggregate}",
+      "determine the overall {aggregate}, then show {projection} where {column} is {comparison} that value",
+      "what results meet '{column} is {comparison} the overall {aggregate}'? return {projection}",
+      "retrieve {projection} subject to {column} being {comparison} the overall {aggregate}",
+      "could i get {projection} where {column} is {comparison} the overall {aggregate}",
+      "could you give me {projection}, provided that {column} is {comparison} the overall {aggregate}",
+      "could you list {projection} with {column} {comparison} the overall {aggregate}",
+      "i'm looking for {projection} where {column} is {comparison} the overall {aggregate}",
+      "i'd like {projection}; keep the results where {column} is {comparison} the overall {aggregate}",
+      "the overall {aggregate} is the comparison value i have in mind. can i see {projection} where {column} is {comparison} it",
+      "let's get {projection} for the cases where {column} is {comparison} the overall {aggregate}",
+      "i need {projection}. can you use '{column} is {comparison} the overall {aggregate}' to select the results",
+      "{projection}, with {column} {comparison} the overall {aggregate}—can you show me those results",
+      "i am comparing against the overall {aggregate}; show {projection} where {column} is {comparison} that value",
+      "review note: show {projection} where {column} is {comparison} the overall {aggregate}",
+      "for this check, the comparison is '{column} is {comparison} the overall {aggregate}'. the requested output is {projection}",
+      "i'm preparing a lookup of {projection}; select the results by testing whether {column} is {comparison} the overall {aggregate}",
+      "work note: calculate the overall {aggregate} as the comparison value, then retrieve {projection} where {column} is {comparison} that value"
+    ],
+    "eval": [
+      "selection rule for {projection}: compare {column} with the overall {aggregate} and retain matches to '{comparison}'",
+      "take the overall {aggregate} as a benchmark. which results have {column} {comparison} that benchmark? supply {projection}",
+      "can you put together {projection} by checking each row's {column} against the overall {aggregate}, using '{comparison}'",
+      "the lookup specification pairs {projection} with the test '{column} is {comparison} the overall {aggregate}'; produce the matching output"
+    ]
+  },
+  "template_meta": {
+    "aggregate": {
+      "train": [
+        {
+          "style": "common",
+          "source_pair_id": 816,
+          "candidate_key": "aggregate:train:0"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1966,
+          "candidate_key": "aggregate:train:1"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 2498,
+          "candidate_key": "aggregate:train:2"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 869,
+          "candidate_key": "aggregate:train:3"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 940,
+          "candidate_key": "aggregate:train:4"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1645,
+          "candidate_key": "aggregate:train:5"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1385,
+          "candidate_key": "aggregate:train:6"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1208,
+          "candidate_key": "aggregate:train:7"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 33,
+          "candidate_key": "aggregate:train:8"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 2109,
+          "candidate_key": "aggregate:train:9"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 2348,
+          "candidate_key": "aggregate:train:10"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 2164,
+          "candidate_key": "aggregate:train:11"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:12"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:13"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:14"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:15"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:16"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:17"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:18"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:19"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:20"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:21"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:22"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:23"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:24"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:25"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:26"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:27"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 637,
+          "candidate_key": "aggregate:train:28"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 422,
+          "candidate_key": "aggregate:train:29"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 12,
+          "candidate_key": "aggregate:train:30"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:31"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:32"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:33"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:34"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:35"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:36"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:37"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:38"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 1204,
+          "candidate_key": "aggregate:train:39"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 1039,
+          "candidate_key": "aggregate:train:40"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:41"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:42"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:train:43"
+        }
+      ],
+      "eval": [
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:eval:0"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:eval:1"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:eval:2"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:eval:3"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:eval:4"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "aggregate:eval:5"
+        }
+      ]
+    },
+    "group": {
+      "train": [
+        {
+          "style": "common",
+          "source_pair_id": 1549,
+          "candidate_key": "group:train:0"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1684,
+          "candidate_key": "group:train:1"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 2094,
+          "candidate_key": "group:train:2"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 2207,
+          "candidate_key": "group:train:3"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1760,
+          "candidate_key": "group:train:4"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1965,
+          "candidate_key": "group:train:5"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 517,
+          "candidate_key": "group:train:6"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 145,
+          "candidate_key": "group:train:7"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1963,
+          "candidate_key": "group:train:8"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 2061,
+          "candidate_key": "group:train:9"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 411,
+          "candidate_key": "group:train:10"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 2115,
+          "candidate_key": "group:train:11"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 2354,
+          "candidate_key": "group:train:12"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 295,
+          "candidate_key": "group:train:13"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 776,
+          "candidate_key": "group:train:14"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 688,
+          "candidate_key": "group:train:15"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 2104,
+          "candidate_key": "group:train:16"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1631,
+          "candidate_key": "group:train:17"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1080,
+          "candidate_key": "group:train:18"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 566,
+          "candidate_key": "group:train:19"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 151,
+          "candidate_key": "group:train:20"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1756,
+          "candidate_key": "group:train:21"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:22"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:23"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:24"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:25"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:26"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:27"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:28"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:29"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:30"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:31"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:32"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:33"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:34"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:35"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:36"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:37"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:38"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:39"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:40"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:41"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:42"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:43"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:44"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:45"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:46"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:47"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:48"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:49"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:50"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:51"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:52"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:53"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:54"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:55"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:56"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:57"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:58"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:59"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:60"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:61"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:62"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:63"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:64"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "group:train:65"
+        }
+      ],
+      "eval": [
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:eval:0"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:eval:1"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:eval:2"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:eval:3"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:eval:4"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group:eval:5"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group:eval:6"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group:eval:7"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "group:eval:8"
+        }
+      ]
+    },
+    "group_default": {
+      "train": [
+        {
+          "style": "common",
+          "source_pair_id": 1549,
+          "candidate_key": "group_default:train:0"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1965,
+          "candidate_key": "group_default:train:1"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1963,
+          "candidate_key": "group_default:train:2"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 649,
+          "candidate_key": "group_default:train:3"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 2061,
+          "candidate_key": "group_default:train:4"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 411,
+          "candidate_key": "group_default:train:5"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 2370,
+          "candidate_key": "group_default:train:6"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 776,
+          "candidate_key": "group_default:train:7"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 2104,
+          "candidate_key": "group_default:train:8"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1631,
+          "candidate_key": "group_default:train:9"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 151,
+          "candidate_key": "group_default:train:10"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 566,
+          "candidate_key": "group_default:train:11"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1080,
+          "candidate_key": "group_default:train:12"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:13"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:14"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:15"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:16"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:17"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:18"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:19"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:20"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:21"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:22"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:23"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:24"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:25"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:26"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:27"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 2207,
+          "candidate_key": "group_default:train:28"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 402,
+          "candidate_key": "group_default:train:29"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 1827,
+          "candidate_key": "group_default:train:30"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:31"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:32"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:33"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:34"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:35"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:36"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:37"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:38"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 2064,
+          "candidate_key": "group_default:train:39"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 1275,
+          "candidate_key": "group_default:train:40"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:41"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:42"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:train:43"
+        }
+      ],
+      "eval": [
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:eval:0"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:eval:1"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:eval:2"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:eval:3"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:eval:4"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "group_default:eval:5"
+        }
+      ]
+    },
+    "subquery": {
+      "train": [
+        {
+          "style": "common",
+          "source_pair_id": 1233,
+          "candidate_key": "subquery:train:0"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 2154,
+          "candidate_key": "subquery:train:1"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 80,
+          "candidate_key": "subquery:train:2"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 655,
+          "candidate_key": "subquery:train:3"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1653,
+          "candidate_key": "subquery:train:4"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1985,
+          "candidate_key": "subquery:train:5"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 851,
+          "candidate_key": "subquery:train:6"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1196,
+          "candidate_key": "subquery:train:7"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1320,
+          "candidate_key": "subquery:train:8"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 19,
+          "candidate_key": "subquery:train:9"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 854,
+          "candidate_key": "subquery:train:10"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1358,
+          "candidate_key": "subquery:train:11"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 503,
+          "candidate_key": "subquery:train:12"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 431,
+          "candidate_key": "subquery:train:13"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 654,
+          "candidate_key": "subquery:train:14"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1123,
+          "candidate_key": "subquery:train:15"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 495,
+          "candidate_key": "subquery:train:16"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 20,
+          "candidate_key": "subquery:train:17"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:18"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:19"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:20"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:21"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:22"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:23"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:24"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:25"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:26"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:27"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:28"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:29"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:30"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:31"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:32"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:33"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:34"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:35"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:36"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:37"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:38"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:39"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 577,
+          "candidate_key": "subquery:train:40"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 302,
+          "candidate_key": "subquery:train:41"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 1397,
+          "candidate_key": "subquery:train:42"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 1852,
+          "candidate_key": "subquery:train:43"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:44"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:45"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:46"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:47"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:48"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:49"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:50"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:51"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:52"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:53"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:54"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:55"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:56"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 974,
+          "candidate_key": "subquery:train:57"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 2394,
+          "candidate_key": "subquery:train:58"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 810,
+          "candidate_key": "subquery:train:59"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:60"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:61"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:62"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:63"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:64"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:train:65"
+        }
+      ],
+      "eval": [
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:eval:0"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:eval:1"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:eval:2"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:eval:3"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:eval:4"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:eval:5"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:eval:6"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:eval:7"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "subquery:eval:8"
+        }
+      ]
+    },
+    "subquery_default": {
+      "train": [
+        {
+          "style": "common",
+          "source_pair_id": 921,
+          "candidate_key": "subquery_default:train:0"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 541,
+          "candidate_key": "subquery_default:train:1"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 923,
+          "candidate_key": "subquery_default:train:2"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1178,
+          "candidate_key": "subquery_default:train:3"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 300,
+          "candidate_key": "subquery_default:train:4"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1985,
+          "candidate_key": "subquery_default:train:5"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1300,
+          "candidate_key": "subquery_default:train:6"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 654,
+          "candidate_key": "subquery_default:train:7"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 1296,
+          "candidate_key": "subquery_default:train:8"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 808,
+          "candidate_key": "subquery_default:train:9"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:10"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:11"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:12"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:13"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:14"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:15"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:16"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:17"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:18"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:19"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:20"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:21"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:22"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 542,
+          "candidate_key": "subquery_default:train:23"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 1162,
+          "candidate_key": "subquery_default:train:24"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 1297,
+          "candidate_key": "subquery_default:train:25"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:26"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:27"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:28"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:29"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:30"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:31"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 924,
+          "candidate_key": "subquery_default:train:32"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 805,
+          "candidate_key": "subquery_default:train:33"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:34"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:35"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:train:36"
+        }
+      ],
+      "eval": [
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:eval:0"
+        },
+        {
+          "style": "common",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:eval:1"
+        },
+        {
+          "style": "conversational",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:eval:2"
+        },
+        {
+          "style": "contextual",
+          "source_pair_id": 0,
+          "candidate_key": "subquery_default:eval:3"
+        }
+      ]
+    }
+  },
+  "style_sampling": {
+    "common": 0.7,
+    "conversational": 0.2,
+    "contextual": 0.1
+  },
+  "_doc": "Stage-3 typed templates. Sentence templates and HAVING suffixes counted separately; metadata tracks source training examples and sampling style."
+}

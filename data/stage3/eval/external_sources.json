@@ -1,0 +1,195 @@
+{
+ "eval_external_gpt_r1": {
+  "status": "complete",
+  "pairs": 1000,
+  "unique_sql": 200,
+  "family_sql": {
+   "legacy": 50,
+   "having": 35,
+   "scalar_subquery": 35,
+   "aggregate": 40,
+   "group": 40
+  },
+  "split_sql": {
+   "struct": 80,
+   "indist": 80,
+   "holdout": 40
+  },
+  "split_pairs": {
+   "struct": 400,
+   "indist": 400,
+   "holdout": 200
+  },
+  "models": [
+   "gpt-6.1-sol"
+  ],
+  "initial_review_issues": 0,
+  "adjudicated_pairs": 72,
+  "adjudication_rewrites": 0,
+  "raw_checker_flag_count": 72,
+  "unresolved_original_flags": 0,
+  "final_checker_flag_count": 64,
+  "max_context_tokens": 206,
+  "max_sql_eos_tokens": 100,
+  "final_pairs_sha256": "10e5d4a74779388cac74991a8ce1c6c9f14def23478414148c71994bf4b5fbd8",
+  "sql_sha256": "9c3223c55dcf5f8fdf731df5985b9ead4dc7ee96af3581b29ffc155a38f4e9e5",
+  "workflow_sha256": "bd5373d808063743b90ab095e5b9633bb4d9e893e2655fc69c2222fad0f74687",
+  "original_inputs_hashes_unchanged": true,
+  "training_sql_overlap": 0,
+  "pending_supplement_sql_overlap": {
+   "llm_numbers_r6_600": 0,
+   "llm_intent_r7_600": 0,
+   "llm_no_invention_r8_400": 0
+  },
+  "model_scoring_performed": false,
+  "promoted_to_training": false,
+  "limitations": [
+   "SQL-to-question evaluation, not free user questions",
+   "GPT also authored training questions; not an unseen-platform evaluation",
+   "five questions per SQL are correlated; report SQL count with question count",
+   "LLM review and sample inspection do not prove semantic uniqueness"
+  ],
+  "primary_sample_pairs": 100,
+  "primary_sample_semantic_issues": 0,
+  "independent_successful_sessions": 18,
+  "warning_resolution": "All 72 raw diagnostic items were independently accepted as semantically valid; 64 rule-checker flags remain raw and unchanged. No question or checker rewrite was needed.",
+  "final_pairs_sha256_path": "data_raw/stage3/ext_r1_gpt/pairs_final.json",
+  "published_artifacts_sha256": {
+   "pairs.json": "c649d450933e8068566e24f19a37c717d5654a3930adf4220e667c13c2a77ff4",
+   "sql.json": "9c036d66bb89a5369922f90cdf1cd600b16d96d80493d1ba03bb2cc394aff04a",
+   "questions.csv": "8b64fed2b61fb328415605b1061cf11481a0dd9046de0e2ce1a188291172fe97"
+  }
+ },
+ "eval_external_humanstyle_gpt_r2": {
+  "status": "complete",
+  "pairs": 1000,
+  "unique_sql": 200,
+  "family_sql": {
+   "legacy": 50,
+   "having": 35,
+   "scalar_subquery": 35,
+   "aggregate": 40,
+   "group": 40
+  },
+  "split_sql": {
+   "struct": 80,
+   "indist": 80,
+   "holdout": 40
+  },
+  "split_pairs": {
+   "struct": 400,
+   "indist": 400,
+   "holdout": 200
+  },
+  "models": [
+   "gpt-6.1-sol"
+  ],
+  "initial_review_issues": 0,
+  "adjudicated_pairs": 128,
+  "adjudication_rewrites": 0,
+  "raw_checker_flag_count": 128,
+  "unresolved_original_flags": 0,
+  "final_checker_flag_count": 121,
+  "max_context_tokens": 200,
+  "max_sql_eos_tokens": 100,
+  "final_pairs_sha256": "f8fb857d0ba6f20d446fa9b2e3c15d78ab9e2882f3fd6194869ba09b381c176e",
+  "sql_sha256": "9c3223c55dcf5f8fdf731df5985b9ead4dc7ee96af3581b29ffc155a38f4e9e5",
+  "workflow_sha256": "338077ad9ec7d3e3c51b145cd6b9542926abafb0ff001d3edbc2f241aade9020",
+  "original_inputs_hashes_unchanged": true,
+  "training_sql_overlap": 0,
+  "pending_supplement_sql_overlap": {
+   "llm_numbers_r6_600": 0,
+   "llm_intent_r7_600": 0,
+   "llm_no_invention_r8_400": 0
+  },
+  "model_scoring_performed": false,
+  "promoted_to_training": false,
+  "limitations": [
+   "SQL-to-question evaluation, not free user questions",
+   "GPT also authored training questions; not an unseen-platform evaluation",
+   "five questions per SQL are correlated; report SQL count with question count",
+   "LLM review and sample inspection do not prove semantic uniqueness"
+  ],
+  "sample_review": {
+   "reviewer": "additional_independent_LLM",
+   "n": 100,
+   "accepted": 100,
+   "pairs_sha256": "f8fb857d0ba6f20d446fa9b2e3c15d78ab9e2882f3fd6194869ba09b381c176e"
+  },
+  "authoring": "LLM authored from stage-2 human style patterns; not actual human-written questions",
+  "style_source": {
+   "source": "data_raw/stage2/human/sql_list_A..D.json",
+   "actual_human_questions": 100,
+   "new_human_r2_forms": "data_raw/stage2/human_r2_20261017 forms are blank; not used as observed speech",
+   "question_mark_count": 23,
+   "comparison_symbol_count": 7,
+   "writer_counts": {
+    "A": 25,
+    "B": 25,
+    "C": 25,
+    "D": 25
+   },
+   "observed_features": [
+    "keyword lists and comma-separated conditions",
+    "conditions before requested output",
+    "inclusive/strict comparison symbols",
+    "SQL-like asc/desc shorthand in some requests",
+    "non-native word order and missing articles",
+    "occasional spelling errors in non-value words",
+    "ordinary questions mixed with terse requests"
+   ],
+   "provenance": "Style patterns only; no human question text or SQL is copied into new evaluation prompts.",
+   "hashes": {
+    "data_raw\\stage2\\human\\sql_list_A.json": "f7418d8b43c174242c21b850ec7c2a5ca02797ae4ecad0b81017d22e9839a9f6",
+    "data_raw\\stage2\\human\\sql_list_B.json": "f3230392a74440b3a6e5e54f453c06a8961aaf3ddcb1a8f135641c5ea1b6690d",
+    "data_raw\\stage2\\human\\sql_list_C.json": "52a8d9a07b3a7dd8c75822f52b1a322a8b5107535d6e2283e417b8d752d88aa0",
+    "data_raw\\stage2\\human\\sql_list_D.json": "2ff0477a79569b34b817aefb6cafb95429ae339f17f6587953015d13d4e42878"
+   }
+  },
+  "style_diagnostics": {
+   "questions": 1000,
+   "unique_sql": 200,
+   "actual_human_style_source_questions": 100,
+   "question_marks": 218,
+   "comparison_symbols": 104,
+   "underscore_identifiers": 0,
+   "full_select_statements": 0,
+   "exact_question_overlap_current_training": 0,
+   "exact_question_overlap_previous_external_eval": 1,
+   "independent_sessions": 21,
+   "style_counts": {
+    "keyword_search": 200,
+    "conditions_first": 200,
+    "awkward_english": 200,
+    "symbol_shorthand": 200,
+    "ordinary_question": 200
+   },
+   "note": "Style coverage quotas, not a measured population distribution. Shared SQL with previous external eval is intentional; matching ordinary questions can naturally recur."
+  },
+  "primary_assistant_sample": {
+   "n": 25,
+   "status": "passed",
+   "source": "data_raw/stage3/ext_r2_humanstyle_gpt/primary_root_25_review.json"
+  }
+ },
+ "humanstyle_diagnostics": {
+  "questions": 1000,
+  "unique_sql": 200,
+  "actual_human_style_source_questions": 100,
+  "question_marks": 218,
+  "comparison_symbols": 104,
+  "underscore_identifiers": 0,
+  "full_select_statements": 0,
+  "exact_question_overlap_current_training": 0,
+  "exact_question_overlap_previous_external_eval": 1,
+  "independent_sessions": 21,
+  "style_counts": {
+   "keyword_search": 200,
+   "conditions_first": 200,
+   "awkward_english": 200,
+   "symbol_shorthand": 200,
+   "ordinary_question": 200
+  },
+  "note": "Style coverage quotas, not a measured population distribution. Shared SQL with previous external eval is intentional; matching ordinary questions can naturally recur."
+ }
+}

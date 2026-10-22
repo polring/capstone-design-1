@@ -1,3 +1,6 @@
+# 역할: 마르코프 이름 생성과 영단어 판별을 구현하고 1단계 질문·SQL의 이름을 바꾼다.
+# 사용처: 1단계 이름 복사 능력 증강과 2·3단계 이름 생성기의 기반 기능으로 사용한다.
+
 """
 name_swap.py — 이름 교체 실험용 학습 데이터 생성
 
@@ -14,7 +17,7 @@ name_swap.py — 이름 교체 실험용 학습 데이터 생성
   전략을 배우지 못하게 하려는 것이다. DB 의 모든 이름(holdout 포함), 이름 풀, 학습 질문에 나오는 단어,
   실제 영단어(WordNet 표제어와 그 -s/-es/-ed/-ing/-er/-ly 변화형)와 겹치는 것은 버리고, 쌍마다 서로 다른
   이름을 쓴다.
-- 영단어 목록: 기본은 저장소의 data/wordnet/english_words.txt (WordNet 3.0 표제어, 한 줄에 한 단어).
+- 영단어 목록: 기본은 저장소의 data/common/wordnet/english_words.txt (WordNet 3.0 표제어, 한 줄에 한 단어).
   NLTK 의 wordnet.zip 도 표준 라이브러리 zipfile 로 직접 읽을 수 있다. 다른 목록은 --wordlist 로 지정한다.
 - 질문 속 이름 위치는 question_gen.literal_in_question 과 같은 규칙(단어 경계, 뒤의 's/s/es 허용)으로 찾고,
   바꾼 뒤 같은 함수로 "새 이름은 있고 옛 이름은 없다"를 확인한다. 확인에 실패한 쌍은 바꾸지 않는다.

@@ -1,3 +1,6 @@
+# 역할: 2단계 외부 LLM 질문의 프롬프트 생성, 응답 검사와 학습 반영을 처리한다.
+# 사용처: 2단계 학습 질문과 학습에 섞지 않을 외부 말투 평가 질문을 수집할 때 사용한다.
+
 """
 2단계 LLM 질문 생성: 외부 말투 평가 질문 (계획서 3-4 "2단계 이후 평가 질문", 방식 A: SQL → 질문)과 학습 질문(--split train)
 
@@ -32,20 +35,6 @@
         → data/stage2/train/llm.json 에 넣는다 (쌍마다 round, source = llm:<플랫폼>:<페르소나>. 같은 라운드·플랫폼은 바꾼다.
           기존 학습 쌍과 질문이 같은데 SQL 이 다른 쌍은 뺀다). 옮긴 뒤 BPE 를 다시 만든다
 
-배포 묶음 (1단계 새 말투 배포와 같은 방식): 다른 플랫폼(GPT, Gemini 등)을 쓰는 팀원에게 SQL 목록과 안내문(handout_template.md)만 준다.
-프롬프트는 우리가 쓰지 않는다. 그 LLM 이 안내문의 BRIEF(규칙 포함)를 읽고 질문 생성 프롬프트를 직접 쓴 뒤 배치마다 새 세션에서
-질문을 만든다. 페르소나도 그 LLM 이 정하므로 질문 자리는 q1~q5 로만 부른다. 학습 SQL 과 평가 SQL 을 섞어 한 묶음으로 줄 수 있다
-(배포 id 는 묶음 안 번호, 받는 쪽은 어느 것이 평가용인지 모른다). 배치를 플랫폼별로 나눠 맡겨도 된다(validate 는 플랫폼마다 응답한 배치만 본다).
-    python -m src.data.stage2.question_gen make-handout --out data_raw/stage2/llm_r3 --n 800 --batch-size 25 --seed 2 \
-        --exclude-dir data_raw/stage2/llm_r1,data_raw/stage2/llm_r2 \
-        --eval indist:80,struct:80,holdout:40 --eval-from data_raw/stage2/ext_r1 --eval-prefix data_raw/stage2/ext_r2
-        <out>/handout/                          팀원에게 보낼 폴더 (README.md, sql/pilot.txt, sql/batch_XX.txt)
-        <out>/round_sql.json, <out>/pilot/, data_raw/stage2/ext_r2_<분할>/   라운드별 검증용 메타, <out>/handout_map.json
-    python -m src.data.stage2.question_gen collect-handout --out data_raw/stage2/llm_r3 --platform gpt --responses <돌려받은 폴더>
-        응답을 라운드별 responses/<플랫폼>/ 으로 나누고 라운드마다 validate (플랫폼마다 한 번씩). 그 뒤 학습분은 to-train, 평가분은 eval_build ext
-    프롬프트를 정해 주는 묶음: --prompt 로 이전 배포의 최종 프롬프트를 배치 파일마다 넣는다(파일럿 없음, --n 0 이면 평가 SQL 만).
-    python -m src.data.stage2.question_gen make-handout --out data_raw/stage2/gpt_r3 --n 0 --batch-size 25 --seed 3 \
-        --prompt <최종 프롬프트 파일> --eval indist:80,struct:80,holdout:40 --eval-from data_raw/stage2/ext_r2 --eval-prefix data_raw/stage2/ext_r3
 """
 
 from __future__ import annotations
@@ -196,150 +185,6 @@ def make_prompts(out_dir: str, split: str, n: int, batch_size: int, seed: int, s
     print(f"응답 저장: {out_dir}/responses/<플랫폼>/batch_XX.json")
 
 
-HANDOUT_DIR = PATHS.data_dir / "handout"  # 배포 묶음 안내문 틀
-HANDOUT_TEMPLATE = HANDOUT_DIR / "handout_template.md"
-HANDOUT_FIXED_TEMPLATE = HANDOUT_DIR / "handout_fixed_template.md"  # 프롬프트를 배치 파일에 넣어 주는 묶음
-HANDOUT_SLOTS = [f"q{i}" for i in range(1, 6)]  # BRIEF 가 SQL 당 질문 5개를 정한다. 말투는 받는 LLM 이 정한다
-HANDOUT_MAP = "handout_map.json"  # 묶음 id → (라운드 폴더, 원래 id, 배치 파일)
-
-
-def _load_exclude(dirs: list[str] | None) -> set[str]:
-    out: set[str] = set()
-    for d in dirs or []:
-        with open(os.path.join(d, ROUND_SQL), encoding="utf-8") as f:
-            out |= {r["sql"] for r in json.load(f).values()}
-    return out
-
-
-def _write_round(d: Path, items: dict[int, dict], split: str, source: str, seed: int) -> None:
-    d.mkdir(parents=True, exist_ok=True)
-    (d / ROUND_SQL).write_text(json.dumps(items, ensure_ascii=False, indent=1), encoding="utf-8")
-    (d / ROUND_META).write_text(json.dumps({"split": split, "personas": HANDOUT_SLOTS, "sql": source, "seed": seed,
-                                            "handout": True}, ensure_ascii=False, indent=1), encoding="utf-8")
-
-
-def make_handout(out_dir: str, n: int, pilot_n: int, batch_size: int, seed: int, sql_path: str | None = None,
-                 exclude_dirs: list[str] | None = None, eval_counts: dict[str, int] | None = None,
-                 eval_from: str | None = None, eval_prefix: str | None = None,
-                 prompt: str | None = None) -> None:
-    """배포 묶음: 학습 SQL n개 + 평가 SQL(분할별 eval_counts)을 섞어 배치로 나누고, 파일럿은 학습 SQL 로 따로 둔다.
-    - 학습 SQL 은 train.json 에서 모양별로 돌아가며 뽑는다(exclude_dirs 라운드의 SQL 제외). 라운드 폴더 = out_dir.
-    - 평가 SQL 은 eval_from 이 있으면 <eval_from>_<분할>/round_sql.json(이전 외부 말투 라운드)에서 뽑는다. 1단계 새 말투 배포처럼
-      같은 SQL 에서 다른 플랫폼의 질문과 바로 비교하려는 것이다. 없으면 eval_<분할>.json 에서. 라운드 폴더 = <eval_prefix>_<분할>.
-    - 배포 파일의 id 는 묶음 안 번호(1부터)다. SQL 파일마다 인덱스가 겹쳐서다. 원래 (라운드, id) 는 handout_map.json 에 두고
-      collect-handout 이 응답을 라운드별로 되돌린다. 받는 쪽은 어느 SQL 이 평가용인지 모른다.
-    - prompt(이전 배포에서 받은 최종 프롬프트 파일)를 주면 배치 파일마다 프롬프트 + SQL 목록을 통째로 넣는다. 받는 쪽은 프롬프트를
-      쓰지 않으므로 파일럿을 만들지 않고, 안내문은 handout_fixed_template.md 다. n = 0 이면 평가 SQL 만 담는다(학습 라운드 없음)."""
-    out = Path(out_dir)
-    eval_counts = eval_counts or {}
-    prompt_text = Path(prompt).read_text(encoding="utf-8-sig").strip() if prompt else None
-    if prompt_text:
-        pilot_n = 0
-    rounds = ({out: "train"} if n else {}) | {Path(f"{eval_prefix}_{s}"): s for s in eval_counts}
-    if eval_counts and not eval_prefix:
-        raise SystemExit("평가 SQL 을 넣으려면 --eval-prefix 가 필요하다")
-    if taken := [str(d) for d in rounds if (d / ROUND_SQL).exists()]:
-        raise SystemExit(f"이미 있는 라운드 폴더: {taken} (지우고 다시 만든다)")
-
-    sql_path = sql_path or str(PATHS.sql_dir / "train.json")
-    with open(sql_path, encoding="utf-8") as f:
-        rows = json.load(f)
-    exclude = _load_exclude(exclude_dirs)
-    train_ids = pick(rows, "train", n, seed, exclude)
-    pilot_ids = pick(rows, "train", pilot_n, seed + 1, exclude | {rows[i]["sql"] for i in train_ids})
-    main = [(out, i, rows[i]) for i in train_ids]
-    sources = {out: sql_path}
-    for split, cnt in eval_counts.items():
-        if eval_from:
-            src = Path(f"{eval_from}_{split}") / ROUND_SQL
-            cand = [(int(k), v) for k, v in json.loads(src.read_text(encoding="utf-8")).items()]
-        else:
-            src = PATHS.sql_dir / f"eval_{split}.json"
-            cand = list(enumerate(json.loads(src.read_text(encoding="utf-8"))))
-        rd = Path(f"{eval_prefix}_{split}")
-        sources[rd] = str(src)
-        main += [(rd, cand[j][0], cand[j][1]) for j in pick([r for _, r in cand], split, cnt, seed, set())]
-    rng = random.Random(seed + 2)
-    rng.shuffle(main)
-    rng.shuffle(pilot_ids)
-
-    (out / "handout" / "sql").mkdir(parents=True, exist_ok=True)
-    hmap: dict[int, dict] = {}
-    per_round: dict[Path, dict[int, dict]] = {d: {} for d in rounds}
-    batches = [main[i:i + batch_size] for i in range(0, len(main), batch_size)]
-    hid = 0
-    for bi, b in enumerate(batches, start=1):
-        lines = []
-        for rd, oid, rec in b:
-            hid += 1
-            lines.append(f"id={hid} | {rec['sql']}\n")
-            hmap[hid] = {"round": str(rd), "id": oid, "file": f"batch_{bi:02d}"}
-            per_round[rd][oid] = {k: v for k, v in rec.items() if k != "batch"} | {"split": rounds[rd], "batch": bi}
-        text = "".join(lines)
-        if prompt_text:
-            text = f"{prompt_text}\n\n{text}"
-        (out / "handout" / "sql" / f"batch_{bi:02d}.txt").write_text(text, encoding="utf-8")
-    pilot_lines, pilot_meta = [], {}
-    for oid in pilot_ids:
-        hid += 1
-        pilot_lines.append(f"id={hid} | {rows[oid]['sql']}\n")
-        hmap[hid] = {"round": str(out / "pilot"), "id": oid, "file": "pilot"}
-        pilot_meta[oid] = dict(rows[oid], split="train", batch=0)
-    if pilot_ids:
-        (out / "handout" / "sql" / "pilot.txt").write_text("".join(pilot_lines), encoding="utf-8")
-
-    for rd, items in per_round.items():
-        _write_round(rd, items, rounds[rd], sources[rd], seed)
-    if pilot_ids:
-        _write_round(out / "pilot", pilot_meta, "train", sql_path, seed)
-    (out / HANDOUT_MAP).write_text(json.dumps(hmap, ensure_ascii=False, indent=1), encoding="utf-8")
-
-    doc = (HANDOUT_FIXED_TEMPLATE if prompt_text else HANDOUT_TEMPLATE).read_text(encoding="utf-8")
-    for key, val in {"N_SQL": len(main), "PILOT_SIZE": len(pilot_ids), "BATCH_SIZE": batch_size,
-                     "LAST_BATCH": f"{len(batches):02d}"}.items():
-        doc = doc.replace(f"<<{key}>>", str(val))
-    (out / "handout" / "README.md").write_text(doc, encoding="utf-8")
-    print(f"SQL {len(main)}개 -> 배치 {len(batches)}개 (배치 크기 {batch_size}), 파일럿 {len(pilot_ids)}개")
-    for rd, items in per_round.items():
-        print(f"  {rd}: {rounds[rd]} {len(items)}개 ({len({shape_key(rounds[rd], r) for r in items.values()})}개 모양)")
-    print(f"배포: {out / 'handout'} (이 폴더만 보낸다)")
-
-
-def collect_handout(out_dir: str, platform: str, returned: str) -> None:
-    """돌려받은 폴더(<returned>/responses/batch_XX.json, <returned>/pilot_vN.json)의 응답을 묶음 id → 원래 id 로 바꿔
-    라운드마다 <라운드>/responses/<platform>/batch_XX.json 으로 나누고, 라운드마다 validate 한다.
-    파일럿은 프롬프트 버전마다 <out>/pilot/responses/<platform>_vN/ 으로 둔다(validate 가 버전을 플랫폼처럼 나란히 보인다).
-    응답은 고치지 않는다: 감싼 코드 블록만 벗기고, 깨진 JSON 파일은 알리고 건너뛴다(그 배치는 validate 에 안 보이니 출력의 배치 목록을 확인한다)."""
-    out, ret = Path(out_dir), Path(returned)
-    hmap = {int(k): v for k, v in json.loads((out / HANDOUT_MAP).read_text(encoding="utf-8")).items()}
-    files = [(f, platform) for f in sorted((ret / "responses").glob("*.json"))]
-    files += [(f, f"{platform}_{f.stem.removeprefix('pilot_')}") for f in sorted(ret.glob("pilot_v*.json"))]
-    grouped: dict[tuple[str, str, str], list] = defaultdict(list)
-    for f, plat in files:
-        text = f.read_text(encoding="utf-8-sig").strip()
-        if fence := re.fullmatch(r"```[a-zA-Z]*\s*\n(.*)\n\s*```", text, re.S):
-            text = fence.group(1)  # 코드 블록으로 감싸 온 응답 (내용은 그대로)
-        try:
-            batch = json.loads(text)
-        except json.JSONDecodeError as e:
-            print(f"[건너뜀] {f.name}: JSON 파싱 실패 ({e})")
-            continue
-        for item in batch if isinstance(batch, list) else []:
-            try:
-                m = hmap[int(item["id"])]
-            except (KeyError, TypeError, ValueError):
-                print(f"[건너뜀] {f.name}: 모르는 id {item.get('id') if isinstance(item, dict) else item!r}")
-                continue
-            grouped[(m["round"], plat, m["file"])].append(dict(item, id=m["id"]))
-    for (rd, plat, name), items in sorted(grouped.items()):
-        d = Path(rd) / "responses" / plat
-        d.mkdir(parents=True, exist_ok=True)
-        (d / f"{name}.json").write_text(json.dumps(items, ensure_ascii=False, indent=1), encoding="utf-8")
-    for rd in sorted({rd for rd, _, _ in grouped}):
-        print(f"--- {rd}")
-        validate(rd)
-
-
 # ---------------------------------------------------------------------------
 # 검증
 # ---------------------------------------------------------------------------
@@ -451,7 +296,7 @@ def validate(out_dir: str) -> dict:
         rule_dropped: dict[str, Counter] = defaultdict(Counter)
         plat_meta = meta
         if rmeta.get("handout"):
-            # 배포 묶음은 플랫폼마다 배치를 나눠 맡을 수 있다: 이 플랫폼이 응답한 배치의 SQL 만 본다 (배치 파일이 통째로 빠지면 여기서 안 보인다)
+            # 과거 배포 묶음 응답 호환: 이 플랫폼이 응답한 배치의 SQL만 본다.
             got = {0 if f.stem.startswith("pilot") else int(f.stem.removeprefix("batch_"))
                    for f in (out / "responses" / plat).glob("*.json")}
             plat_meta = {k: v for k, v in meta.items() if v["batch"] in got}
@@ -559,35 +404,19 @@ def to_train(out_dir: str, platform: str, train_dir: Path = PATHS.train_dir) -> 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="2단계 외부 말투 평가 질문 생성 (방식 A: SQL → 질문)")
-    ap.add_argument("command", choices=["make-prompts", "make-handout", "collect-handout", "validate", "to-train"])
-    ap.add_argument("--platform", default="claude", help="to-train: 옮길 플랫폼 응답 / collect-handout: 응답을 넣을 플랫폼 이름")
+    ap.add_argument("command", choices=["make-prompts", "validate", "to-train"])
+    ap.add_argument("--platform", default="claude", help="to-train: 옮길 플랫폼 응답")
     ap.add_argument("--out", required=True, help="라운드 폴더 (예: data_raw/stage2/eval_r1)")
     ap.add_argument("--split", choices=SPLITS, default="indist", help="make-prompts: SQL 을 뽑을 평가 분할")
     ap.add_argument("--sql", default=None, help=f"make-prompts: SQL 파일 (기본 {PATHS.sql_dir}/eval_<split>.json)")
     ap.add_argument("--n", type=int, default=120, help="make-prompts: SQL 수")
     ap.add_argument("--batch-size", type=int, default=20, help="make-prompts: 배치(LLM 세션) 하나의 SQL 수")
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--exclude-dir", default="", help="make-prompts / make-handout: 이전 라운드 폴더들 (쉼표 구분, 그 SQL 은 뽑지 않음)")
-    ap.add_argument("--pilot-n", type=int, default=25, help="make-handout: 파일럿 SQL 수")
-    ap.add_argument("--eval", default="", help="make-handout: 섞어 넣을 평가 SQL 수 (예: indist:80,struct:80,holdout:40)")
-    ap.add_argument("--eval-from", default=None, help="make-handout: 평가 SQL 을 뽑을 이전 라운드 접두 (예: data_raw/stage2/ext_r1 → ext_r1_<분할>)")
-    ap.add_argument("--eval-prefix", default=None, help="make-handout: 평가 라운드 폴더 접두 (예: data_raw/stage2/ext_r2 → ext_r2_<분할>)")
-    ap.add_argument("--prompt", default=None, help="make-handout: 배치 파일마다 넣을 프롬프트 파일 (주면 파일럿 없이 배치만 돌리는 묶음)")
-    ap.add_argument("--responses", default=None, help="collect-handout: 팀원이 돌려준 폴더 (responses/, pilot_vN.json)")
+    ap.add_argument("--exclude-dir", default="", help="make-prompts: 이전 라운드 폴더들 (쉼표 구분, 그 SQL 은 뽑지 않음)")
     args = ap.parse_args()
     excl = [d for d in args.exclude_dir.split(",") if d]
     if args.command == "make-prompts":
         make_prompts(args.out, args.split, args.n, args.batch_size, args.seed, args.sql, excl)
-    elif args.command == "make-handout":
-        counts = {s: int(c) for s, c in (x.split(":") for x in args.eval.split(",") if x)}
-        if bad := set(counts) - {"indist", "struct", "holdout"}:
-            raise SystemExit(f"--eval 분할은 indist / struct / holdout 만: {sorted(bad)}")
-        make_handout(args.out, args.n, args.pilot_n, args.batch_size, args.seed, args.sql, excl,
-                     counts, args.eval_from, args.eval_prefix, args.prompt)
-    elif args.command == "collect-handout":
-        if not args.responses:
-            raise SystemExit("--responses 가 필요하다")
-        collect_handout(args.out, args.platform, args.responses)
     elif args.command == "validate":
         validate(args.out)
     else:

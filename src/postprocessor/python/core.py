@@ -1,3 +1,6 @@
+# 역할: SQL 파싱, 식별자 교정과 SQL 재구성을 하나의 처리 흐름으로 묶는다.
+# 사용처: 후처리 CLI와 테스트에서 process_sql()을 호출해 SQL을 교정할 때 사용한다.
+
 from .parser import extract_identifiers
 from .replacement import correct_identifiers
 from .reconstruction import reconstruct_sql

@@ -1,3 +1,6 @@
+# 역할: Python 임베딩 사전을 C에서 읽을 바이너리와 텍스트 형식으로 내보낸다.
+# 사용처: 별도 C SQL 후처리기에 의미 교정용 임베딩 자료를 전달할 때 사용한다.
+
 """
 Export semantic_dict_<dim>d.pkl into a lightweight binary (.bin) and text (.txt)
 format so that the C SQL post-processor can load and query embeddings with zero dependencies.

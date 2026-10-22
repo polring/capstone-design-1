@@ -102,6 +102,22 @@ def test_committed_eval_sets_are_consistent():
 
 
 @pytest.mark.integration
+def test_stage3_combined_evaluation_sets_match_dataset_metadata():
+    """3단계 조합기·외부 질문을 같은 폴더에서 세트별 SQL 메타데이터와 함께 읽는다"""
+    paths = config.stage_paths(3)
+    info = json.loads((paths.data_dir / "dataset_info.json").read_text(encoding="utf-8"))
+    expected = info["evaluation"]["by_set"]
+    assert set(eval_sets.list_sets(paths.eval_dir)) == set(expected)
+    for name, count in expected.items():
+        pairs, meta = eval_sets.load_eval_set(name, paths.eval_dir)
+        assert len(pairs) == count, name
+        assert set(meta) == {eval_sets.sql_key(pair) for pair in pairs}, name
+    assert sum(expected.values()) == info["evaluation"]["pairs"]
+    external_pairs = sum(count for name, count in expected.items() if name.startswith("ext_"))
+    assert external_pairs == info["evaluation"]["external_pairs"]
+
+
+@pytest.mark.integration
 def test_stage2_eval_sets_consistent_and_unseen_in_training():
     """2단계 평가셋: sql.json 이 쌍의 SQL 을 모두 담고, 평가 SQL 은 학습 SQL(sql_gen train.json)에 없어야 함"""
     paths = config.stage_paths(2)
