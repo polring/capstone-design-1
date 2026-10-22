@@ -15,7 +15,9 @@ def marker_project(pytester, monkeypatch):
     pytester.makeconftest(
         (PROJECT_ROOT / "tests" / "conftest.py").read_text(encoding="utf-8")
     )
-    pytester.makeini((PROJECT_ROOT / "pytest.ini").read_text(encoding="utf-8"))
+    pytester.makepyprojecttoml(
+        (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
     return pytester
 
 

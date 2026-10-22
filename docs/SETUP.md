@@ -146,8 +146,7 @@ docs/
 ├── text-to-sql-label-rules.md        라벨 규칙 L1~L29와 정책 반영 기록
 ├── SETUP.md                          이 문서
 ├── CONVENTION.md                     협업·커밋 규칙
-├── exporter-loader.md                GGUF 내보내기와 C 입력 전처리 연결
-└── repo-split-plan.md                C 구동기 저장소 분리의 계획·완료 기록
+└── exporter-loader.md                GGUF 내보내기와 C 입력 전처리 연결
 ```
 
 ## 4. 클론 직후 할 일
