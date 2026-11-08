@@ -1,3 +1,6 @@
+# 역할: 바이트·특수·시드·병합 토큰의 ID 배치를 직렬화 가능한 설정으로 정의한다.
+# 사용처: GGUF 내보내기와 Python·C 간 토크나이저 계약 검사에서 사용한다.
+
 """Serializable layout of the team's byte-level BPE vocabulary.
 
 This describes token IDs, not a replacement tokenizer or a public-model adapter.

@@ -1,0 +1,629 @@
+﻿source,target,table,distance,source_synset,gloss,number
+aggregate,item,items,2,n:04353803,the whole amount,singular
+aggregates,items,items,2,n:04353803,the whole amount,plural
+anachronism,item,items,3,n:02707036,an artifact that belongs to another time,singular
+anachronisms,items,items,3,n:02707036,an artifact that belongs to another time,plural
+antiquities,items,items,3,n:02724026,an artifact surviving from the past,plural
+antiquity,item,items,3,n:02724026,an artifact surviving from the past,singular
+artefact,item,items,2,n:00021939,a man-made object taken as a whole,singular
+artefacts,items,items,2,n:00021939,a man-made object taken as a whole,plural
+article,item,items,3,n:00022903,"one of a class of artifacts; ""an article of clothing""",singular
+articles,items,items,3,n:00022903,"one of a class of artifacts; ""an article of clothing""",plural
+artifact,item,items,2,n:00021939,a man-made object taken as a whole,singular
+artifacts,items,items,2,n:00021939,a man-made object taken as a whole,plural
+assemblies,items,items,2,n:02749953,a unit consisting of components that have been fitted together,plural
+assembly,item,items,2,n:02749953,a unit consisting of components that have been fitted together,singular
+asterism,item,items,3,n:09208496,(astronomy) a cluster of stars (or a small constellation),singular
+asterisms,items,items,3,n:09208496,(astronomy) a cluster of stars (or a small constellation),plural
+bacchanal,customer,customers,3,n:10526300,someone who engages in drinking bouts,singular
+bacchanals,customers,customers,3,n:10526300,someone who engages in drinking bouts,plural
+bacchant,customer,customers,3,n:10526300,someone who engages in drinking bouts,singular
+bacchantes,customers,customers,3,n:10526300,someone who engages in drinking bouts,plural
+bacchants,customers,customers,3,n:10526300,someone who engages in drinking bouts,plural
+basic,item,items,2,n:02800793,(usually plural) a necessary commodity for which demand is constant,singular
+basics,items,items,2,n:02800793,(usually plural) a necessary commodity for which demand is constant,plural
+bed,item,items,3,n:03650173,"single thickness of usually some homogeneous substance; ""slices of hard-boiled egg on a bed of spinach""",singular
+beds,items,items,3,n:03650173,"single thickness of usually some homogeneous substance; ""slices of hard-boiled egg on a bed of spinach""",plural
+beings,items,items,3,n:00004475,a living thing that has (or can develop) the ability to act or function independently,plural
+belongings,item,items,3,n:13244109,"something owned; any tangible or intangible possession that is owned by someone; ""that hat is my property""; ""he is a man of property"";",singular
+belongingses,items,items,3,n:13244109,"something owned; any tangible or intangible possession that is owned by someone; ""that hat is my property""; ""he is a man of property"";",plural
+billing,order,orders,2,n:07190941,"request for payment of a debt; ""they submitted their charges at the end of each month""",singular
+billings,orders,orders,2,n:07190941,"request for payment of a debt; ""they submitted their charges at the end of each month""",plural
+biont,item,items,3,n:00006400,a discrete unit of living matter,singular
+bionts,items,items,3,n:00006400,a discrete unit of living matter,plural
+blackbodies,items,items,3,n:09222406,"a hypothetical object capable of absorbing all the electromagnetic radiation falling on it; ""a black body maintained at a constant temperature is a full radiator at that temperature because the radiation reaching and leaving it must be in equilibrium""",plural
+blackbody,item,items,3,n:09222406,"a hypothetical object capable of absorbing all the electromagnetic radiation falling on it; ""a black body maintained at a constant temperature is a full radiator at that temperature because the radiation reaching and leaving it must be in equilibrium""",singular
+block,item,items,3,n:02852523,"a solid piece of something (usually having flat rectangular sides); ""the pyramids were built with large stone blocks""",singular
+blocks,items,items,3,n:02852523,"a solid piece of something (usually having flat rectangular sides); ""the pyramids were built with large stone blocks""",plural
+bodies,items,items,3,n:05216365,"the entire structure of an organism (an animal, plant, or human being); ""he felt as if his whole body were on fire""",plural
+body,item,items,3,n:05216365,"the entire structure of an organism (an animal, plant, or human being); ""he felt as if his whole body were on fire""",singular
+bondholder,customer,customers,3,n:09864761,a holder of bonds issued by a government or corporation,singular
+bondholders,customers,customers,3,n:09864761,a holder of bonds issued by a government or corporation,plural
+business,order,orders,5,n:00582388,"the principal activity in your life that you do to earn money; ""he's not in my line of business""",singular
+businesses,orders,orders,5,n:00582388,"the principal activity in your life that you do to earn money; ""he's not in my line of business""",plural
+button,item,items,3,n:02928841,any artifact that resembles a button,singular
+buttons,items,items,3,n:02928841,any artifact that resembles a button,plural
+buyers,customers,customers,1,n:09885145,a person who buys,plural
+buyings,orders,orders,1,n:00081572,"the act of buying; ""buying and selling fill their days""; ""shrewd purchasing requires considerable knowledge""",plural
+cardholder,customer,customers,3,n:09893916,a player who holds a card or cards in a card game,singular
+cardholders,customers,customers,3,n:09893916,a player who holds a card or cards in a card game,plural
+cargo,item,items,1,n:02964389,goods carried by a large vehicle,singular
+cargoes,items,items,1,n:02964389,goods carried by a large vehicle,plural
+cargos,items,items,1,n:02964389,goods carried by a large vehicle,plural
+carouser,customer,customers,3,n:10769321,someone who enjoys riotous drinking,singular
+carousers,customers,customers,3,n:10769321,someone who enjoys riotous drinking,plural
+carpet,item,items,3,n:09236766,"a natural object that resembles or suggests a carpet; ""a carpet of flowers""; ""the larvae of some moths spin a web that resembles a carpet""",singular
+carpets,items,items,3,n:09236766,"a natural object that resembles or suggests a carpet; ""a carpet of flowers""; ""the larvae of some moths spin a web that resembles a carpet""",plural
+catch,item,items,3,n:09238143,"anything that is caught (especially if it is worth catching); ""he shared his catch with the others""",singular
+catches,items,items,3,n:09238143,"anything that is caught (especially if it is worth catching); ""he shared his catch with the others""",plural
+cell,item,items,3,n:00006484,(biology) the basic structural and functional unit of all organisms; they may exist as independent units of life (as in monads) or may form colonies or tissues as in higher plants and animals,singular
+cells,items,items,3,n:00006484,(biology) the basic structural and functional unit of all organisms; they may exist as independent units of life (as in monads) or may form colonies or tissues as in higher plants and animals,plural
+charge,order,orders,2,n:07190941,"request for payment of a debt; ""they submitted their charges at the end of each month""",singular
+charges,orders,orders,2,n:07190941,"request for payment of a debt; ""they submitted their charges at the end of each month""",plural
+charm,item,items,3,n:03009633,something believed to bring good luck,singular
+charms,items,items,3,n:03009633,something believed to bring good luck,plural
+chewer,customer,customers,2,n:09915964,someone who chews (especially someone who chews tobacco),singular
+chewers,customers,customers,2,n:09915964,someone who chews (especially someone who chews tobacco),plural
+cloth,item,items,3,n:03309808,"artifact made by weaving or felting or knitting or crocheting natural or synthetic fibers; ""the fabric in the curtains was light and semitransparent""; ""woven cloth originated in Mesopotamia around 5000 BC""; ""she measured off enough material for a dress""",singular
+clothing,item,items,3,n:03051540,a covering designed to be worn on a person's body,singular
+clothings,items,items,3,n:03051540,a covering designed to be worn on a person's body,plural
+cloths,items,items,3,n:03309808,"artifact made by weaving or felting or knitting or crocheting natural or synthetic fibers; ""the fabric in the curtains was light and semitransparent""; ""woven cloth originated in Mesopotamia around 5000 BC""; ""she measured off enough material for a dress""",plural
+cocoon,item,items,3,n:02312744,silky envelope spun by the larvae of many insects to protect pupas and by spiders to protect eggs,singular
+cocoons,items,items,3,n:02312744,silky envelope spun by the larvae of many insects to protect pupas and by spiders to protect eggs,plural
+commemorative,item,items,3,n:09251689,an object (such as a coin or postage stamp) made to mark an event or honor a person,singular
+commemoratives,items,items,3,n:09251689,an object (such as a coin or postage stamp) made to mark an event or honor a person,plural
+commodities,items,items,1,n:03076708,articles of commerce,plural
+commodity,item,items,1,n:03076708,articles of commerce,singular
+cone,item,items,3,n:03089348,any cone-shaped artifact,singular
+cones,items,items,3,n:03089348,any cone-shaped artifact,plural
+congener,item,items,2,n:00003993,"a whole (a thing or person) of the same kind or category as another; ""lard was also used, though its congener, butter, was more frequently employed""; ""the American shopkeeper differs from his European congener""",singular
+congeners,items,items,2,n:00003993,"a whole (a thing or person) of the same kind or category as another; ""lard was also used, though its congener, butter, was more frequently employed""; ""the American shopkeeper differs from his European congener""",plural
+consignment,item,items,1,n:02964389,goods carried by a large vehicle,singular
+consignments,items,items,1,n:02964389,goods carried by a large vehicle,plural
+consolidation,item,items,3,n:09252586,"something that has consolidated into a compact mass; ""he dropped the consolidation into the acid bath""",singular
+consolidations,items,items,3,n:09252586,"something that has consolidated into a compact mass; ""he dropped the consolidation into the acid bath""",plural
+constellation,item,items,3,n:09252970,a configuration of stars as seen from the earth,singular
+constellations,items,items,3,n:09252970,a configuration of stars as seen from the earth,plural
+construction,item,items,3,n:04341686,"a thing constructed; a complex entity constructed of many parts; ""the structure consisted of a series of arches""; ""she wore her hair in an amazing construction of whirls and ribbons""",singular
+constructions,items,items,3,n:04341686,"a thing constructed; a complex entity constructed of many parts; ""the structure consisted of a series of arches""; ""she wore her hair in an amazing construction of whirls and ribbons""",plural
+consumer,customer,customers,1,n:09612848,a person who uses goods or services,singular
+consumers,customers,customers,1,n:09612848,a person who uses goods or services,plural
+contraband,item,items,1,n:03096273,goods whose importation or exportation or possession is prohibited by law,singular
+contrabands,items,items,1,n:03096273,goods whose importation or exportation or possession is prohibited by law,plural
+cosmos,item,items,3,n:09466280,"everything that exists anywhere; ""they study the evolution of the universe""; ""the biggest tree in existence""",singular
+cosmoses,items,items,3,n:09466280,"everything that exists anywhere; ""they study the evolution of the universe""; ""the biggest tree in existence""",plural
+cover,item,items,3,n:09257949,"a natural object that covers or envelops; ""under a covering of dust""; ""the fox was flushed from its cover""",singular
+coverings,items,items,3,n:03122748,an artifact that covers something else (usually to protect or shelter or conceal it),plural
+covers,items,items,3,n:09257949,"a natural object that covers or envelops; ""under a covering of dust""; ""the fox was flushed from its cover""",plural
+creation,item,items,3,n:03129123,an artifact that has been brought into existence by someone,singular
+creations,items,items,3,n:03129123,an artifact that has been brought into existence by someone,plural
+curio,item,items,3,n:03149951,something unusual -- perhaps worthy of collecting,singular
+curios,items,items,3,n:03149951,something unusual -- perhaps worthy of collecting,plural
+curiosities,items,items,3,n:03149951,something unusual -- perhaps worthy of collecting,plural
+curiosity,item,items,3,n:03149951,something unusual -- perhaps worthy of collecting,singular
+cushioning,item,items,3,n:03873064,artifact consisting of soft or resilient material used to fill or give shape or protect or add comfort,singular
+cushionings,items,items,3,n:03873064,artifact consisting of soft or resilient material used to fill or give shape or protect or add comfort,plural
+dealing,order,orders,5,n:01106808,"the act of transacting within or between groups (as carrying on commercial activities); ""no transactions are possible without him""; ""he has always been honest is his dealings with me""",singular
+dealings,orders,orders,5,n:01106808,"the act of transacting within or between groups (as carrying on commercial activities); ""no transactions are possible without him""; ""he has always been honest is his dealings with me""",plural
+dealingses,orders,orders,5,n:01106808,"the act of transacting within or between groups (as carrying on commercial activities); ""no transactions are possible without him""; ""he has always been honest is his dealings with me""",plural
+decker,item,items,3,n:03168364,"(often used in combinations) something constructed with multiple levels; ""they rode in a double-decker bus""",singular
+deckers,items,items,3,n:03168364,"(often used in combinations) something constructed with multiple levels; ""they rode in a double-decker bus""",plural
+decoration,item,items,3,n:03169390,something used to beautify,singular
+decorations,items,items,3,n:03169390,something used to beautify,plural
+devourer,customer,customers,3,n:10010864,someone who eats greedily or voraciously,singular
+devourers,customers,customers,3,n:10010864,someone who eats greedily or voraciously,plural
+diner,customer,customers,3,n:10013242,a person eating a meal (especially in a restaurant),singular
+diners,customers,customers,3,n:10013242,a person eating a meal (especially in a restaurant),plural
+disburser,customer,customers,1,n:10635275,someone who spends money to purchase goods or services,singular
+disbursers,customers,customers,1,n:10635275,someone who spends money to purchase goods or services,plural
+discards,items,items,3,n:09267490,anything that is cast aside or discarded,plural
+disposable,item,items,1,n:03212003,an item that can be disposed of after it has been used,singular
+disposables,items,items,1,n:03212003,an item that can be disposed of after it has been used,plural
+distraint,order,orders,5,n:00085829,"the seizure and holding of property as security for payment of a debt or satisfaction of a claim; ""Originally distress was a landlord's remedy against a tenant for unpaid rents or property damage but now the landlord is given a landlord's lien""",singular
+distraints,orders,orders,5,n:00085829,"the seizure and holding of property as security for payment of a debt or satisfaction of a claim; ""Originally distress was a landlord's remedy against a tenant for unpaid rents or property damage but now the landlord is given a landlord's lien""",plural
+distress,order,orders,5,n:00085829,"the seizure and holding of property as security for payment of a debt or satisfaction of a claim; ""Originally distress was a landlord's remedy against a tenant for unpaid rents or property damage but now the landlord is given a landlord's lien""",singular
+distresses,orders,orders,5,n:00085829,"the seizure and holding of property as security for payment of a debt or satisfaction of a claim; ""Originally distress was a landlord's remedy against a tenant for unpaid rents or property damage but now the landlord is given a landlord's lien""",plural
+draw,item,items,3,n:03233423,"anything (straws or pebbles etc.) taken or chosen at random; ""the luck of the draw""; ""they drew lots for it""",singular
+draws,items,items,3,n:03233423,"anything (straws or pebbles etc.) taken or chosen at random; ""the luck of the draw""; ""they drew lots for it""",plural
+dreck,item,items,1,n:04145735,merchandise that is shoddy or inferior,singular
+drecks,items,items,1,n:04145735,merchandise that is shoddy or inferior,plural
+drinker,customer,customers,2,n:10034201,a person who drinks alcoholic beverages (especially to excess),singular
+drinkers,customers,customers,2,n:10034201,a person who drinks alcoholic beverages (especially to excess),plural
+drug,item,items,3,n:03247620,a substance that is used as a medicine or narcotic,singular
+drugs,items,items,3,n:03247620,a substance that is used as a medicine or narcotic,plural
+drunk,customer,customers,3,n:10037080,someone who is intoxicated,singular
+drunkard,customer,customers,3,n:10037385,a chronic drinker,singular
+drunkards,customers,customers,3,n:10037385,a chronic drinker,plural
+drunks,customers,customers,3,n:10037080,someone who is intoxicated,plural
+drygoods,item,items,2,n:03252064,textiles or clothing and related merchandise,singular
+drygoodses,items,items,2,n:03252064,textiles or clothing and related merchandise,plural
+dunker,customer,customers,3,n:10040049,"an eater who dips food into a liquid before eating it; ""he was a dunker--he couldn't eat a doughnut without a cup of coffee to dunk it in""",singular
+dunkers,customers,customers,3,n:10040049,"an eater who dips food into a liquid before eating it; ""he was a dunker--he couldn't eat a doughnut without a cup of coffee to dunk it in""",plural
+duplicates,items,items,3,n:03307981,"something additional of the same kind; ""he always carried extras in case of an emergency""",plural
+durables,item,items,3,n:03257877,consumer goods that are not destroyed by use,singular
+durableses,items,items,3,n:03257877,consumer goods that are not destroyed by use,plural
+earth,item,items,3,n:09334396,"the solid part of the earth's surface; ""the plane turned away from the sea and moved back over land""; ""the earth shook for several minutes""; ""he dropped the logs on the ground""",singular
+earths,items,items,3,n:09334396,"the solid part of the earth's surface; ""the plane turned away from the sea and moved back over land""; ""the earth shook for several minutes""; ""he dropped the logs on the ground""",plural
+eater,customer,customers,2,n:10042300,someone who consumes food for nourishment,singular
+eaters,customers,customers,2,n:10042300,someone who consumes food for nourishment,plural
+electroplate,item,items,3,n:03280064,any artifact that has been plated with a thin coat of metal by electrolysis,singular
+electroplates,items,items,3,n:03280064,any artifact that has been plated with a thin coat of metal by electrolysis,plural
+emptor,customer,customers,1,n:09885145,a person who buys,singular
+emptors,customers,customers,1,n:09885145,a person who buys,plural
+entrant,item,items,2,n:03291243,"a commodity that enters competition with established merchandise; ""a well publicized entrant is the pocket computer""",singular
+entrants,items,items,2,n:03291243,"a commodity that enters competition with established merchandise; ""a well publicized entrant is the pocket computer""",plural
+excavation,item,items,3,n:03302121,a hole in the ground made by excavating,singular
+excavations,items,items,3,n:03302121,a hole in the ground made by excavating,plural
+existences,items,items,3,n:09466280,"everything that exists anywhere; ""they study the evolution of the universe""; ""the biggest tree in existence""",plural
+expender,customer,customers,1,n:10635275,someone who spends money to purchase goods or services,singular
+expenders,customers,customers,1,n:10635275,someone who spends money to purchase goods or services,plural
+export,item,items,2,n:03306207,commodities (goods or services) sold to a foreign country,singular
+exportation,item,items,2,n:03306207,commodities (goods or services) sold to a foreign country,singular
+exportations,items,items,2,n:03306207,commodities (goods or services) sold to a foreign country,plural
+exports,items,items,2,n:03306207,commodities (goods or services) sold to a foreign country,plural
+extra,item,items,3,n:03307981,"something additional of the same kind; ""he always carried extras in case of an emergency""",singular
+extras,items,items,3,n:03307981,"something additional of the same kind; ""he always carried extras in case of an emergency""",plural
+fabric,item,items,3,n:03309808,"artifact made by weaving or felting or knitting or crocheting natural or synthetic fibers; ""the fabric in the curtains was light and semitransparent""; ""woven cloth originated in Mesopotamia around 5000 BC""; ""she measured off enough material for a dress""",singular
+fabrics,items,items,3,n:03309808,"artifact made by weaving or felting or knitting or crocheting natural or synthetic fibers; ""the fabric in the curtains was light and semitransparent""; ""woven cloth originated in Mesopotamia around 5000 BC""; ""she measured off enough material for a dress""",plural
+facilities,items,items,3,n:00585406,"something designed and created to serve a particular function and to afford a particular convenience or service; ""catering facilities""; ""toilet facilities""; ""educational facilities""",plural
+facility,item,items,3,n:00585406,"something designed and created to serve a particular function and to afford a particular convenience or service; ""catering facilities""; ""toilet facilities""; ""educational facilities""",singular
+fashion,item,items,3,n:03323593,consumer goods (especially clothing) in the current mode,singular
+fashions,items,items,3,n:03323593,consumer goods (especially clothing) in the current mode,plural
+feature,item,items,1,n:03325769,an article of merchandise that is displayed or advertised more than other articles,singular
+features,items,items,1,n:03325769,an article of merchandise that is displayed or advertised more than other articles,plural
+feeder,customer,customers,2,n:10042300,someone who consumes food for nourishment,singular
+feeders,customers,customers,2,n:10042300,someone who consumes food for nourishment,plural
+filler,item,items,3,n:03714721,"anything added to fill out a whole; ""some of the items in the collection are mere makeweights""",singular
+fillers,items,items,3,n:03714721,"anything added to fill out a whole; ""some of the items in the collection are mere makeweights""",plural
+film,item,items,3,n:03338648,"a thin coating or layer; ""the table was covered with a film of dust""",singular
+films,items,items,3,n:03338648,"a thin coating or layer; ""the table was covered with a film of dust""",plural
+findings,items,items,3,n:09279458,"something that is found; ""the findings in the gastrointestinal tract indicate that he died several hours after dinner""; ""an area rich in archaeological findings""",plural
+fixture,customer,customers,2,n:10517405,"a regular patron; ""an habitue of the racetrack""; ""a bum who is a Central Park fixture""",singular
+fixtures,customers,customers,2,n:10517405,"a regular patron; ""an habitue of the racetrack""; ""a bum who is a Central Park fixture""",plural
+float,item,items,3,n:03364340,something that floats on the surface of water,singular
+floater,item,items,3,n:09281777,an object that floats or is capable of floating,singular
+floaters,items,items,3,n:09281777,an object that floats or is capable of floating,plural
+floats,items,items,3,n:03364340,something that floats on the surface of water,plural
+fomite,item,items,3,n:09283193,any inanimate object (as a towel or money or clothing or dishes or books or toys etc.) that can transmit infectious agents from one person to another,singular
+fomites,items,items,3,n:09283193,any inanimate object (as a towel or money or clothing or dishes or books or toys etc.) that can transmit infectious agents from one person to another,plural
+foodstuff,item,items,3,n:03461119,(usually plural) consumer goods sold by a grocer,singular
+foodstuffs,items,items,3,n:03461119,(usually plural) consumer goods sold by a grocer,plural
+formation,item,items,3,n:09287968,(geology) the geological features of the earth,singular
+formations,items,items,3,n:09287968,(geology) the geological features of the earth,plural
+freight,item,items,1,n:02964389,goods carried by a large vehicle,singular
+freights,items,items,1,n:02964389,goods carried by a large vehicle,plural
+frequenter,customer,customers,1,n:10407726,a regular customer,singular
+frequenters,customers,customers,1,n:10407726,a regular customer,plural
+fungible,item,items,2,n:03403169,a commodity that is freely interchangeable with another in satisfying an obligation,singular
+fungibles,items,items,2,n:03403169,a commodity that is freely interchangeable with another in satisfying an obligation,plural
+future,item,items,2,n:03408721,bulk commodities bought or sold at an agreed price for delivery at a specified future date,singular
+futures,items,items,2,n:03408721,bulk commodities bought or sold at an agreed price for delivery at a specified future date,plural
+generic,item,items,1,n:03434428,any product that can be sold without a brand name,singular
+generics,items,items,1,n:03434428,any product that can be sold without a brand name,plural
+glutton,customer,customers,3,n:10132988,a person who is devoted to eating and drinking to excess,singular
+gluttons,customers,customers,3,n:10132988,a person who is devoted to eating and drinking to excess,plural
+gobbler,customer,customers,3,n:10134282,a hasty eater who swallows large mouthfuls,singular
+gobblers,customers,customers,3,n:10134282,a hasty eater who swallows large mouthfuls,plural
+good,item,items,1,n:03076708,articles of commerce,singular
+goods,items,items,1,n:03076708,articles of commerce,plural
+gorger,customer,customers,3,n:10561613,someone who eats food rapidly and greedily,singular
+gorgers,customers,customers,3,n:10561613,someone who eats food rapidly and greedily,plural
+gourmand,customer,customers,3,n:10132988,a person who is devoted to eating and drinking to excess,singular
+gourmandizer,customer,customers,3,n:10132988,a person who is devoted to eating and drinking to excess,singular
+gourmandizers,customers,customers,3,n:10132988,a person who is devoted to eating and drinking to excess,plural
+gourmands,customers,customers,3,n:10132988,a person who is devoted to eating and drinking to excess,plural
+groceries,items,items,3,n:03461119,(usually plural) consumer goods sold by a grocer,plural
+grocery,item,items,3,n:03461119,(usually plural) consumer goods sold by a grocer,singular
+ground,item,items,3,n:09334396,"the solid part of the earth's surface; ""the plane turned away from the sea and moved back over land""; ""the earth shook for several minutes""; ""he dropped the logs on the ground""",singular
+grounds,items,items,3,n:09334396,"the solid part of the earth's surface; ""the plane turned away from the sea and moved back over land""; ""the earth shook for several minutes""; ""he dropped the logs on the ground""",plural
+growth,item,items,3,n:09295338,"something grown or growing; ""a growth of hair""",singular
+growths,items,items,3,n:09295338,"something grown or growing; ""a growth of hair""",plural
+guest,customer,customers,1,n:10151133,a customer of a hotel or restaurant etc.,singular
+guests,customers,customers,1,n:10151133,a customer of a hotel or restaurant etc.,plural
+gulper,customer,customers,3,n:10151957,a drinker who swallows large amounts greedily,singular
+gulpers,customers,customers,3,n:10151957,a drinker who swallows large amounts greedily,plural
+guzzler,customer,customers,3,n:10151957,a drinker who swallows large amounts greedily,singular
+guzzlers,customers,customers,3,n:10151957,a drinker who swallows large amounts greedily,plural
+haberdasheries,items,items,3,n:03473704,the drygoods sold by a haberdasher,plural
+haberdashery,item,items,3,n:03473704,the drygoods sold by a haberdasher,singular
+habiliment,item,items,3,n:03051540,a covering designed to be worn on a person's body,singular
+habiliments,items,items,3,n:03051540,a covering designed to be worn on a person's body,plural
+habitue,customer,customers,2,n:10517405,"a regular patron; ""an habitue of the racetrack""; ""a bum who is a Central Park fixture""",singular
+habitues,customers,customers,2,n:10517405,"a regular patron; ""an habitue of the racetrack""; ""a bum who is a Central Park fixture""",plural
+hail,item,items,3,n:09300905,"many objects thrown forcefully through the air; ""a hail of pebbles""; ""a hail of bullets""",singular
+hails,items,items,3,n:09300905,"many objects thrown forcefully through the air; ""a hail of pebbles""; ""a hail of bullets""",plural
+head,item,items,3,n:09302031,"a rounded compact mass; ""the head of a comet""",singular
+heads,items,items,3,n:09302031,"a rounded compact mass; ""the head of a comet""",plural
+holder,customer,customers,2,n:10180178,"a person who holds something; ""they held two hostages""; ""he holds the trophy""; ""she holds a United States passport""",singular
+holders,customers,customers,2,n:10180178,"a person who holds something; ""they held two hostages""; ""he holds the trophy""; ""she holds a United States passport""",plural
+holdings,items,items,3,n:13244109,"something owned; any tangible or intangible possession that is owned by someone; ""that hat is my property""; ""he is a man of property"";",plural
+hoodoo,item,items,3,n:03532080,something believed to bring bad luck,singular
+hoodoos,items,items,3,n:03532080,something believed to bring bad luck,plural
+ice,item,items,3,n:09308398,the frozen part of a body of water,singular
+ices,items,items,3,n:09308398,the frozen part of a body of water,plural
+imbiber,customer,customers,2,n:10034201,a person who drinks alcoholic beverages (especially to excess),singular
+imbibers,customers,customers,2,n:10034201,a person who drinks alcoholic beverages (especially to excess),plural
+import,item,items,2,n:03564667,commodities (goods or services) bought from a foreign country,singular
+importation,item,items,2,n:03564667,commodities (goods or services) bought from a foreign country,singular
+importations,items,items,2,n:03564667,commodities (goods or services) bought from a foreign country,plural
+imports,items,items,2,n:03564667,commodities (goods or services) bought from a foreign country,plural
+incumbent,customer,customers,3,n:10202624,the official who holds an office,singular
+incumbents,customers,customers,3,n:10202624,the official who holds an office,plural
+individuals,customers,customers,3,n:00007846,"a human being; ""there was too much for one person to do""",plural
+inebriate,customer,customers,3,n:10037385,a chronic drinker,singular
+inebriates,customers,customers,3,n:10037385,a chronic drinker,plural
+insert,item,items,3,n:03573282,an artifact that is inserted or is to be inserted,singular
+inserts,items,items,3,n:03573282,an artifact that is inserted or is to be inserted,plural
+inset,item,items,3,n:03573282,an artifact that is inserted or is to be inserted,singular
+insets,items,items,3,n:03573282,an artifact that is inserted or is to be inserted,plural
+installation,item,items,3,n:03315023,"a building or place that provides a particular service or is used for a particular industry; ""the assembly plant is an enormous facility""",singular
+installations,items,items,3,n:03315023,"a building or place that provides a particular service or is used for a particular industry; ""the assembly plant is an enormous facility""",plural
+instrumentalities,items,items,3,n:03575240,an artifact (or system of artifacts) that is instrumental in accomplishing some end,plural
+instrumentality,item,items,3,n:03575240,an artifact (or system of artifacts) that is instrumental in accomplishing some end,singular
+instrumentation,item,items,3,n:03575240,an artifact (or system of artifacts) that is instrumental in accomplishing some end,singular
+instrumentations,items,items,3,n:03575240,an artifact (or system of artifacts) that is instrumental in accomplishing some end,plural
+inventories,items,items,1,n:04321534,"the merchandise that a shop has on hand; ""they carried a vast inventory of hardware""; ""they stopped selling in exact sizes in order to reduce inventory""",plural
+ironmongeries,items,items,1,n:03586631,the merchandise that is sold in an ironmonger's shop,plural
+ironmongery,item,items,1,n:03586631,the merchandise that is sold in an ironmonger's shop,singular
+irregular,item,items,1,n:03587050,merchandise that has imperfections; usually sold at a reduced price without the brand name,singular
+irregulars,items,items,1,n:03587050,merchandise that has imperfections; usually sold at a reduced price without the brand name,plural
+job,order,orders,5,n:00582388,"the principal activity in your life that you do to earn money; ""he's not in my line of business""",singular
+jobholder,customer,customers,3,n:10222822,an employee who holds a regular job,singular
+jobholders,customers,customers,3,n:10222822,an employee who holds a regular job,plural
+jobs,orders,orders,5,n:00582388,"the principal activity in your life that you do to earn money; ""he's not in my line of business""",plural
+john,customer,customers,1,n:10779995,a prostitute's customer,singular
+johns,customers,customers,1,n:10779995,a prostitute's customer,plural
+juicer,customer,customers,2,n:10034201,a person who drinks alcoholic beverages (especially to excess),singular
+juicers,customers,customers,2,n:10034201,a person who drinks alcoholic beverages (especially to excess),plural
+keepsake,item,items,3,n:03610270,something of sentimental value,singular
+keepsakes,items,items,3,n:03610270,something of sentimental value,plural
+lading,item,items,1,n:02964389,goods carried by a large vehicle,singular
+ladings,items,items,1,n:02964389,goods carried by a large vehicle,plural
+land,item,items,3,n:09334396,"the solid part of the earth's surface; ""the plane turned away from the sea and moved back over land""; ""the earth shook for several minutes""; ""he dropped the logs on the ground""",singular
+landholder,customer,customers,3,n:10245639,a holder or proprietor of land,singular
+landholders,customers,customers,3,n:10245639,a holder or proprietor of land,plural
+landowner,customer,customers,3,n:10245639,a holder or proprietor of land,singular
+landowners,customers,customers,3,n:10245639,a holder or proprietor of land,plural
+lands,items,items,3,n:09334396,"the solid part of the earth's surface; ""the plane turned away from the sea and moved back over land""; ""the earth shook for several minutes""; ""he dropped the logs on the ground""",plural
+layer,item,items,3,n:03650173,"single thickness of usually some homogeneous substance; ""slices of hard-boiled egg on a bed of spinach""",singular
+layers,items,items,3,n:03650173,"single thickness of usually some homogeneous substance; ""slices of hard-boiled egg on a bed of spinach""",plural
+leaseholder,customer,customers,3,n:10252075,a tenant who holds a lease,singular
+leaseholders,customers,customers,3,n:10252075,a tenant who holds a lease,plural
+lemon,item,items,3,n:03655838,an artifact (especially an automobile) that is defective or unsatisfactory,singular
+lemons,items,items,3,n:03655838,an artifact (especially an automobile) that is defective or unsatisfactory,plural
+lessee,customer,customers,3,n:10252075,a tenant who holds a lease,singular
+lessees,customers,customers,3,n:10252075,a tenant who holds a lease,plural
+life,item,items,3,n:00006269,"living things collectively; ""the oceans are teeming with life""",singular
+lifes,items,items,3,n:00006269,"living things collectively; ""the oceans are teeming with life""",plural
+line,item,items,1,n:03671668,"a particular kind of product or merchandise; ""a nice line of shoes""",singular
+lines,items,items,1,n:03671668,"a particular kind of product or merchandise; ""a nice line of shoes""",plural
+load,item,items,1,n:02964389,goods carried by a large vehicle,singular
+loading,item,items,1,n:02964389,goods carried by a large vehicle,singular
+loadings,items,items,1,n:02964389,goods carried by a large vehicle,plural
+loads,items,items,1,n:02964389,goods carried by a large vehicle,plural
+lot,item,items,3,n:03233423,"anything (straws or pebbles etc.) taken or chosen at random; ""the luck of the draw""; ""they drew lots for it""",singular
+lots,items,items,3,n:03233423,"anything (straws or pebbles etc.) taken or chosen at random; ""the luck of the draw""; ""they drew lots for it""",plural
+luncher,customer,customers,3,n:10277132,someone who is eating lunch,singular
+lunchers,customers,customers,3,n:10277132,someone who is eating lunch,plural
+macrocosm,item,items,3,n:09466280,"everything that exists anywhere; ""they study the evolution of the universe""; ""the biggest tree in existence""",singular
+macrocosms,items,items,3,n:09466280,"everything that exists anywhere; ""they study the evolution of the universe""; ""the biggest tree in existence""",plural
+makeweight,item,items,3,n:03714721,"anything added to fill out a whole; ""some of the items in the collection are mere makeweights""",singular
+makeweights,items,items,3,n:03714721,"anything added to fill out a whole; ""some of the items in the collection are mere makeweights""",plural
+marker,item,items,3,n:03721797,"some conspicuous object used to distinguish or mark something; ""the buoys were markers for the channel""",singular
+markers,items,items,3,n:03721797,"some conspicuous object used to distinguish or mark something; ""the buoys were markers for the channel""",plural
+market,order,orders,5,n:01097292,"the world of commercial activity where goods and services are bought and sold; ""without competition there would be no market""; ""they were driven from the marketplace""",singular
+marketplace,order,orders,5,n:01097292,"the world of commercial activity where goods and services are bought and sold; ""without competition there would be no market""; ""they were driven from the marketplace""",singular
+marketplaces,orders,orders,5,n:01097292,"the world of commercial activity where goods and services are bought and sold; ""without competition there would be no market""; ""they were driven from the marketplace""",plural
+markets,orders,orders,5,n:01097292,"the world of commercial activity where goods and services are bought and sold; ""without competition there would be no market""; ""they were driven from the marketplace""",plural
+material,item,items,3,n:03309808,"artifact made by weaving or felting or knitting or crocheting natural or synthetic fibers; ""the fabric in the curtains was light and semitransparent""; ""woven cloth originated in Mesopotamia around 5000 BC""; ""she measured off enough material for a dress""",singular
+materials,items,items,3,n:03309808,"artifact made by weaving or felting or knitting or crocheting natural or synthetic fibers; ""the fabric in the curtains was light and semitransparent""; ""woven cloth originated in Mesopotamia around 5000 BC""; ""she measured off enough material for a dress""",plural
+mechanism,item,items,3,n:09349797,"a natural object resembling a machine in structure or function; ""the mechanism of the ear""; ""the mechanism of infection""",singular
+mechanisms,items,items,3,n:09349797,"a natural object resembling a machine in structure or function; ""the mechanism of the ear""; ""the mechanism of infection""",plural
+merchandise,item,items,0,n:03748886,"commodities offered for sale; ""good business depends on having good merchandise""; ""that store offers a variety of products""",singular
+merchandises,items,items,0,n:03748886,"commodities offered for sale; ""good business depends on having good merchandise""; ""that store offers a variety of products""",plural
+middling,item,items,2,n:03762067,any commodity of intermediate quality or size (especially when coarse particles of ground wheat are mixed with bran),singular
+middlings,items,items,2,n:03762067,any commodity of intermediate quality or size (especially when coarse particles of ground wheat are mixed with bran),plural
+moderationist,customer,customers,3,n:10325957,a moderate drinker (as opposed to a total abstainer),singular
+moderationists,customers,customers,3,n:10325957,a moderate drinker (as opposed to a total abstainer),plural
+moon,item,items,3,n:09358550,"any object resembling a moon; ""he made a moon lamp that he used as a night light""; ""the clock had a moon that showed various phases""",singular
+moons,items,items,3,n:09358550,"any object resembling a moon; ""he made a moon lamp that he used as a night light""; ""the clock had a moon that showed various phases""",plural
+mortal,customer,customers,3,n:00007846,"a human being; ""there was too much for one person to do""",singular
+mortals,customers,customers,3,n:00007846,"a human being; ""there was too much for one person to do""",plural
+mortgagee,customer,customers,3,n:10331347,"the person who accepts a mortgage; ""the bank became our mortgagee when it accepted our mortgage on our new home""",singular
+mortgagees,customers,customers,3,n:10331347,"the person who accepts a mortgage; ""the bank became our mortgagee when it accepted our mortgage on our new home""",plural
+mouth,customer,customers,3,n:10335679,"a person conceived as a consumer of food; ""he has four mouths to feed""",singular
+mouths,customers,customers,3,n:10335679,"a person conceived as a consumer of food; ""he has four mouths to feed""",plural
+muncher,customer,customers,3,n:10338391,a chewer who makes a munching noise,singular
+munchers,customers,customers,3,n:10338391,a chewer who makes a munching noise,plural
+mycophage,customer,customers,3,n:10343211,a person or animal who eats fungi (especially mushrooms),singular
+mycophages,customers,customers,3,n:10343211,a person or animal who eats fungi (especially mushrooms),plural
+mycophagist,customer,customers,3,n:10343211,a person or animal who eats fungi (especially mushrooms),singular
+mycophagists,customers,customers,3,n:10343211,a person or animal who eats fungi (especially mushrooms),plural
+mystification,item,items,3,n:03803911,something designed to mystify or bewilder,singular
+mystifications,items,items,3,n:03803911,something designed to mystify or bewilder,plural
+negotiation,order,orders,5,n:01266364,the activity or business of negotiating an agreement; coming to terms,singular
+negotiations,orders,orders,5,n:01266364,the activity or business of negotiating an agreement; coming to terms,plural
+neighbor,item,items,3,n:09368224,"a nearby object of the same kind; ""Fort Worth is a neighbor of Dallas""; ""what is the closest neighbor to the Earth?""",singular
+neighbors,items,items,3,n:09368224,"a nearby object of the same kind; ""Fort Worth is a neighbor of Dallas""; ""what is the closest neighbor to the Earth?""",plural
+neighbour,item,items,3,n:09368224,"a nearby object of the same kind; ""Fort Worth is a neighbor of Dallas""; ""what is the closest neighbor to the Earth?""",singular
+neighbours,items,items,3,n:09368224,"a nearby object of the same kind; ""Fort Worth is a neighbor of Dallas""; ""what is the closest neighbor to the Earth?""",plural
+nest,item,items,3,n:09369169,a structure in which animals lay eggs or give birth to their young,singular
+nests,items,items,3,n:09369169,a structure in which animals lay eggs or give birth to their young,plural
+nosher,customer,customers,3,n:10362765,someone who eats lightly or eats snacks between meals,singular
+noshers,customers,customers,3,n:10362765,someone who eats lightly or eats snacks between meals,plural
+notice,order,orders,2,n:07185668,"a request for payment; ""the notification stated the grace period and the penalties for defaulting""",singular
+notices,orders,orders,2,n:07185668,"a request for payment; ""the notification stated the grace period and the penalties for defaulting""",plural
+notification,order,orders,2,n:07185668,"a request for payment; ""the notification stated the grace period and the penalties for defaulting""",singular
+notifications,orders,orders,2,n:07185668,"a request for payment; ""the notification stated the grace period and the penalties for defaulting""",plural
+object,item,items,2,n:00002684,"a tangible and visible entity; an entity that can cast a shadow; ""it was full of rackets, balls and other objects""",singular
+objects,items,items,2,n:00002684,"a tangible and visible entity; an entity that can cast a shadow; ""it was full of rackets, balls and other objects""",plural
+occupation,order,orders,5,n:00582388,"the principal activity in your life that you do to earn money; ""he's not in my line of business""",singular
+occupations,orders,orders,5,n:00582388,"the principal activity in your life that you do to earn money; ""he's not in my line of business""",plural
+oddities,items,items,3,n:03149951,something unusual -- perhaps worthy of collecting,plural
+oddity,item,items,3,n:03149951,something unusual -- perhaps worthy of collecting,singular
+oddment,item,items,3,n:03149951,something unusual -- perhaps worthy of collecting,singular
+oddments,items,items,3,n:03149951,something unusual -- perhaps worthy of collecting,plural
+officeholder,customer,customers,3,n:10202624,the official who holds an office,singular
+officeholders,customers,customers,3,n:10202624,the official who holds an office,plural
+officer,customer,customers,3,n:10371450,"someone who is appointed or elected to an office and who holds a position of trust; ""he is an officer of the court""; ""the club elected its officers for the coming year""",singular
+officers,customers,customers,3,n:10371450,"someone who is appointed or elected to an office and who holds a position of trust; ""he is an officer of the court""; ""the club elected its officers for the coming year""",plural
+omnivore,customer,customers,3,n:10377542,a person who eats all kinds of foods,singular
+omnivores,customers,customers,3,n:10377542,a person who eats all kinds of foods,plural
+opening,item,items,3,n:03848729,"a vacant or unobstructed space that is man-made; ""they left a small opening for the cat at the bottom of the door""",singular
+openings,items,items,3,n:03848729,"a vacant or unobstructed space that is man-made; ""they left a small opening for the cat at the bottom of the door""",plural
+operagoer,customer,customers,2,n:10378213,a patron of the opera,singular
+operagoers,customers,customers,2,n:10378213,a patron of the opera,plural
+operation,order,orders,5,n:00409211,"the activity of operating something (a machine or business etc.); ""her smooth operation of the vehicle gave us a surprisingly comfortable ride""",singular
+operations,orders,orders,5,n:00409211,"the activity of operating something (a machine or business etc.); ""her smooth operation of the vehicle gave us a surprisingly comfortable ride""",plural
+orderer,customer,customers,2,n:10381698,someone who places an order to buy,singular
+orderers,customers,customers,2,n:10381698,someone who places an order to buy,plural
+organism,item,items,3,n:00004475,a living thing that has (or can develop) the ability to act or function independently,singular
+organisms,items,items,3,n:00004475,a living thing that has (or can develop) the ability to act or function independently,plural
+ornament,item,items,3,n:03169390,something used to beautify,singular
+ornamentation,item,items,3,n:03169390,something used to beautify,singular
+ornamentations,items,items,3,n:03169390,something used to beautify,plural
+ornaments,items,items,3,n:03169390,something used to beautify,plural
+overnighter,customer,customers,2,n:10388647,a guest who stays overnight,singular
+overnighters,customers,customers,2,n:10388647,a guest who stays overnight,plural
+owner,customer,customers,3,n:10389398,"a person who owns something; ""they are searching for the owner of the car""; ""who is the owner of that friendly smile?""",singular
+owners,customers,customers,3,n:10389398,"a person who owns something; ""they are searching for the owner of the car""; ""who is the owner of that friendly smile?""",plural
+padding,item,items,3,n:03873064,artifact consisting of soft or resilient material used to fill or give shape or protect or add comfort,singular
+paddings,items,items,3,n:03873064,artifact consisting of soft or resilient material used to fill or give shape or protect or add comfort,plural
+paring,item,items,3,n:07851054,"(usually plural) a part of a fruit or vegetable that is pared or cut off; especially the skin or peel; ""she could peel an apple with a single long paring""",singular
+parings,items,items,3,n:07851054,"(usually plural) a part of a fruit or vegetable that is pared or cut off; especially the skin or peel; ""she could peel an apple with a single long paring""",plural
+part,item,items,3,n:03892891,"something less than the whole of a human artifact; ""the rear part of the house""; ""glue the two parts together""",singular
+parts,items,items,3,n:03892891,"something less than the whole of a human artifact; ""the rear part of the house""; ""glue the two parts together""",plural
+patron,customer,customers,1,n:10407726,a regular customer,singular
+patrons,customers,customers,1,n:10407726,a regular customer,plural
+pavement,item,items,3,n:14977504,material used to pave an area,singular
+pavements,items,items,3,n:14977504,material used to pave an area,plural
+paving,item,items,3,n:14977504,material used to pave an area,singular
+pavings,items,items,3,n:14977504,material used to pave an area,plural
+payload,item,items,1,n:02964389,goods carried by a large vehicle,singular
+payloads,items,items,1,n:02964389,goods carried by a large vehicle,plural
+peculiarities,items,items,3,n:03149951,something unusual -- perhaps worthy of collecting,plural
+peculiarity,item,items,3,n:03149951,something unusual -- perhaps worthy of collecting,singular
+person,customer,customers,3,n:00007846,"a human being; ""there was too much for one person to do""",singular
+persons,customers,customers,3,n:00007846,"a human being; ""there was too much for one person to do""",plural
+picknicker,customer,customers,3,n:10432189,a person who is picnicking,singular
+picknickers,customers,customers,3,n:10432189,a person who is picnicking,plural
+picnicker,customer,customers,3,n:10432189,a person who is picnicking,singular
+picnickers,customers,customers,3,n:10432189,a person who is picnicking,plural
+pieces,items,items,1,n:03932499,"an item that is an instance of some type; ""he designed a new piece of equipment""; ""she bought a lovely piece of china"";",plural
+plaything,item,items,3,n:03964744,an artifact designed to be played with,singular
+playthings,items,items,3,n:03964744,an artifact designed to be played with,plural
+policyholder,customer,customers,1,n:10449664,"a person who holds an insurance policy; usually, the client in whose name an insurance policy is written",singular
+policyholders,customers,customers,1,n:10449664,"a person who holds an insurance policy; usually, the client in whose name an insurance policy is written",plural
+portions,items,items,3,n:03892891,"something less than the whole of a human artifact; ""the rear part of the house""; ""glue the two parts together""",plural
+possessor,customer,customers,3,n:10389398,"a person who owns something; ""they are searching for the owner of the car""; ""who is the owner of that friendly smile?""",singular
+possessors,customers,customers,3,n:10389398,"a person who owns something; ""they are searching for the owner of the car""; ""who is the owner of that friendly smile?""",plural
+preemption,order,orders,4,n:00085041,"a prior appropriation of something; ""the preemption of bandwidth by commercial interests""",singular
+preemptions,orders,orders,4,n:00085041,"a prior appropriation of something; ""the preemption of bandwidth by commercial interests""",plural
+prodigal,customer,customers,2,n:10479561,a recklessly extravagant consumer,singular
+prodigals,customers,customers,2,n:10479561,a recklessly extravagant consumer,plural
+profligate,customer,customers,2,n:10479561,a recklessly extravagant consumer,singular
+profligates,customers,customers,2,n:10479561,a recklessly extravagant consumer,plural
+prop,item,items,3,n:04012260,"any movable articles or objects used on the set of a play or movie; ""before every scene he ran down his checklist of props""",singular
+properties,items,items,3,n:04012260,"any movable articles or objects used on the set of a play or movie; ""before every scene he ran down his checklist of props""",plural
+property,item,items,3,n:04012260,"any movable articles or objects used on the set of a play or movie; ""before every scene he ran down his checklist of props""",singular
+props,items,items,3,n:04012260,"any movable articles or objects used on the set of a play or movie; ""before every scene he ran down his checklist of props""",plural
+purchaser,customer,customers,1,n:09885145,a person who buys,singular
+purchasers,customers,customers,1,n:09885145,a person who buys,plural
+purchasings,orders,orders,1,n:00081572,"the act of buying; ""buying and selling fill their days""; ""shrewd purchasing requires considerable knowledge""",plural
+quaffer,customer,customers,3,n:10497946,a person who drinks heartily,singular
+quaffers,customers,customers,3,n:10497946,a person who drinks heartily,plural
+radiator,item,items,3,n:09403211,any object that radiates energy,singular
+radiators,items,items,3,n:09403211,any object that radiates energy,plural
+rarities,items,items,3,n:03149951,something unusual -- perhaps worthy of collecting,plural
+rarity,item,items,3,n:03149951,something unusual -- perhaps worthy of collecting,singular
+reader,customer,customers,1,n:10670483,someone who contracts to receive and pay for a service or a certain number of issues of a publication,singular
+readers,customers,customers,1,n:10670483,someone who contracts to receive and pay for a service or a certain number of issues of a publication,plural
+refill,item,items,1,n:04068055,"a commercial product that refills a container with its appropriate contents; ""he got a refill for his ball-point pen""; ""he got a refill for his notebook""",singular
+refills,items,items,1,n:04068055,"a commercial product that refills a container with its appropriate contents; ""he got a refill for his ball-point pen""; ""he got a refill for his notebook""",plural
+regular,customer,customers,2,n:10517405,"a regular patron; ""an habitue of the racetrack""; ""a bum who is a Central Park fixture""",singular
+regulars,customers,customers,2,n:10517405,"a regular patron; ""an habitue of the racetrack""; ""a bum who is a Central Park fixture""",plural
+release,item,items,1,n:04073208,"merchandise issued for sale or public showing (especially a record or film); ""a new release from the London Symphony Orchestra""",singular
+releases,items,items,1,n:04073208,"merchandise issued for sale or public showing (especially a record or film); ""a new release from the London Symphony Orchestra""",plural
+relic,item,items,3,n:03610270,something of sentimental value,singular
+relics,items,items,3,n:03610270,something of sentimental value,plural
+remainses,items,items,3,n:09407346,"any object that is left unused or still extant; ""I threw out the remains of my dinner""",plural
+restoration,item,items,3,n:04083468,"some artifact that has been restored or reconstructed; ""the restoration looked exactly like the original""",singular
+restorations,items,items,3,n:04083468,"some artifact that has been restored or reconstructed; ""the restoration looked exactly like the original""",plural
+ribbon,item,items,3,n:09409203,"any long object resembling a thin line; ""a mere ribbon of land""; ""the lighted ribbon of traffic""; ""from the air the road was a grey thread""; ""a thread of smoke climbed upward""",singular
+ribbons,items,items,3,n:09409203,"any long object resembling a thin line; ""a mere ribbon of land""; ""the lighted ribbon of traffic""; ""from the air the road was a grey thread""; ""a thread of smoke climbed upward""",plural
+rock,item,items,3,n:09416076,"a lump or mass of hard consolidated mineral matter; ""he threw a rock at me""",singular
+rocks,items,items,3,n:09416076,"a lump or mass of hard consolidated mineral matter; ""he threw a rock at me""",plural
+rummies,customers,customers,3,n:10037385,a chronic drinker,plural
+rummy,customer,customers,3,n:10037385,a chronic drinker,singular
+salvage,item,items,2,n:13247554,property or goods saved from damage or destruction,singular
+salvages,items,items,2,n:13247554,property or goods saved from damage or destruction,plural
+sample,item,items,3,n:09421425,all or part of a natural object that is collected and preserved as an example of its class,singular
+samples,items,items,3,n:09421425,all or part of a natural object that is collected and preserved as an example of its class,plural
+scattergood,customer,customers,3,n:10635460,someone who spends money prodigally,singular
+scattergoods,customers,customers,3,n:10635460,someone who spends money prodigally,plural
+schlock,item,items,1,n:04145735,merchandise that is shoddy or inferior,singular
+schlocks,items,items,1,n:04145735,merchandise that is shoddy or inferior,plural
+scoffer,customer,customers,3,n:10561613,someone who eats food rapidly and greedily,singular
+scoffers,customers,customers,3,n:10561613,someone who eats food rapidly and greedily,plural
+second,item,items,1,n:03587050,merchandise that has imperfections; usually sold at a reduced price without the brand name,singular
+seconds,items,items,1,n:03587050,merchandise that has imperfections; usually sold at a reduced price without the brand name,plural
+sheets,items,items,3,n:04188643,a flat artifact that is thin relative to its length and width,plural
+shiner,item,items,3,n:09432990,something that shines (with emitted or reflected light),singular
+shiners,items,items,3,n:09432990,something that shines (with emitted or reflected light),plural
+shipments,items,items,1,n:02964389,goods carried by a large vehicle,plural
+shlock,item,items,1,n:04145735,merchandise that is shoddy or inferior,singular
+shlocks,items,items,1,n:04145735,merchandise that is shoddy or inferior,plural
+shopaholic,customer,customers,2,n:10591811,"a compulsive shopper; ""shopaholics can never resist a bargain""",singular
+shopaholics,customers,customers,2,n:10591811,"a compulsive shopper; ""shopaholics can never resist a bargain""",plural
+sideline,item,items,2,n:04214871,an auxiliary line of merchandise,singular
+sidelines,items,items,2,n:04214871,an auxiliary line of merchandise,plural
+sipper,customer,customers,3,n:10601362,a drinker who sips,singular
+sippers,customers,customers,3,n:10601362,a drinker who sips,plural
+slaveholder,customer,customers,3,n:10610096,someone who holds slaves,singular
+slaveholders,customers,customers,3,n:10610096,someone who holds slaves,plural
+slaver,customer,customers,3,n:10610096,someone who holds slaves,singular
+slavers,customers,customers,3,n:10610096,someone who holds slaves,plural
+slip,item,items,3,n:04339291,artifact consisting of a narrow flat piece of material,singular
+slips,items,items,3,n:04339291,artifact consisting of a narrow flat piece of material,plural
+smoker,customer,customers,2,n:10614976,a person who smokes tobacco,singular
+smokers,customers,customers,2,n:10614976,a person who smokes tobacco,plural
+snacker,customer,customers,3,n:10362765,someone who eats lightly or eats snacks between meals,singular
+snackers,customers,customers,3,n:10362765,someone who eats lightly or eats snacks between meals,plural
+snake,item,items,3,n:04248010,"something long, thin, and flexible that resembles a snake",singular
+snakes,items,items,3,n:04248010,"something long, thin, and flexible that resembles a snake",plural
+snuffer,customer,customers,2,n:10617814,a person who uses snuff,singular
+snuffers,customers,customers,2,n:10617814,a person who uses snuff,plural
+socialisation,order,orders,5,n:01266745,"the action of establishing on a socialist basis; ""the socialization of medical services""",singular
+socialisations,orders,orders,5,n:01266745,"the action of establishing on a socialist basis; ""the socialization of medical services""",plural
+socialization,order,orders,5,n:01266745,"the action of establishing on a socialist basis; ""the socialization of medical services""",singular
+socializations,orders,orders,5,n:01266745,"the action of establishing on a socialist basis; ""the socialization of medical services""",plural
+soil,item,items,3,n:09335240,"material in the top layer of the surface of the earth in which plants can grow (especially with reference to its quality or use); ""the land had never been plowed""; ""good agricultural soil""",singular
+soils,items,items,3,n:09335240,"material in the top layer of the surface of the earth in which plants can grow (especially with reference to its quality or use); ""the land had never been plowed""; ""good agricultural soil""",plural
+somebodies,customers,customers,3,n:00007846,"a human being; ""there was too much for one person to do""",plural
+somebody,customer,customers,3,n:00007846,"a human being; ""there was too much for one person to do""",singular
+someone,customer,customers,3,n:00007846,"a human being; ""there was too much for one person to do""",singular
+someones,customers,customers,3,n:00007846,"a human being; ""there was too much for one person to do""",plural
+sot,customer,customers,3,n:10037385,a chronic drinker,singular
+sots,customers,customers,3,n:10037385,a chronic drinker,plural
+soul,customer,customers,3,n:00007846,"a human being; ""there was too much for one person to do""",singular
+souls,customers,customers,3,n:00007846,"a human being; ""there was too much for one person to do""",plural
+souvenir,item,items,3,n:03610270,something of sentimental value,singular
+souvenirs,items,items,3,n:03610270,something of sentimental value,plural
+spender,customer,customers,1,n:10635275,someone who spends money to purchase goods or services,singular
+spenders,customers,customers,1,n:10635275,someone who spends money to purchase goods or services,plural
+spendthrift,customer,customers,3,n:10635460,someone who spends money prodigally,singular
+spendthrifts,customers,customers,3,n:10635460,someone who spends money prodigally,plural
+sphere,item,items,3,n:04274530,any spherically shaped artifact,singular
+spheres,items,items,3,n:04274530,any spherically shaped artifact,plural
+squanderer,customer,customers,2,n:10479561,a recklessly extravagant consumer,singular
+squanderers,customers,customers,2,n:10479561,a recklessly extravagant consumer,plural
+square,item,items,3,n:04291511,"any artifact having a shape similar to a plane geometric figure with four equal sides and four right angles; ""a checkerboard has 64 squares""",singular
+squares,items,items,3,n:04291511,"any artifact having a shape similar to a plane geometric figure with four equal sides and four right angles; ""a checkerboard has 64 squares""",plural
+squeaker,item,items,3,n:04292733,"any artifact that makes a squeaking sound when used; ""those sneakers are squeakers""; ""which hinge is the squeaker?""",singular
+squeakers,items,items,3,n:04292733,"any artifact that makes a squeaking sound when used; ""those sneakers are squeakers""; ""which hinge is the squeaker?""",plural
+staple,item,items,2,n:02800793,(usually plural) a necessary commodity for which demand is constant,singular
+staples,items,items,2,n:02800793,(usually plural) a necessary commodity for which demand is constant,plural
+stinker,item,items,3,n:03655838,an artifact (especially an automobile) that is defective or unsatisfactory,singular
+stinkers,items,items,3,n:03655838,an artifact (especially an automobile) that is defective or unsatisfactory,plural
+stipulation,order,orders,5,n:07216761,"(law) an agreement or concession made by parties in a judicial proceeding (or by their attorneys) relating to the business before the court; must be in writing unless they are part of the court record; ""a stipulation of fact was made in order to avoid delay""",singular
+stipulations,orders,orders,5,n:07216761,"(law) an agreement or concession made by parties in a judicial proceeding (or by their attorneys) relating to the business before the court; must be in writing unless they are part of the court record; ""a stipulation of fact was made in order to avoid delay""",plural
+stone,item,items,3,n:09416076,"a lump or mass of hard consolidated mineral matter; ""he threw a rock at me""",singular
+stones,items,items,3,n:09416076,"a lump or mass of hard consolidated mineral matter; ""he threw a rock at me""",plural
+strip,item,items,3,n:04339291,artifact consisting of a narrow flat piece of material,singular
+strips,items,items,3,n:04339291,artifact consisting of a narrow flat piece of material,plural
+structure,item,items,3,n:04341686,"a thing constructed; a complex entity constructed of many parts; ""the structure consisted of a series of arches""; ""she wore her hair in an amazing construction of whirls and ribbons""",singular
+structures,items,items,3,n:04341686,"a thing constructed; a complex entity constructed of many parts; ""the structure consisted of a series of arches""; ""she wore her hair in an amazing construction of whirls and ribbons""",plural
+stuffs,items,items,3,n:04345288,"miscellaneous unspecified objects; ""the trunk was full of stuff""",plural
+subscriber,customer,customers,1,n:10670483,someone who contracts to receive and pay for a service or a certain number of issues of a publication,singular
+subscribers,customers,customers,1,n:10670483,someone who contracts to receive and pay for a service or a certain number of issues of a publication,plural
+sucker,customer,customers,3,n:10672066,a drinker who sucks (as at a nipple or through a straw),singular
+suckers,customers,customers,3,n:10672066,a drinker who sucks (as at a nipple or through a straw),plural
+surface,item,items,3,n:04362025,"the outer boundary of an artifact or a material layer constituting or resembling such a boundary; ""there is a special cleaner for these surfaces""; ""the cloth had a pattern of red dots on a white surface""",singular
+surfaces,items,items,3,n:04362025,"the outer boundary of an artifact or a material layer constituting or resembling such a boundary; ""there is a special cleaner for these surfaces""; ""the cloth had a pattern of red dots on a white surface""",plural
+taker,customer,customers,1,n:10689784,one who accepts an offer,singular
+takers,customers,customers,1,n:10689784,one who accepts an offer,plural
+tangle,item,items,3,n:09454412,"a twisted and tangled mass that is highly interwoven; ""they carved their way through the tangle of vines""",singular
+tangles,items,items,3,n:09454412,"a twisted and tangled mass that is highly interwoven; ""they carved their way through the tangle of vines""",plural
+tenant,customer,customers,3,n:10700640,a holder of buildings or lands by any kind of title (as ownership or lease),singular
+tenants,customers,customers,3,n:10700640,a holder of buildings or lands by any kind of title (as ownership or lease),plural
+textile,item,items,3,n:03309808,"artifact made by weaving or felting or knitting or crocheting natural or synthetic fibers; ""the fabric in the curtains was light and semitransparent""; ""woven cloth originated in Mesopotamia around 5000 BC""; ""she measured off enough material for a dress""",singular
+textiles,items,items,3,n:03309808,"artifact made by weaving or felting or knitting or crocheting natural or synthetic fibers; ""the fabric in the curtains was light and semitransparent""; ""woven cloth originated in Mesopotamia around 5000 BC""; ""she measured off enough material for a dress""",plural
+thread,item,items,3,n:09409203,"any long object resembling a thin line; ""a mere ribbon of land""; ""the lighted ribbon of traffic""; ""from the air the road was a grey thread""; ""a thread of smoke climbed upward""",singular
+threads,items,items,3,n:09409203,"any long object resembling a thin line; ""a mere ribbon of land""; ""the lighted ribbon of traffic""; ""from the air the road was a grey thread""; ""a thread of smoke climbed upward""",plural
+tippler,customer,customers,3,n:10712690,someone who drinks liquor repeatedly in small quantities,singular
+tipplers,customers,customers,3,n:10712690,someone who drinks liquor repeatedly in small quantities,plural
+token,item,items,3,n:03610270,something of sentimental value,singular
+tokens,items,items,3,n:03610270,something of sentimental value,plural
+toper,customer,customers,2,n:10034201,a person who drinks alcoholic beverages (especially to excess),singular
+topers,customers,customers,2,n:10034201,a person who drinks alcoholic beverages (especially to excess),plural
+totalities,items,items,2,n:04353803,the whole amount,plural
+totality,item,items,2,n:04353803,the whole amount,singular
+toy,item,items,3,n:03964744,an artifact designed to be played with,singular
+toys,items,items,3,n:03964744,an artifact designed to be played with,plural
+track,item,items,3,n:04463983,a pair of parallel rails providing a runway for wheels,singular
+tracks,items,items,3,n:04463983,a pair of parallel rails providing a runway for wheels,plural
+transaction,order,orders,5,n:01106808,"the act of transacting within or between groups (as carrying on commercial activities); ""no transactions are possible without him""; ""he has always been honest is his dealings with me""",singular
+transactions,orders,orders,5,n:01106808,"the act of transacting within or between groups (as carrying on commercial activities); ""no transactions are possible without him""; ""he has always been honest is his dealings with me""",plural
+trencherman,customer,customers,3,n:10132988,a person who is devoted to eating and drinking to excess,singular
+trenchermans,customers,customers,3,n:10132988,a person who is devoted to eating and drinking to excess,plural
+trick,customer,customers,1,n:10779995,a prostitute's customer,singular
+tricks,customers,customers,1,n:10779995,a prostitute's customer,plural
+trifle,item,items,3,n:04486445,something of small importance,singular
+trifles,items,items,3,n:04486445,something of small importance,plural
+trivia,item,items,3,n:04486445,something of small importance,singular
+trivialities,items,items,3,n:04486445,something of small importance,plural
+triviality,item,items,3,n:04486445,something of small importance,singular
+trivias,items,items,3,n:04486445,something of small importance,plural
+universe,item,items,3,n:09466280,"everything that exists anywhere; ""they study the evolution of the universe""; ""the biggest tree in existence""",singular
+universes,items,items,3,n:09466280,"everything that exists anywhere; ""they study the evolution of the universe""; ""the biggest tree in existence""",plural
+user,customer,customers,2,n:10741590,a person who makes use of a thing; someone who uses or employs something,singular
+users,customers,customers,2,n:10741590,a person who makes use of a thing; someone who uses or employs something,plural
+usufructuaries,customers,customers,3,n:10742269,someone who holds property by usufruct,plural
+usufructuary,customer,customers,3,n:10742269,someone who holds property by usufruct,singular
+utiliser,customer,customers,3,n:10743124,"someone who puts to good use; ""not all organisms are utilizers of oxygen""; ""the social agencies and their utilizers both objected to the budget cut""",singular
+utilisers,customers,customers,3,n:10743124,"someone who puts to good use; ""not all organisms are utilizers of oxygen""; ""the social agencies and their utilizers both objected to the budget cut""",plural
+utilizer,customer,customers,3,n:10743124,"someone who puts to good use; ""not all organisms are utilizers of oxygen""; ""the social agencies and their utilizers both objected to the budget cut""",singular
+utilizers,customers,customers,3,n:10743124,"someone who puts to good use; ""not all organisms are utilizers of oxygen""; ""the social agencies and their utilizers both objected to the budget cut""",plural
+vagabond,item,items,3,n:09468237,"anything that resembles a vagabond in having no fixed place; ""pirate ships were vagabonds of the sea""",singular
+vagabonds,items,items,3,n:09468237,"anything that resembles a vagabond in having no fixed place; ""pirate ships were vagabonds of the sea""",plural
+vegetarian,customer,customers,3,n:10747119,eater of fruits and grains and nuts; someone who eats no meat or fish or (often) any animal products,singular
+vegetarians,customers,customers,3,n:10747119,eater of fruits and grains and nuts; someone who eats no meat or fish or (often) any animal products,plural
+vehicle,item,items,3,n:09283193,any inanimate object (as a towel or money or clothing or dishes or books or toys etc.) that can transmit infectious agents from one person to another,singular
+vehicles,items,items,3,n:09283193,any inanimate object (as a towel or money or clothing or dishes or books or toys etc.) that can transmit infectious agents from one person to another,plural
+vendee,customer,customers,1,n:09885145,a person who buys,singular
+vendees,customers,customers,1,n:09885145,a person who buys,plural
+vesture,item,items,3,n:03051540,a covering designed to be worn on a person's body,singular
+vestures,items,items,3,n:03051540,a covering designed to be worn on a person's body,plural
+wall,item,items,3,n:09474162,"anything that suggests a wall in structure or function or effect; ""a wall of water""; ""a wall of smoke""; ""a wall of prejudice""; ""negotiations ran into a brick wall""",singular
+walls,items,items,3,n:09474162,"anything that suggests a wall in structure or function or effect; ""a wall of water""; ""a wall of smoke""; ""a wall of prejudice""; ""negotiations ran into a brick wall""",plural
+ware,item,items,0,n:03748886,"commodities offered for sale; ""good business depends on having good merchandise""; ""that store offers a variety of products""",singular
+wares,items,items,0,n:03748886,"commodities offered for sale; ""good business depends on having good merchandise""; ""that store offers a variety of products""",plural
+warrantee,customer,customers,1,n:10768148,a customer to whom a warrant or guarantee is given,singular
+warrantees,customers,customers,1,n:10768148,a customer to whom a warrant or guarantee is given,plural
+wassailer,customer,customers,3,n:10769321,someone who enjoys riotous drinking,singular
+wassailers,customers,customers,3,n:10769321,someone who enjoys riotous drinking,plural
+waster,customer,customers,3,n:10769459,someone who dissipates resources self-indulgently,singular
+wasters,customers,customers,3,n:10769459,someone who dissipates resources self-indulgently,plural
+wastrel,customer,customers,3,n:10769459,someone who dissipates resources self-indulgently,singular
+wastrels,customers,customers,3,n:10769459,someone who dissipates resources self-indulgently,plural
+way,item,items,3,n:04564698,"any artifact consisting of a road or path affording passage from one place to another; ""he said he was looking for the way out""",singular
+ways,items,items,3,n:04564698,"any artifact consisting of a road or path affording passage from one place to another; ""he said he was looking for the way out""",plural
+wear,item,items,3,n:03051540,a covering designed to be worn on a person's body,singular
+wearable,item,items,3,n:03051540,a covering designed to be worn on a person's body,singular
+wearables,items,items,3,n:03051540,a covering designed to be worn on a person's body,plural
+wearer,customer,customers,3,n:10771809,"a person who wears or carries or displays something as a body covering or accessory; ""the wearer of the crown""",singular
+wearers,customers,customers,3,n:10771809,"a person who wears or carries or displays something as a body covering or accessory; ""the wearer of the crown""",plural
+wears,items,items,3,n:03051540,a covering designed to be worn on a person's body,plural
+web,item,items,3,n:09477037,"an intricate network suggesting something that was formed by weaving or interweaving; ""the trees cast a delicate web of shadows over the lawn""",singular
+webs,items,items,3,n:09477037,"an intricate network suggesting something that was formed by weaving or interweaving; ""the trees cast a delicate web of shadows over the lawn""",plural
+weight,item,items,3,n:04571088,an artifact that is heavy,singular
+weights,items,items,3,n:04571088,an artifact that is heavy,plural
+wholes,items,items,1,n:00003553,"an assemblage of parts that is regarded as a single entity; ""how big is that part compared to the whole?""; ""the team is a unit""",plural
+whoremaster,customer,customers,1,n:10779995,a prostitute's customer,singular
+whoremasters,customers,customers,1,n:10779995,a prostitute's customer,plural
+whoremonger,customer,customers,1,n:10779995,a prostitute's customer,singular
+whoremongers,customers,customers,1,n:10779995,a prostitute's customer,plural
+wino,customer,customers,3,n:10037385,a chronic drinker,singular
+winos,customers,customers,3,n:10037385,a chronic drinker,plural
+world,item,items,3,n:09466280,"everything that exists anywhere; ""they study the evolution of the universe""; ""the biggest tree in existence""",singular
+worlds,items,items,3,n:09466280,"everything that exists anywhere; ""they study the evolution of the universe""; ""the biggest tree in existence""",plural

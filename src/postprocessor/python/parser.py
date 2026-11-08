@@ -1,3 +1,6 @@
+# 역할: SQL 키워드 오타를 보정하고 구문 트리와 식별자를 추출한다.
+# 사용처: 후처리 core.py가 교정할 테이블·컬럼 이름을 찾는 첫 단계에서 사용한다.
+
 import re
 import difflib
 import sqlglot

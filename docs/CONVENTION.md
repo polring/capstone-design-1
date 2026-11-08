@@ -51,10 +51,9 @@ C 추론 엔진과 후처리기는 별도 저장소 [capstone-sql-cli](https://g
 "코드 작성 기준"에 있습니다.
 
 저장소 루트에서 프로젝트 가상환경을 활성화한 뒤 실행합니다.
-포맷터는 개발용 도구이며 모델 실행에 필요한 의존성이 아닙니다.
+포맷터(Black)는 `requirements.txt`로 함께 설치됩니다.
 
 ```powershell
-python -m pip install -r requirements-format.txt
 python -m black src tests
 ```
 

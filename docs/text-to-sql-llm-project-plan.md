@@ -1,5 +1,9 @@
 # Text-to-SQL LLM 스크래치 빌드 프로젝트 계획서
 
+이 문서는 설계와 자원 계획을 기록한다. 현재 기본 실행은 3단계이며, 실제 배포 모델·성능·다음 작업은
+[3단계 보고서](text-to-sql-stage3-report.md)를 기준으로 한다. 아래 자원 표는 원래 프리셋 계획으로,
+3단계 배포 모델 15.7M과 학습 기본 프리셋 27.4M을 구분한다.
+
 ## 1. 개요
 
 ### 1-1. 목표
@@ -43,7 +47,7 @@
 
 | 문서 | 내용 |
 |---|---|
-| 단계별 진행 보고서 ([1단계](text-to-sql-stage1-report.md)) | 실제로 한 일, 결과 수치, 계획과 달라진 점과 그 이유 |
+| 단계별 진행 보고서 ([1단계](text-to-sql-stage1-report.md)·[2단계](text-to-sql-stage2-report.md)·[3단계](text-to-sql-stage3-report.md)) | 실제로 한 일, 결과 수치, 계획과 달라진 점과 그 이유 |
 | [SETUP](SETUP.md) | 환경 설정, 각 단계 실행·재현 방법 |
 | 각 소스 파일의 docstring | 프롬프트 규칙, 검증 항목, 함수 입출력 등 구현 상세 |
 
@@ -69,9 +73,9 @@
 
 | 단계 | 추가되는 SQL 범위 | 스키마 |
 |---|---|---|
-| **1 (현재)** | SELECT 단일 컬럼 또는 `*`, WHERE 단일 등호 조건 | 3개 테이블 고정, JOIN 없음 |
+| 1 | SELECT 단일 컬럼 또는 `*`, WHERE 단일 등호 조건 | 3개 테이블 고정, JOIN 없음 |
 | 2 | WHERE 2~3개 조건(AND, 서로 다른 컬럼의 OR — 섞지 않음), 같은 컬럼 값 나열 `IN`, `> < >= <= != BETWEEN`, 이름 `LIKE`(접두·접미·포함), ORDER BY, LIMIT | 동일 |
-| 3 | GROUP BY, HAVING, COUNT/AVG/SUM/MIN/MAX, 1단계 서브쿼리 | 동일 |
+| 3 | 날짜 조건, GROUP BY, HAVING, COUNT/AVG/SUM/MIN/MAX, 깊이 1 비상관 스칼라 서브쿼리 | orders.order_date 추가 |
 | 4 | 2테이블 JOIN | 테이블 5~10개로 확장 |
 | 상한 | 다중 JOIN, 중첩 서브쿼리 | 학습된 스키마 한정 |
 

@@ -1,3 +1,6 @@
+# 역할: 학습 체크포인트를 모델·토크나이저·정보 파일로 구성된 배포 폴더로 만든다.
+# 사용처: python -m src.release로 학습 결과를 models/stage<N>/에 배포할 때 사용한다.
+
 """
 release.py — 학습 체크포인트를 배포용 모델 폴더(config.MODEL_DIR, 커밋 대상)로 내보낸다
 
@@ -33,7 +36,8 @@ from src.tokenizer import bpe
 FORMAT_VERSION = 1
 # model_info.json 에 남길 학습 인자 (경로·실행 환경에 따라 달라지는 값은 뺀다)
 TRAIN_ARG_KEYS = ("name_swap_ratio", "ffn_dim", "epochs", "batch_size", "lr", "weight_decay", "warmup",
-                  "val_ratio", "patience", "seed")
+                  "val_ratio", "val_em_samples", "patience", "seed", "llm_repeat", "llm_round_repeat",
+                  "llm_synonym_prob", "composer_synonym_prob", "like_sampling", "steps_per_epoch")
 RUN_METRIC_KEYS = ("epochs_run", "steps", "train_time_s", "avg_tokens_per_s")
 
 
@@ -99,15 +103,20 @@ def release(ckpt_path: str | Path, out_dir: str | Path = config.MODEL_DIR, run_e
     return info
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="학습 체크포인트 → 배포용 모델 폴더")
+    ap.add_argument("--stage", type=int, choices=[1, 2, 3], default=config.STAGE)
     ap.add_argument("--ckpt", required=True, help="train.py 가 저장한 best.pt")
     ap.add_argument("--tokenizer", default=None, help="토크나이저 (기본: 체크포인트 폴더의 tokenizer.json, 없으면 체크포인트에 적힌 경로)")
-    ap.add_argument("--db", default=str(config.DB_PATH), help=f"평가의 실행 정확도용 DB (기본 {config.DB_PATH})")
-    ap.add_argument("--out", default=str(config.MODEL_DIR), help=f"배포 폴더 (기본 {config.MODEL_DIR})")
-    ap.add_argument("--eval-dir", default=str(config.EVAL_DIR), help=f"평가셋 상위 폴더 (기본 {config.EVAL_DIR})")
+    ap.add_argument("--db", default=None, help="실행 정확도용 DB (기본: 선택 단계 DB)")
+    ap.add_argument("--out", default=None, help="배포 폴더 (기본: 선택 단계 models/)")
+    ap.add_argument("--eval-dir", default=None, help="평가셋 상위 폴더 (기본: 선택 단계 eval/)")
     ap.add_argument("--no-eval", action="store_true", help="내보낸 모델 평가를 생략")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
+    paths = config.stage_paths(args.stage)
+    args.db = args.db or str(paths.db_path)
+    args.out = args.out or str(paths.model_dir)
+    args.eval_dir = args.eval_dir or str(paths.eval_dir)
 
     m = release(args.ckpt, args.out, run_eval=not args.no_eval, eval_dir=args.eval_dir, db_path=args.db,
                 tokenizer_path=args.tokenizer)

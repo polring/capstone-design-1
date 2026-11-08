@@ -1,3 +1,6 @@
+# 역할: 토큰 임베딩과 RoPE 위치 정보의 계산·적용을 구현한다.
+# 사용처: 전체 모델의 입력 임베딩과 어텐션의 위치 정보 계산에 사용한다.
+
 import torch
 import torch.nn as nn
 from src.config import VOCAB_SIZE, HIDDEN_DIM, SEQ_LEN, NUM_HEADS, HEAD_DIM

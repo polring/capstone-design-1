@@ -1,3 +1,6 @@
+# 역할: GloVe 벡터로 DB 식별자의 의미 유사도 검색용 사전을 만든다.
+# 사용처: 의미 기반 SQL 후처리를 실행하기 전에 임베딩 사전을 준비할 때 사용한다.
+
 import argparse
 import os
 import zipfile

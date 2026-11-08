@@ -90,7 +90,8 @@ def test_training_checkpoint_format_requires_both_keys(checkpoint, expected):
     assert _has_training_checkpoint_format(checkpoint) is expected
 
 
-def test_training_checkpoint_converts_to_same_logits():
+@pytest.mark.parametrize("valid_vocab_size", [None, 300, 320])
+def test_training_checkpoint_converts_to_same_logits(valid_vocab_size):
     torch.manual_seed(0)
     cfg = {
         "vocab_size": 320,
@@ -100,13 +101,40 @@ def test_training_checkpoint_converts_to_same_logits():
         "ffn_dim": 43,
         "max_seq_len": 32,
         "padding_idx": 256,
+        "valid_vocab_size": valid_vocab_size,
     }
     team = TextToSQLModel(**cfg).eval()
     converted = from_training_checkpoint({"model_cfg": cfg, "model": team.state_dict()})
     assert converted.config.layers == 2 and converted.config.context == 32
-    ids = torch.tensor([[257, 104, 105, 259, 300]])
+    ids = torch.tensor([[257, 104, 105, 259, 299]])
     with torch.no_grad():
         torch.testing.assert_close(converted(ids), team(ids), rtol=0, atol=0)
+    assert converted.config.vocab_size == (valid_vocab_size or cfg["vocab_size"])
+
+
+def test_unused_output_token_cannot_win_after_conversion():
+    cfg = dict(vocab_size=320, valid_vocab_size=300, dim=16, num_layers=1,
+               num_heads=2, ffn_dim=24, max_seq_len=8)
+    team = TextToSQLModel(**cfg).eval()
+    ids = torch.tensor([[257, 104, 259]])
+    hidden = []
+    handle = team.norm.register_forward_hook(lambda module, args, output: hidden.append(output))
+    with torch.no_grad():
+        team(ids)
+        handle.remove()
+        team.lm_head.weight[319].copy_(hidden[0][0, -1] * 1000)
+        # This unused row would beat every valid token without the vocabulary restriction.
+        assert team.lm_head(hidden[0])[0, -1].argmax().item() == 319
+        converted = from_training_checkpoint({"model_cfg": cfg, "model": team.state_dict()})
+        torch.testing.assert_close(converted(ids), team(ids))
+        assert converted(ids).shape[-1] == 300
+
+
+@pytest.mark.parametrize("invalid", [0, -1, 321, 300.5, True])
+def test_training_conversion_rejects_invalid_vocabulary(invalid):
+    with pytest.raises(ValueError, match="valid_vocab_size"):
+        from_training_checkpoint({"model_cfg": {"vocab_size": 320, "valid_vocab_size": invalid},
+                                  "model": {}})
 
 
 @pytest.mark.parametrize(

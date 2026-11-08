@@ -6,12 +6,7 @@ from torch.utils.data import DataLoader
 from src.data.dataset import PAD_ID, TextToSQLDataset, collate_fn, tokenize_pairs
 from src.tokenizer import bpe
 from src.models.model import TextToSQLModel
-from src.train import evaluate_teacher_forced, lr_at, make_optimizer, masked_loss, split_by_sql
-
-
-def make_pairs(n_sql: int = 20, per_sql: int = 5) -> list[dict]:
-    return [{"question": f"q{i}-{j}", "sql": f"SELECT * FROM items WHERE item_id = {3000 + i}"}
-            for i in range(n_sql) for j in range(per_sql)]
+from src.train import evaluate_teacher_forced, lr_at, make_optimizer, masked_loss, parse_round_repeat, repeat_llm_pairs
 
 
 def tiny_model() -> TextToSQLModel:
@@ -20,50 +15,121 @@ def tiny_model() -> TextToSQLModel:
                           max_seq_len=128, padding_idx=PAD_ID)
 
 
-# ===========================================================================
-# split_by_sql
-# ===========================================================================
+@pytest.mark.integration
+@pytest.mark.parametrize("compressed", [False, True])
+@pytest.mark.parametrize("mode, expected_repeats", [
+    ("default", {"numbers": 1}),
+    ("override", {"numbers": 2}),
+    ("explicit", {}),
+])
+def test_training_keeps_canonical_split_and_recipe(tmp_path, monkeypatch, mode, expected_repeats, compressed):
+    import gzip
+    import json
+    from types import SimpleNamespace
+    from src import train
+
+    # Import stage rules before using an isolated working directory.
+    train.load_rules(3)
+    folder = tmp_path / "data/stage3"
+    training = [{"question": "train", "sql": "SELECT * FROM items", "source": "llm:gpt", "round": "numbers"}]
+    validation = [{"question": "val", "sql": "SELECT * FROM customers"}]
+    train_name = "train/pairs.json.gz" if compressed else "train/pairs.json"
+    for name, value in ((train_name, training), ("validation/pairs.json", validation),
+                        ("dataset_info.json", {"training_defaults": {"round_repeats": {"numbers": 1}}})):
+        path = folder / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        opener = gzip.open if path.suffix == ".gz" else open
+        with opener(path, "wt", encoding="utf-8") as stream:
+            json.dump(value, stream)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(train.bpe.Tokenizer, "load", lambda _: SimpleNamespace(vocab_size=300))
+    original_validate = train.validate_split
+    validated = []
+
+    def check_split(actual_train, actual_val):
+        assert actual_train == training and actual_val == validation
+        original_validate(actual_train, actual_val)
+        validated.append(True)
+
+    class DataReady(Exception):
+        pass
+
+    def stop_before_training(pairs, repeat, round_repeats):
+        assert validated and pairs == training
+        assert repeat == 3 and round_repeats == expected_repeats
+        raise DataReady
+
+    monkeypatch.setattr(train, "validate_split", check_split)
+    monkeypatch.setattr(train, "repeat_llm_pairs", stop_before_training)
+    args = ["--stage", "3", "--cpu", "--name-swap-ratio", "0"]
+    if mode == "override":
+        args += ["--llm-round-repeat", "numbers=2"]
+    if mode == "explicit":
+        args += ["--train-files", "data/stage3/" + train_name, "--val-files", "data/stage3/validation/pairs.json"]
+    with pytest.raises(DataReady):
+        train.main(args)
+
 
 @pytest.mark.unit
-def test_split_by_sql_no_sql_overlap():
-    """같은 SQL 의 질문들은 train / val 한쪽에만 들어가야 함 (val 이 암기 점수가 되지 않게)"""
-    pairs = make_pairs()
-    train, val = split_by_sql(pairs, val_ratio=0.2, seed=0)
-    assert not {p["sql"] for p in train} & {p["sql"] for p in val}
-    assert len({p["sql"] for p in val}) == 4  # 20 SQL * 0.2
-    assert len(train) + len(val) == len(pairs)
+def test_round_repeat_preserves_other_rounds_and_original_order():
+    """numbers만 1회로 낮춰도 다른 LLM 3회·조합기 1회·기존 사본 순서를 보존한다"""
+    base = {"question": "base", "sql": "S0", "source": "composer"}
+    numbers = {"question": "numbers", "sql": "S1", "source": "llm:gpt", "round": "numbers"}
+    intent = {"question": "intent", "sql": "S2", "source": "llm:gpt", "round": "intent"}
+    pairs = [base, numbers, intent]
+    assert repeat_llm_pairs(pairs, 3) == pairs + [numbers, intent] * 2
+    assert repeat_llm_pairs(pairs, 3, {"numbers": 1}) == pairs + [intent, intent]
+    assert pairs == [base, numbers, intent]
+    assert repeat_llm_pairs(pairs, 1, {"numbers": 2}) == pairs + [numbers]
 
 
 @pytest.mark.unit
-def test_split_by_sql_deterministic():
-    """같은 seed 면 같은 분할, 다른 seed 면 다른 분할"""
-    pairs = make_pairs()
-    assert split_by_sql(pairs, 0.2, 0) == split_by_sql(pairs, 0.2, 0)
-    assert split_by_sql(pairs, 0.2, 0)[1] != split_by_sql(pairs, 0.2, 1)[1]
+def test_round_repeat_rejects_unknown_round_instead_of_ignoring_typo():
+    """검증에만 있거나 이름을 잘못 쓴 라운드의 반복 설정을 조용히 무시하지 않는다"""
+    pair = {"question": "q", "sql": "S", "source": "llm:gpt", "round": "numbers"}
+    with pytest.raises(ValueError, match="absent from training"):
+        repeat_llm_pairs([pair], 3, {"number": 1})
+    with pytest.raises(ValueError, match="positive"):
+        repeat_llm_pairs([pair], 3, {"numbers": 0})
 
 
 @pytest.mark.unit
-def test_split_by_sql_uses_original_pair_for_swapped_data():
-    """이름 교체 쌍은 orig_sql 로 나누고, val 에는 원래 질문·SQL 이 들어가야 함 (기준 실행과 같은 val)"""
-    pairs = make_pairs()
-    swapped = [dict(p, question=p["question"] + " zorb", sql=p["sql"] + "9",
-                    orig_question=p["question"], orig_sql=p["sql"]) if i % 2 else p
-               for i, p in enumerate(pairs)]
-    _, val_plain = split_by_sql(pairs, 0.2, 0)
-    train_sw, val_sw = split_by_sql(swapped, 0.2, 0)
-    assert val_sw == [{"question": p["question"], "sql": p["sql"]} for p in val_plain]
-    assert all(p.get("orig_sql", p["sql"]) not in {v["sql"] for v in val_sw} for p in train_sw)
+@pytest.mark.parametrize("value", ["numbers=0", "numbers=-1", "numbers=x", "numbers", "=1"])
+def test_round_repeat_cli_requires_positive_count(value):
+    import argparse
+    with pytest.raises(argparse.ArgumentTypeError):
+        parse_round_repeat(value)
 
 
 @pytest.mark.unit
-def test_split_by_sql_groups_by_sql_group():
-    """같은 sql_group(OR 값 순서만 다른 표기)은 한쪽에만 들어가고, val 의 정답은 그 쌍의 SQL 표기 그대로다"""
-    pairs = [{"question": f"q{i}{k}", "sql": f"S{i} {'ab' if k else 'ba'}", "sql_group": f"S{i} ab"}
-             for i in range(50) for k in range(2)]
-    train, val = split_by_sql(pairs, 0.2, 0)
-    val_groups = {p["sql_group"] for p in pairs if p["question"] in {v["question"] for v in val}}
-    assert val and not val_groups & {p["sql_group"] for p in train}
-    assert {v["sql"] for v in val} == {p["sql"] for p in pairs if p["sql_group"] in val_groups}
+def test_round_repeat_cli_parses_explicit_round():
+    assert parse_round_repeat("llm_numbers_r6_600=1") == ("llm_numbers_r6_600", 1)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("options", [["--steps-per-epoch", "0"], ["--steps-per-epoch", "-1"], ["--steps-per-epoch", "1", "--overfit", "1"]])
+def test_step_cap_rejects_invalid_or_overfit_mode(options):
+    from src import train
+    with pytest.raises(SystemExit) as exc:
+        train.main(["--stage", "3", *options])
+    assert exc.value.code == 2
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("options", [
+    ["--stage", "2", "--like-sampling", "balanced"],
+    ["--stage", "3", "--like-sampling", "balanced", "--overfit", "1"],
+    ["--stage", "3", "--like-sampling", "balanced", "--name-swap-ratio", "0"],
+    ["--stage", "3", "--like-sampling", "balanced", "--name-swap-ratio", "-0.1"],
+    ["--stage", "3", "--like-sampling", "balanced", "--name-swap-ratio", "1.1"],
+])
+def test_balanced_like_rejects_inactive_or_unsupported_training_modes(monkeypatch, options):
+    """균형 LIKE 옵션을 다른 단계·과적합·교체 비활성 실행에서 조용히 무시하지 않는다"""
+    from src import train
+    monkeypatch.setattr(train, "load_train_pairs", lambda *args, **kwargs: [])
+    with pytest.raises(SystemExit) as exc:
+        train.main(options)
+    assert exc.value.code == 2
 
 
 # ===========================================================================

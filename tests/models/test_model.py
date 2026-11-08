@@ -43,6 +43,25 @@ def test_forward_shape(model):
 
 
 @pytest.mark.unit
+def test_reserved_vocabulary_ids_cannot_be_generated():
+    model = TextToSQLModel(vocab_size=320, valid_vocab_size=300, dim=DIM,
+        num_layers=LAYERS, num_heads=HEADS, ffn_dim=FFN, max_seq_len=MAX_LEN)
+    assert model.tok_emb.embedding.num_embeddings == 320
+    logits = model(torch.tensor([[257, 12, 259]]))
+    assert logits.shape[-1] == 300
+    logits.sum().backward()
+    assert torch.count_nonzero(model.tok_emb.embedding.weight.grad[300:]) == 0
+    assert all(t < 300 for t in model.generate([257, 12, 259], eos_id=258, max_new_tokens=3))
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize('valid', [0, 321])
+def test_invalid_active_vocabulary_is_rejected(valid):
+    with pytest.raises(ValueError, match='valid_vocab_size'):
+        TextToSQLModel(vocab_size=320, valid_vocab_size=valid)
+
+
+@pytest.mark.unit
 def test_weight_tying(model):
     """출력층과 토큰 임베딩이 같은 텐서를 공유하는지 검증"""
     assert model.lm_head.weight is model.tok_emb.embedding.weight

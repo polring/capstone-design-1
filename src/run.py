@@ -1,3 +1,6 @@
+# 역할: 배포 모델을 불러와 질문의 SQL 생성, DB 실행, 평가를 수행한다.
+# 사용처: python -m src.run으로 단건·대화형·배치 추론과 평가를 실행할 때 사용한다.
+
 """
 run.py — 추론·평가 통합 명령 (이슈 #26)
 
@@ -44,7 +47,7 @@ from src import config
 from src.data.dataset import BOS_ID, EOS_ID, SEP_ID
 from src.evaluation.eval_sets import default_out_dir, list_sets, load_eval_set, write_sql_meta
 from src.evaluation.scoring import evaluate_pairs, load_rules, print_report
-from src.inference.generate import predict_questions, safe_decode
+from src.inference.generate import predict_questions, safe_decode, BANNED_IDS, generation_limit
 from src.inference.loading import describe_checkpoint, load_model, tokenizer_path_for
 from src.tokenizer import bpe
 
@@ -55,13 +58,15 @@ MAX_ROWS = 20
 # 단건 추론
 # ---------------------------------------------------------------------------
 
-def predict(model, question: str, tok: bpe.Tokenizer, amp_dtype) -> str | None:
+def predict(model, question: str, tok: bpe.Tokenizer, amp_dtype, normalizer=None) -> str | None:
+    if normalizer is not None:
+        question = normalizer(question)
     prompt = [BOS_ID] + tok.encode(question.strip().lower()) + [SEP_ID]
     if len(prompt) >= model.max_seq_len:
         raise ValueError(f"질문이 너무 깁니다 ({len(prompt)}토큰, 최대 {model.max_seq_len - 1})")
     device = model.freqs_cis.device
     with torch.autocast(device.type, dtype=amp_dtype, enabled=amp_dtype is not None):
-        out = model.generate(prompt, eos_id=EOS_ID)
+        out = model.generate(prompt, eos_id=EOS_ID, max_new_tokens=generation_limit(model), banned_ids=BANNED_IDS)
     return safe_decode(out, tok)
 
 
@@ -80,10 +85,15 @@ def run_sql(con: sqlite3.Connection, sql: str) -> None:
         print(f"    ... {len(rows) - MAX_ROWS}행 더 있음")
 
 
-def answer(question: str, model, tok: bpe.Tokenizer, amp_dtype, con, rules=None) -> None:
+def answer(question: str, model, tok: bpe.Tokenizer, amp_dtype, con, rules=None, normalizer=None) -> None:
     """질문 하나를 SQL 로 바꿔 출력하고, con 이 있으면 실행 결과도 출력한다.
     rules: 단계별 SQL 규칙 모듈 — 생성 SQL 이 그 단계 형식이 아니면 표시한다 (기본: config.STAGE)."""
     rules = rules or load_rules()
+    if normalizer is not None:
+        model_question, changes = normalizer.normalize(question)
+        if changes:
+            print(f"  model input: {model_question}")
+        question = model_question
     try:
         sql = predict(model, question, tok, amp_dtype)
     except ValueError as e:
@@ -172,10 +182,19 @@ def save_json(path: Path, obj) -> None:
 
 def run_evaluation(sets: list[dict], model, tok, device, amp_dtype, rules, args, out_default: Path) -> None:
     combined = {}
+    normalizer = getattr(args, 'normalizer', None)
+    if normalizer is not None and args.output is None:
+        out_default = out_default / ('wordnet_' + normalizer.metadata.get('variant', 'custom'))
     single_file = args.output is not None and Path(args.output).suffix.lower() == ".json"
     for s in sets:
+        normalized, trace = normalize_questions(s['pairs'], normalizer)
+        kwargs = {} if normalizer is None else {'input_questions': normalized}
         result = evaluate_pairs(model, s["pairs"], tok, device, amp_dtype, s["name"], s["meta"], args.db, rules,
-                                args.batch_size)
+                                args.batch_size, **kwargs)
+        if normalizer is not None:
+            result['preprocessing'] = dict(map_path=normalizer.path, metadata=normalizer.metadata,
+                                           changed_questions=len(trace), changes=trace,
+                                           scoring_question='original, unchanged')
         print_report(result)
         for f in result["failures"][:args.show]:
             print(f"    Q: {f['question']}\n       gold: {f['gold']}\n       pred: {f['pred']}  "
@@ -190,6 +209,9 @@ def run_evaluation(sets: list[dict], model, tok, device, amp_dtype, rules, args,
 
 def run_batch_test(sets: list[dict], model, tok, device, amp_dtype, rules, args, out_default: Path) -> None:
     combined = {}
+    normalizer = getattr(args, 'normalizer', None)
+    if normalizer is not None and args.output is None:
+        out_default = out_default / ('wordnet_' + normalizer.metadata.get('variant', 'custom'))
     single_file = args.output is not None and Path(args.output).suffix.lower() == ".json"
     for s in sets:
         records = predict_records(s, model, tok, device, amp_dtype, rules, args)
@@ -203,14 +225,19 @@ def run_batch_test(sets: list[dict], model, tok, device, amp_dtype, rules, args,
 
 def predict_records(s: dict, model, tok, device, amp_dtype, rules, args) -> list[dict]:
     """쌍 목록 s 를 배치로 추론해 [{"question", "pred", "stage_format", ("sql")}] 를 만들고 요약을 출력한다."""
-    questions = [p["question"] for p in s["pairs"]]
+    normalizer = getattr(args, 'normalizer', None)
+    questions, trace = normalize_questions(s['pairs'], normalizer)
+    trace = {r['index']:r for r in trace}
     preds = predict_questions(model, questions, tok, device, amp_dtype, args.batch_size)
     records = []
-    for p, pred in zip(s["pairs"], preds):
+    for index, (p, pred) in enumerate(zip(s["pairs"], preds)):
         r = {"question": p["question"], "pred": pred,
              "stage_format": pred is not None and rules.parse_sql(pred) is not None}
         if "sql" in p:
             r["sql"] = p["sql"]
+        if normalizer is not None:
+            r['model_question'] = questions[index]
+            r['wordnet_changes'] = trace.get(index, {}).get('replacements', [])
         records.append(r)
     n_none = sum(r["pred"] is None for r in records)
     n_fmt = sum(r["stage_format"] for r in records)
@@ -221,7 +248,19 @@ def predict_records(s: dict, model, tok, device, amp_dtype, rules, args) -> list
     return records
 
 
-def interactive(model, tok, amp_dtype, con, rules) -> None:
+def normalize_questions(pairs, normalizer):
+    """The preprocessor receives question strings only, never labels/metadata."""
+    questions, trace = [], []
+    for index, pair in enumerate(pairs):
+        original = pair['question']
+        text, changes = normalizer.normalize(original) if normalizer is not None else (original, [])
+        questions.append(text)
+        if changes:
+            trace.append(dict(index=index, question=original, model_question=text, replacements=changes))
+    return questions, trace
+
+
+def interactive(model, tok, amp_dtype, con, rules, normalizer=None) -> None:
     print("질문을 입력하세요 (빈 줄 또는 Ctrl+C 로 종료)")
     while True:
         try:
@@ -231,7 +270,7 @@ def interactive(model, tok, amp_dtype, con, rules) -> None:
             break
         if not q.strip():
             break
-        answer(q, model, tok, amp_dtype, con, rules)
+        answer(q, model, tok, amp_dtype, con, rules, normalizer)
 
 
 # ---------------------------------------------------------------------------
@@ -252,6 +291,7 @@ def main(argv: list[str] | None = None) -> int:
                     help="--input 없이 쓸 때 처리할 평가셋 이름들 (기본: 전부). 모드 생략 시 채점")
     ap.add_argument("--output", "--out", dest="output", default=None, help="결과 저장 위치 (.json 파일 또는 폴더)")
     ap.add_argument("--tokenizer", default=None, help="토크나이저 (기본: 모델 폴더의 tokenizer.json, 없으면 체크포인트에 적힌 경로)")
+    ap.add_argument('--wordnet-map', default=None, help='선택적 WordNet 입력 치환표 JSON (기본: 전처리 없음)')
     ap.add_argument("--db", default=None, help="SQL 실행·실행 정확도용 DB (기본: 단계의 shop.db)")
     ap.add_argument("--eval-dir", default=None, help="평가셋 상위 폴더 (기본: 단계의 eval/)")
     ap.add_argument("--batch-size", type=int, default=512, help="배치 추론·평가의 생성 배치 크기")
@@ -268,6 +308,13 @@ def main(argv: list[str] | None = None) -> int:
     paths = config.stage_paths(stage)
     eval_dir = Path(args.eval_dir or paths.eval_dir)
     args.db = args.db or str(paths.db_path)
+    args.normalizer = None
+    if args.wordnet_map:
+        from src.inference.wordnet_normalizer import WordNetNormalizer
+        try:
+            args.normalizer = WordNetNormalizer.load(args.wordnet_map)
+        except (OSError, ValueError, KeyError) as exc:
+            ap.error(f'WordNet 치환표를 읽을 수 없습니다: {exc}')
 
     # --- 평가셋 관리 (모델 불필요) ---
     if args.list_sets:
@@ -318,7 +365,7 @@ def main(argv: list[str] | None = None) -> int:
             print("  질문 문자열에는 정답이 없어 --test(단건 추론)로 진행한다")
         con = None if args.no_exec else sqlite3.connect(f"file:{args.db}?mode=ro", uri=True)
         print(f"Q: {inp['question']}")
-        answer(inp["question"], model, tok, amp_dtype, con, rules)
+        answer(inp["question"], model, tok, amp_dtype, con, rules, args.normalizer)
         return 0
 
     if inp["kind"] == "none":
@@ -335,7 +382,7 @@ def main(argv: list[str] | None = None) -> int:
                                default_out_dir(model_path, paths.release_eval_dir))
             return 0
         con = None if args.no_exec else sqlite3.connect(f"file:{args.db}?mode=ro", uri=True)
-        interactive(model, tok, amp_dtype, con, rules)
+        interactive(model, tok, amp_dtype, con, rules, args.normalizer)
         return 0
 
     has_gold = all("sql" in p for p in inp["pairs"])

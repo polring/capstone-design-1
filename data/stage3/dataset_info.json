@@ -1,0 +1,100 @@
+{
+ "stage": 3,
+ "status": "Frozen corpus used for the matched 5M/15M numbers-r10 comparison",
+ "train": {
+  "file": "train/pairs.json.gz",
+  "pairs": 321041,
+  "sha256": "040bfd739170b3262077080b5e3f1257b2aa30d6cda9f2ca640baf225b520da1",
+  "by_round": {
+   "composer": 285084,
+   "llm_copy_r4_1000": 4695,
+   "llm_r2_1000": 4687,
+   "llm_r3_1000": 4720,
+   "llm_scope_r5_1400": 6560,
+   "llm_intent_r7_600": 3000,
+   "llm_no_invention_r8_400": 1920,
+   "contrast_r9_1500": 7375,
+   "llm_numbers_r10_600": 3000
+  },
+  "source_files": {
+   "data/stage3/splits/scope_r5_seed0/train.json": "326b8c551124060befde87c2fde3eae0ff75da23ae15f14013f30b02b593701a",
+   "data_raw/stage3/fixed_scope_r5_numbers_r10_seed0/augmentation_train.json": "99f2d27ca63f79def6703b77747268e9369bd6da0d177e6ce17d6065da0107c5"
+  },
+  "compression": "gzip",
+  "uncompressed_sha256": "75e5bb37293af705d28c0d1365817cf820dab4bcd92c34aabcfc07516e3e2e58",
+  "uncompressed_bytes": 140093807,
+  "bytes": 12872627
+ },
+ "validation": {
+  "file": "validation/pairs.json",
+  "pairs": 16216,
+  "sha256": "8292f9b2f8ba9e603c23d9a110434ed004afa269dcc9f1d4654fe7ab182bd439"
+ },
+ "evaluation": {
+  "directory": "eval",
+  "pairs": 19676,
+  "by_set": {
+   "advanced_holdout": 1546,
+   "advanced_indist": 1000,
+   "advanced_phrase": 991,
+   "advanced_struct": 1000,
+   "ext_r1_gpt_holdout": 200,
+   "ext_r1_gpt_indist": 400,
+   "ext_r1_gpt_struct": 400,
+   "ext_r2_humanstyle_gpt_holdout": 200,
+   "ext_r2_humanstyle_gpt_indist": 400,
+   "ext_r2_humanstyle_gpt_struct": 400,
+   "holdout": 7161,
+   "indist": 2000,
+   "phrase": 2000,
+   "struct": 1978
+  },
+  "file": "eval/pairs.json",
+  "sha256": "d49275ad722e0d7636287f74a1bd5dd7b40d0c0530e7ce573d0d14b2d7587b7e",
+  "composer_pairs": 17676,
+  "external_pairs": 2000,
+  "external_authorship": "LLM-authored; humanstyle means human wording patterns, not actual human questions",
+  "sources_file": "eval/external_sources.json"
+ },
+ "preprocessing": {
+  "file": "preprocessing/normalizer.json",
+  "sha256": "c6217869b5c163550b7ace3fdf10505fe14d07b8f362574b5fcf06dfea8c0ac6"
+ },
+ "training_defaults": {
+  "llm_repeat": 3,
+  "round_repeats": {
+   "llm_numbers_r10_600": 1
+  }
+ },
+ "split_policy": "Frozen SQL/contrast-group disjoint split; no repartitioning or deduplication during migration",
+ "excluded_legacy_inputs": "Old r6 numbers and the 205 validation-connected additions remain only in the historical snapshot",
+ "historical_snapshot": "data_raw/stage3/layout_backup_20261018/original_stage3.zip",
+ "snapshot_manifest": "data_raw/stage3/layout_backup_20261018/manifest.json",
+ "provenance_note": "Paths embedded in frozen tokenizer/map provenance describe the original experiment inputs in the snapshot; historical archives are local-only and are not required to train or evaluate the shared current corpus",
+ "sql_sources": {
+  "directory": "sql",
+  "files": {
+   "train": {
+    "flat": 40000,
+    "advanced": 60000,
+    "total": 100000
+   },
+   "indist": {
+    "flat": 2000,
+    "advanced": 1000,
+    "total": 3000
+   },
+   "struct": {
+    "flat": 1978,
+    "advanced": 1000,
+    "total": 2978
+   },
+   "holdout": {
+    "flat": 7161,
+    "advanced": 1546,
+    "total": 8707
+   }
+  },
+  "family_field": "query_kind identifies aggregate/group/having/subquery records; absent for flat queries"
+ }
+}

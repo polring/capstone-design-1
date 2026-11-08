@@ -1,3 +1,6 @@
+# 역할: 2단계 SQL의 구조 표현, 문자열 렌더링·역파싱과 정규화를 구현한다.
+# 사용처: 2단계 SQL 생성·질문 조합·데이터 검사와 정답 비교의 공통 표현으로 사용한다.
+
 """
 2단계 SQL 구조(AST), 정규형 렌더링, 역파싱, 구조 규칙 검사.
 
@@ -25,6 +28,14 @@ from src.data.stage2 import schema
 MAX_CONDS = 3
 MAX_LIMIT = 10
 LIKE_RE = re.compile(r"^(%?)([a-z]+)(%?)$")
+
+
+def like_mode(pattern: str) -> tuple[str, str]:
+    """LIKE 패턴을 접두·접미·포함 방향과 검색 조각으로 나눈다."""
+    frag = pattern.strip("%")
+    if pattern.startswith("%") and pattern.endswith("%"):
+        return "contains", frag
+    return ("suffix", frag) if pattern.startswith("%") else ("prefix", frag)
 
 
 @dataclass(frozen=True)

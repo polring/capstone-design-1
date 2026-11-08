@@ -1,3 +1,12 @@
 [tool.black]
 line-length = 88
 target-version = ["py312"]
+
+[tool.pytest.ini_options]
+# 각 테스트에는 unit / integration 중 정확히 하나를 지정한다.
+markers = [
+    "unit: 한 함수·클래스의 동작 검증. 협력 모듈은 입력 준비용이거나 대체(mock). 외부 프로세스·저장소 데이터 없이 메모리/tmp_path 만 사용. 모델 forward 포함",
+    "integration: 구성요소 간 왕복·일치 검증(export↔load, Python↔C, tokenize↔split), 학습 동작(backward/optimizer step), C 빌드·subprocess·pytester, 저장소 데이터 파일 사용",
+]
+# 미등록 마커·오타도 수집 단계에서 실패시킨다.
+addopts = "-v --strict-markers"

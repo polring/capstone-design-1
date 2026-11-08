@@ -55,12 +55,15 @@ def test_release_rejects_tokenizer_larger_than_model(tmp_path):
 
 
 @pytest.mark.unit
-def test_committed_model_folder_is_consistent():
+@pytest.mark.parametrize("stage", [1, 2, 3])
+def test_committed_model_folder_is_consistent(stage):
     """커밋된 배포 모델: weights_only 로 읽히고, 단계·토크나이저·model_info 가 서로 맞아야 함"""
-    saved = torch.load(config.MODEL_PATH, map_location="cpu", weights_only=True)
-    tok = bpe.Tokenizer.load(config.MODEL_DIR / "tokenizer.json")
-    info = json.loads((config.MODEL_DIR / "model_info.json").read_text(encoding="utf-8"))
-    assert saved["stage"] == config.STAGE == info["stage"]
+    paths = config.stage_paths(stage)
+    saved = torch.load(paths.model_path, map_location="cpu", weights_only=True)
+    tok = bpe.Tokenizer.load(paths.model_dir / "tokenizer.json")
+    info = json.loads((paths.model_dir / "model_info.json").read_text(encoding="utf-8"))
+    assert saved["stage"] == stage == info["stage"]
     assert tok.vocab_size <= saved["model_cfg"]["vocab_size"]
     assert saved["model"]["tok_emb.embedding.weight"].shape[0] == saved["model_cfg"]["vocab_size"]
     assert info["tokenizer"]["vocab_size"] == tok.vocab_size
+    assert saved["model_cfg"].get("valid_vocab_size", tok.vocab_size) == tok.vocab_size

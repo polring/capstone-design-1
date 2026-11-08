@@ -1,11 +1,14 @@
+# 역할: 질문·SQL 쌍 로딩, 토큰화, 배치 패딩과 SQL 구간 손실 마스크를 구현한다.
+# 사용처: 학습 데이터 준비와 모델 학습·검증용 배치를 구성할 때 사용한다.
+
 from __future__ import annotations
-import json
 from pathlib import Path
 
 import torch
 from torch.utils.data import Dataset
 
 from src.config import TRAIN_DIR, EVAL_DIR
+from src.data.json_io import json_files, read_json
 from src.tokenizer import bpe
 
 BOS_ID = bpe.SPECIAL_BASE + bpe.SPECIAL_TOKENS.index("<bos>")
@@ -19,20 +22,18 @@ Example = dict[str, "list[int] | int"]
 def load_pairs(data_dir: str | Path, glob: str) -> list[Pair]:
     pairs: list[Pair] = []
     for pf in sorted(Path(data_dir).glob(glob)):
-        with open(pf, encoding="utf-8") as f:
-            pairs.extend(json.load(f))
+        pairs.extend(read_json(pf))
     return pairs
 
 def train_files(files: list[str | Path] | None = None, train_dir: str | Path = TRAIN_DIR) -> list[Path]:
-    """학습 쌍 파일 목록. files 를 주면 그 파일들, 아니면 학습 폴더 안의 *.json 전부 (BPE 코퍼스와 같은 규칙)."""
-    return [Path(f) for f in files] if files else sorted(Path(train_dir).glob("*.json"))
+    """명시한 입력 또는 학습 폴더의 JSON·gzip JSON (BPE와 같은 규칙)."""
+    return [Path(f) for f in files] if files else json_files(train_dir)
 
 def load_train_pairs(files: list[str | Path] | None = None, train_dir: str | Path = TRAIN_DIR) -> list[Pair]:
     """train_files() 의 파일들을 순서대로 합친다."""
     pairs: list[Pair] = []
     for pf in train_files(files, train_dir):
-        with open(pf, encoding="utf-8") as f:
-            pairs.extend(json.load(f))
+        pairs.extend(read_json(pf))
     return pairs
 
 def load_eval_pairs(name: str, eval_dir: str | Path = EVAL_DIR) -> list[Pair]:

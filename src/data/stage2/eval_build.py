@@ -1,3 +1,6 @@
+# 역할: 2단계 평가 질문·정답 쌍과 SQL 메타데이터를 구성한다.
+# 사용처: 2단계 평가 입력을 data/stage2/eval/에 준비할 때 사용한다.
+
 """
 eval_build.py — 2단계 평가셋 만들기 (data/stage2/eval/pairs.json + sql.json, 합친 방식)
 

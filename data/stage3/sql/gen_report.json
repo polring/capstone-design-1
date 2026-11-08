@@ -1,0 +1,544 @@
+{
+  "config": {
+    "seed": 0,
+    "n_train": 40000,
+    "n_eval_indist": 2000,
+    "n_eval_struct": 2000,
+    "holdout_shapes_unique": [
+      "single",
+      "in2",
+      "in3"
+    ],
+    "holdout_shapes_fk": [
+      "single",
+      "in2",
+      "in3",
+      "and2",
+      "and3",
+      "order",
+      "order_limit",
+      "and2_order",
+      "in2_and"
+    ],
+    "n_cond_weights": {
+      "0": 5,
+      "1": 35,
+      "2": 40,
+      "3": 20
+    },
+    "table_weights": {
+      "customers": 1.0,
+      "items": 1.0,
+      "orders": 1.6
+    },
+    "in_ratio": 0.1,
+    "in_ratio_unique": 0.5,
+    "in3_ratio": 0.4,
+    "or_ratio": 0.04,
+    "order_ratio": 0.5,
+    "limit_ratio": 0.85,
+    "id_col_weight": 0.5,
+    "id_nonexistent_ratio": 0.2,
+    "price_int_ratio": 0.5,
+    "id_ratio_max": 0.3,
+    "empty_ratio_max": 0.1,
+    "stage1_ratio_max": 0.05,
+    "cell_floor": 200,
+    "cell_floor_train": 150,
+    "struct_holdout": [
+      [
+        [
+          "n",
+          3
+        ],
+        [
+          "limit",
+          true
+        ]
+      ],
+      [
+        [
+          "op",
+          "LIKE"
+        ],
+        [
+          "order",
+          true
+        ]
+      ],
+      [
+        [
+          "op",
+          "LIKE"
+        ],
+        [
+          "op",
+          "BETWEEN"
+        ]
+      ],
+      [
+        [
+          "op",
+          "LIKE"
+        ],
+        [
+          "op",
+          "!="
+        ],
+        [
+          "table",
+          "items"
+        ]
+      ],
+      [
+        [
+          "op",
+          "BETWEEN"
+        ],
+        [
+          "op",
+          "!="
+        ]
+      ]
+    ],
+    "stage1_data_dir": "data\\stage1",
+    "value_floors": {
+      "items.stock = 0": 1000,
+      "items.stock > 0": 1000
+    },
+    "value_floor_train": 800,
+    "exists_floor": 1000,
+    "n_aggregate_train": 60000,
+    "n_aggregate_eval": 1000,
+    "exists_floor_train": 850,
+    "pair_floor": 50
+  },
+  "db_dir": "data/stage3/db",
+  "stats": {
+    "indist": {
+      "n": 2000,
+      "n_skeletons": 1467,
+      "n_conds": {
+        "0": 18,
+        "1": 812,
+        "2": 950,
+        "3": 220
+      },
+      "conn": {
+        "-": 830,
+        "AND": 1114,
+        "OR": 56
+      },
+      "order": {
+        "false": 1197,
+        "true": 803
+      },
+      "limit": {
+        "-": 1339,
+        "1": 245,
+        "n": 416
+      },
+      "table": {
+        "customers": 370,
+        "items": 735,
+        "orders": 895
+      },
+      "select_kind": {
+        "*": 383,
+        "attr": 857,
+        "cond_col": 345,
+        "ident": 227,
+        "own_id": 188
+      },
+      "ops": {
+        "!=": 406,
+        "<": 229,
+        "<=": 238,
+        "=": 1051,
+        ">": 255,
+        ">=": 229,
+        "BETWEEN": 197,
+        "IN": 640,
+        "LIKE": 127
+      },
+      "id_ratio": 0.3,
+      "empty_ratio": 0.0895,
+      "stage1_ratio": 0.049,
+      "exists_ratio": 0.028,
+      "date_where_ratio": 0.205,
+      "date_select_ratio": 0.0675,
+      "date_order_ratio": 0.11,
+      "date_any_ratio": 0.304
+    },
+    "train": {
+      "n": 40000,
+      "n_skeletons": 11013,
+      "n_conds": {
+        "0": 392,
+        "1": 16351,
+        "2": 18712,
+        "3": 4545
+      },
+      "conn": {
+        "-": 16743,
+        "AND": 22066,
+        "OR": 1191
+      },
+      "order": {
+        "false": 24454,
+        "true": 15546
+      },
+      "limit": {
+        "-": 27130,
+        "1": 4393,
+        "n": 8477
+      },
+      "table": {
+        "customers": 7896,
+        "items": 14617,
+        "orders": 17487
+      },
+      "select_kind": {
+        "*": 7634,
+        "attr": 16586,
+        "cond_col": 7103,
+        "ident": 4902,
+        "own_id": 3775
+      },
+      "ops": {
+        "!=": 8158,
+        "<": 4210,
+        "<=": 4277,
+        "=": 22346,
+        ">": 5117,
+        ">=": 4264,
+        "BETWEEN": 3770,
+        "IN": 12869,
+        "LIKE": 2399
+      },
+      "id_ratio": 0.2986,
+      "empty_ratio": 0.1004,
+      "stage1_ratio": 0.0497,
+      "exists_ratio": 0.0328,
+      "date_where_ratio": 0.196,
+      "date_select_ratio": 0.0673,
+      "date_order_ratio": 0.1114,
+      "date_any_ratio": 0.2946
+    },
+    "struct": {
+      "n": 1978,
+      "n_skeletons": 1017,
+      "n_conds": {
+        "1": 141,
+        "2": 880,
+        "3": 957
+      },
+      "conn": {
+        "-": 141,
+        "AND": 1717,
+        "OR": 120
+      },
+      "order": {
+        "false": 1043,
+        "true": 935
+      },
+      "limit": {
+        "-": 1177,
+        "1": 280,
+        "n": 521
+      },
+      "table": {
+        "items": 1657,
+        "orders": 321
+      },
+      "select_kind": {
+        "*": 350,
+        "attr": 567,
+        "cond_col": 688,
+        "ident": 100,
+        "own_id": 273
+      },
+      "ops": {
+        "!=": 1041,
+        "<": 180,
+        "<=": 171,
+        "=": 446,
+        ">": 290,
+        ">=": 205,
+        "BETWEEN": 908,
+        "IN": 300,
+        "LIKE": 1231
+      },
+      "id_ratio": 0.1304,
+      "empty_ratio": 0.0945,
+      "stage1_ratio": 0.0,
+      "exists_ratio": 0.0,
+      "date_where_ratio": 0.1117,
+      "date_select_ratio": 0.0233,
+      "date_order_ratio": 0.044,
+      "date_any_ratio": 0.1325
+    },
+    "holdout": {
+      "n": 7161,
+      "n_skeletons": 712,
+      "n_conds": {
+        "1": 5815,
+        "2": 1046,
+        "3": 300
+      },
+      "conn": {
+        "-": 5815,
+        "AND": 1346
+      },
+      "order": {
+        "false": 6115,
+        "true": 1046
+      },
+      "limit": {
+        "-": 6715,
+        "1": 160,
+        "n": 286
+      },
+      "table": {
+        "customers": 894,
+        "items": 599,
+        "orders": 5668
+      },
+      "select_kind": {
+        "*": 1279,
+        "attr": 4363,
+        "cond_col": 569,
+        "ident": 815,
+        "own_id": 135
+      },
+      "ops": {
+        "!=": 322,
+        "<": 322,
+        "<=": 344,
+        "=": 3704,
+        ">": 348,
+        ">=": 367,
+        "BETWEEN": 300,
+        "IN": 3100
+      },
+      "id_ratio": 0.7531,
+      "empty_ratio": 0.0,
+      "stage1_ratio": 0.182,
+      "exists_ratio": 0.033,
+      "date_where_ratio": 0.2318,
+      "date_select_ratio": 0.1201,
+      "date_order_ratio": 0.0612,
+      "date_any_ratio": 0.3673
+    }
+  },
+  "train_cells": {
+    "customers.customer_id =": 1142,
+    "customers.customer_id IN": 1133,
+    "customers.name =": 1398,
+    "customers.name LIKE": 1636,
+    "customers.name IN": 2386,
+    "customers.city =": 1180,
+    "customers.city !=": 1811,
+    "customers.city IN": 523,
+    "customers.membership =": 1190,
+    "customers.membership !=": 1863,
+    "customers.membership IN": 488,
+    "items.item_id =": 1098,
+    "items.item_id IN": 1043,
+    "items.item_name =": 1315,
+    "items.item_name LIKE": 763,
+    "items.item_name IN": 2293,
+    "items.category =": 1735,
+    "items.category !=": 2001,
+    "items.category IN": 622,
+    "items.price =": 933,
+    "items.price <": 1015,
+    "items.price >": 1036,
+    "items.price <=": 984,
+    "items.price >=": 1064,
+    "items.price BETWEEN": 850,
+    "items.stock =": 1640,
+    "items.stock <": 826,
+    "items.stock >": 1763,
+    "items.stock <=": 866,
+    "items.stock >=": 831,
+    "items.stock BETWEEN": 704,
+    "items.stock IN": 649,
+    "orders.order_id =": 1355,
+    "orders.order_id IN": 1321,
+    "orders.customer_id =": 2374,
+    "orders.customer_id IN": 451,
+    "orders.item_id =": 2360,
+    "orders.item_id IN": 413,
+    "orders.quantity =": 929,
+    "orders.quantity <": 1045,
+    "orders.quantity >": 995,
+    "orders.quantity <=": 1094,
+    "orders.quantity >=": 1100,
+    "orders.quantity BETWEEN": 963,
+    "orders.quantity IN": 805,
+    "orders.status =": 2358,
+    "orders.status !=": 2483,
+    "orders.status IN": 742,
+    "orders.order_date =": 1339,
+    "orders.order_date <": 1324,
+    "orders.order_date >": 1323,
+    "orders.order_date <=": 1333,
+    "orders.order_date >=": 1269,
+    "orders.order_date BETWEEN": 1253
+  },
+  "struct_per_combo": {
+    "0": 400,
+    "1": 400,
+    "2": 378,
+    "3": 400,
+    "4": 400
+  },
+  "holdout_per_tier": {
+    "unseen_entity": 2998,
+    "unseen_id": 1195,
+    "unseen_order_id": 1800,
+    "unseen_date": 1168
+  },
+  "value_counts": {
+    "items.stock = 0": 968,
+    "items.stock > 0": 968
+  },
+  "holdout_tier_shape": {
+    "unseen_date|and2": 146,
+    "unseen_date|date_<": 146,
+    "unseen_date|date_<=": 146,
+    "unseen_date|date_>": 146,
+    "unseen_date|date_>=": 146,
+    "unseen_date|date_BETWEEN": 146,
+    "unseen_date|order_limit": 146,
+    "unseen_date|single": 146,
+    "unseen_entity|and2": 200,
+    "unseen_entity|and2_order": 200,
+    "unseen_entity|and3": 200,
+    "unseen_entity|in2": 600,
+    "unseen_entity|in2_and": 200,
+    "unseen_entity|in3": 600,
+    "unseen_entity|order": 200,
+    "unseen_entity|order_limit": 200,
+    "unseen_entity|single": 598,
+    "unseen_id|and2": 100,
+    "unseen_id|and2_order": 100,
+    "unseen_id|and3": 100,
+    "unseen_id|in2": 200,
+    "unseen_id|in2_and": 100,
+    "unseen_id|in3": 200,
+    "unseen_id|order": 100,
+    "unseen_id|order_limit": 100,
+    "unseen_id|single": 195,
+    "unseen_order_id|in2": 600,
+    "unseen_order_id|in3": 600,
+    "unseen_order_id|single": 600
+  },
+  "aggregates": {
+    "seed": 0,
+    "n_train": 60000,
+    "n_eval": 1000,
+    "db_dir": "data/stage3/db",
+    "counts": {
+      "train": 60000,
+      "indist": 1000,
+      "struct": 1000,
+      "holdout": 1546
+    },
+    "families": {
+      "train": {
+        "aggregate": 16694,
+        "scalar_subquery": 12292,
+        "having": 14367,
+        "group": 16647
+      },
+      "indist": {
+        "having": 257,
+        "aggregate": 275,
+        "scalar_subquery": 217,
+        "group": 251
+      },
+      "struct": {
+        "scalar_subquery": 333,
+        "having": 525,
+        "group": 142
+      },
+      "holdout": {
+        "having": 326,
+        "group": 424,
+        "aggregate": 532,
+        "scalar_subquery": 264
+      }
+    },
+    "result_profiles": {
+      "train": {
+        "null": 2149,
+        "nonempty": 42173,
+        "empty": 14293,
+        "zero_count": 1385
+      },
+      "indist": {
+        "empty": 223,
+        "nonempty": 714,
+        "null": 41,
+        "zero_count": 22
+      },
+      "struct": {
+        "empty": 338,
+        "nonempty": 662
+      },
+      "holdout": {
+        "nonempty": 1267,
+        "empty": 279
+      }
+    },
+    "struct_combos": {
+      "date_outer_filtered_subquery": 333,
+      "having_limit": 334,
+      "date_group_avg": 333
+    },
+    "training_coverage": {
+      "family:aggregate": 16694,
+      "family:group": 16647,
+      "family:having": 14367,
+      "family:scalar_subquery": 12292,
+      "function:COUNT": 17580,
+      "function:SUM": 6817,
+      "function:AVG": 6365,
+      "function:MIN": 8443,
+      "function:MAX": 8503,
+      "having_without_limit": 14367,
+      "limit_without_having": 5489,
+      "date_group": 2583,
+      "filtered_subquery": 10206,
+      "date_outer_subquery": 766
+    },
+    "pair_floor": {
+      "floor": 50,
+      "n_pairs": 3357,
+      "swapped": 5739,
+      "budget_exhausted": false,
+      "n_short": 4,
+      "short": {
+        "fam=aggregate | nc=0": 17,
+        "agg=MIN(stock) | nc=0": 29,
+        "agg=MAX(order_date) | nc=0": 42,
+        "agg=MIN(order_date) | nc=0": 45
+      }
+    }
+  },
+  "pair_floor": {
+    "floor": 50,
+    "short": {
+      "n=0 | tab=customers": 5,
+      "n=0 | ord=-": 17,
+      "n=0 | sel=own_id": 31,
+      "n=0 | ord=price:ASC": 41,
+      "conn=OR | ord=stock:DESC": 42,
+      "n=0 | ord=price:DESC": 42,
+      "n=0 | ord=stock:DESC": 42,
+      "conn=OR | ord=stock:ASC": 45
+    }
+  }
+}

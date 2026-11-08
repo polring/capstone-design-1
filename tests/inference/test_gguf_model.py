@@ -109,7 +109,8 @@ def test_checkpoint_contract(fixture_model, tmp_path):
         export_model(loaded, tmp_path / "bad.gguf", [((99999, 1), 298)])
 
 
-def test_exporter_converts_training_checkpoint(tmp_path, capsys):
+@pytest.mark.parametrize("restrict_vocab", [False, True])
+def test_exporter_converts_training_checkpoint(tmp_path, capsys, restrict_vocab):
     """배포 형식 체크포인트는 --tokenizer 없이 내보내지고, 토큰화·logits 가 학습 모델과 같다."""
     torch.manual_seed(5)
     seeds = bpe.load_seed_tokens()
@@ -127,6 +128,8 @@ def test_exporter_converts_training_checkpoint(tmp_path, capsys):
         "max_seq_len": 64,
         "padding_idx": 256,
     }
+    if restrict_vocab:
+        cfg["valid_vocab_size"] = tokenizer.vocab_size
     team = TextToSQLModel(**cfg).eval()
     release = tmp_path / "release"
     release.mkdir()
@@ -139,7 +142,8 @@ def test_exporter_converts_training_checkpoint(tmp_path, capsys):
     exporter_main(["--checkpoint", str(release / "model.pt"), "--output", str(path)])
     capsys.readouterr()
 
-    loaded, gguf_tokenizer, _ = read_gguf(path)
+    loaded, gguf_tokenizer, metadata = read_gguf(path)
+    assert metadata["capstone_sql.vocab_size"] == cfg.get("valid_vocab_size", cfg["vocab_size"])
     text = "hello stock"
     assert gguf_tokenizer.encode(text) == tokenizer.encode(text)
     ids = [BOS_ID] + tokenizer.encode(text) + [SEP_ID]

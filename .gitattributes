@@ -1,0 +1,5 @@
+# Preserve dataset and release bytes across Windows and Linux for every stage.
+data/stage*/** -text
+data/common/** -text
+models/stage*/** -text
+*.json.gz binary

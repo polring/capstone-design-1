@@ -1,3 +1,6 @@
+# 역할: RMSNorm, 인과적 어텐션, SwiGLU와 디코더 블록을 구현한다.
+# 사용처: 학습 모델과 GGUF 내보내기용 모델을 구성하는 공통 계산 블록으로 사용한다.
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

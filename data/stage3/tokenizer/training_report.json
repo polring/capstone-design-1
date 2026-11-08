@@ -1,0 +1,15 @@
+{
+  "target_vocab_size": 4096,
+  "vocab_size": 3534,
+  "exhausted_merge_pairs": true,
+  "seed_tokens": 55,
+  "merges": 3219,
+  "training_files": [
+    "data\\stage3\\train\\composed.json",
+    "data\\stage3\\train\\llm_r2_1000.json",
+    "data\\stage3\\train\\llm_r3_1000.json"
+  ],
+  "texts": 619924,
+  "roundtrip_errors": 0,
+  "max_sql_tokens": 125
+}
